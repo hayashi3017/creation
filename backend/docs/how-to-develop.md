@@ -1,5 +1,40 @@
 ## How To Develop
 
+### Prerequirements
+
+- Install rustup, cargo, rustc
+
+
+### Option: sqlx-cli
+
+1. Install sqlx-cli
+
+```bash
+cargo install sqlx-cli
+```
+
+2. Using sqlx-cli
+
+Initialize migration files.
+```bash
+sqlx migrate add -r init
+```
+
+Establish a connection to the DB using `DATABASE_URL` provided by `.env` file.
+Executing the `up` migration file.
+```bash
+sqlx migrate run
+```
+
+Executing the `down` migration file.
+```bash
+sqlx migrate revert
+```
+
+[sqlx/sqlx-cli at main · launchbadge/sqlx](https://github.com/launchbadge/sqlx/tree/main/sqlx-cli)
+
+### Option: cargo-watch
+
 1. Install cargo-watch
 
 ```bash
@@ -15,7 +50,7 @@ cargo watch -q -c -w src/ -x run
 ```
 This command sets up cargo-watch to automatically build and run whenever changes are detected in the src directory.
 
-### Docker
+### Option: Docker
 
 ```bash
 docker build -t creation_backend .
