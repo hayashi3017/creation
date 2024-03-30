@@ -52,6 +52,14 @@ This command sets up cargo-watch to automatically build and run whenever changes
 
 ### Option: Docker
 
+Start and Stop docker containers
+```bash
+docker compose up -d
+docker compose stop
+```
+
+
+FIXME: Running just Rust contianer
 ```bash
 docker build -t creation_backend .
 docker run --rm -p 8000:8000 creation_backend
