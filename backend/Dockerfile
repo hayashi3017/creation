@@ -1,4 +1,7 @@
 FROM rust:bookworm as builder
+# see: https://github.com/launchbadge/sqlx/blob/v0.7.4/sqlx-cli/README.md#force-building-in-offline-mode
+ENV SQLX_OFFLINE=true
+COPY ./.sqlx ./.sqlx
 WORKDIR /usr/src/app
 # build dependencies
 COPY Cargo.toml Cargo.lock ./
