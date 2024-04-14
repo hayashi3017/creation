@@ -17,6 +17,7 @@ use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
 
 use route::create_router;
 use tower_http::cors::CorsLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 pub struct AppState {
     db: Pool<MySql>,
     env: Config,
@@ -26,6 +27,14 @@ pub struct AppState {
 async fn main() {
     dotenv().ok();
     let config = Config::init();
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_line_number(true)
+                .with_file(true)
+                .json(),
+        )
+        .init();
 
     let pool = match MySqlPoolOptions::new()
         .max_connections(10)
