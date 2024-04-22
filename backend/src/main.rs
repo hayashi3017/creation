@@ -1,27 +1,15 @@
-mod config;
-mod handler;
-mod jwt_auth;
-mod model;
-mod response;
-mod route;
-
 use std::sync::Arc;
 
 use axum::http::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
     HeaderValue, Method,
 };
-use config::Config;
+use backend::{config::Config, route::create_router, AppState};
 use dotenvy::dotenv;
-use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
+use sqlx::mysql::MySqlPoolOptions;
 
-use route::create_router;
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-pub struct AppState {
-    db: Pool<MySql>,
-    env: Config,
-}
 
 #[tokio::main]
 async fn main() {
