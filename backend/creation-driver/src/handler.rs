@@ -8,15 +8,13 @@ use axum::{
     Extension, Json,
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
+use creation_adapter::model::user::{LoginUserSchema, RegisterUserSchema};
+use creation_service::model::{TokenClaims, User};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use rand_core::OsRng;
 use serde_json::json;
 
-use crate::{
-    model::{LoginUserSchema, RegisterUserSchema, TokenClaims, User},
-    response::FilteredUser,
-    AppState,
-};
+use crate::{response::FilteredUser, AppState};
 
 #[tracing::instrument]
 pub async fn health_checker_handler() -> impl IntoResponse {

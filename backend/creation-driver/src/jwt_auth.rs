@@ -10,14 +10,12 @@ use axum::{
 };
 
 use axum_extra::extract::cookie::CookieJar;
+use creation_service::model::{TokenClaims, User};
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::{
-    model::{TokenClaims, User},
-    AppState,
-};
+use crate::AppState;
 
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {

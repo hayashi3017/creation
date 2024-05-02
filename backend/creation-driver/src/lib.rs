@@ -2,11 +2,10 @@ use config::Config;
 use sqlx::{MySql, Pool};
 
 pub mod config;
-mod handler;
 mod jwt_auth;
-mod model;
 mod response;
 pub mod route;
+mod handler;
 
 pub struct AppState {
     pub db: Pool<MySql>,
