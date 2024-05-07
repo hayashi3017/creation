@@ -1,25 +1,35 @@
+use std::marker::PhantomData;
+
 use anyhow::Result;
 use argon2::{password_hash::SaltString, Argon2, PasswordHasher};
 use async_trait::async_trait;
 use creation_service::{
-    model::db::{Database, ProvidesDatabase, UsesDatabase},
-    repository::user::{ProvidesUserRepository, UserRepository},
+    repository::user::{ProvidesUserRepository, UserRepository, UsesUserRepository},
     service::user::{ProvidesUserService, UserService},
 };
 use creation_usecase::usecase::user::{ProvidesUserUsecase, UserUsecase};
 use rand_core::OsRng;
 
-use crate::{errors::AppError, persistence::mysql::Db};
+use crate::{errors::AppError, model::user::UserTable, persistence::mysql::Db};
 
-// FIXME: rename to Repository and generic type
 #[derive(Clone)]
-pub struct DatabaseImpl {
+pub struct RepositoryImpl<T> {
     pub pool: Db,
+    pub _marker: PhantomData<T>,
+}
+
+impl<T> RepositoryImpl<T> {
+    pub async fn new() -> Self {
+        RepositoryImpl::<T> {
+            pool: Db::new().await,
+            _marker: PhantomData::<T>,
+        }
+    }
 }
 
 // to avoid orphan rule, impl trait for struct type.
 #[async_trait]
-impl UsesDatabase for DatabaseImpl {
+impl UsesUserRepository for RepositoryImpl<UserTable> {
     // impl<T: Database> UsesDatabase for T {
     async fn regist_user(
         &self,
@@ -55,45 +65,31 @@ impl UsesDatabase for DatabaseImpl {
             body.email.to_string().to_ascii_lowercase(),
             hashed_password
         )
-        .fetch_one(&self.pool.0)
+        .execute(&self.pool.0)
         .await
-        .unwrap();
-        // .map_err(|e| {
-        //     let error_response = serde_json::json!({
-        //         "status": "fail",
-        //         "message": format!("Database error: {}", e),
-        //     });
-        //     (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-        // })?;
+        .map_err(|e| AppError::Db(e))?;
 
         Ok(())
     }
 }
 
-impl Database for DatabaseImpl {}
-impl UserRepository for DatabaseImpl {}
-impl UserService for DatabaseImpl {}
-impl UserUsecase for DatabaseImpl {}
+impl UserRepository for RepositoryImpl<UserTable> {}
+impl UserService for RepositoryImpl<UserTable> {}
+impl UserUsecase for RepositoryImpl<UserTable> {}
 
-impl ProvidesDatabase for DatabaseImpl {
-    type T = Self;
-    fn database(&self) -> &Self::T {
-        self
-    }
-}
-impl ProvidesUserRepository for DatabaseImpl {
+impl ProvidesUserRepository for RepositoryImpl<UserTable> {
     type T = Self;
     fn user_repository(&self) -> &Self::T {
         self
     }
 }
-impl ProvidesUserService for DatabaseImpl {
+impl ProvidesUserService for RepositoryImpl<UserTable> {
     type T = Self;
     fn user_service(&self) -> &Self::T {
         self
     }
 }
-impl ProvidesUserUsecase for DatabaseImpl {
+impl ProvidesUserUsecase for RepositoryImpl<UserTable> {
     type T = Self;
     fn user_usecase(&self) -> &Self::T {
         self

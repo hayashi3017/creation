@@ -1,21 +1,22 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::model::{db::ProvidesDatabase, db::UsesDatabase, user::RegisterUserSchema};
+use crate::model::user::RegisterUserSchema;
 
-pub trait UserRepository: ProvidesDatabase {}
+pub trait UserRepository: Send + Sync + 'static {}
 
 #[async_trait]
 pub trait UsesUserRepository: Send + Sync + 'static {
     async fn regist_user(&self, body: RegisterUserSchema) -> Result<()>;
 }
 
-#[async_trait]
-impl<T: UserRepository> UsesUserRepository for T {
-    async fn regist_user(&self, body: RegisterUserSchema) -> Result<()> {
-        self.database().regist_user(body).await
-    }
-}
+// why this is not error?
+// #[async_trait]
+// impl<T: UserRepository> UsesUserRepository for T {
+//     async fn regist_user(&self, body: RegisterUserSchema) -> Result<()> {
+//         self.regist_user(body).await
+//     }
+// }
 
 pub trait ProvidesUserRepository: Send + Sync + 'static {
     type T: UsesUserRepository;

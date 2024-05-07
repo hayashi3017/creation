@@ -94,7 +94,7 @@ pub async fn auth(
         "#,
         user_id
     )
-    .fetch_optional(&data.db.pool.0)
+    .fetch_optional(&data.driver.user_repository.pool.0)
     .await
     .map_err(|e| {
         let json_error = ErrorResponse {

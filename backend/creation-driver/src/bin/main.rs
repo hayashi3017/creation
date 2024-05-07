@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use creation_adapter::{persistence::mysql::Db, repository::mysql::DatabaseImpl};
 use creation_driver::{
-    config::Config, middleware::cors::setup_cors, route::create_router, AppState,
+    config::Config, middleware::cors::setup_cors, route::create_router, AppModule, AppState,
 };
 use dotenvy::dotenv;
 
@@ -22,13 +21,11 @@ async fn main() {
         )
         .init();
 
-    let pool = DatabaseImpl {
-        pool: Db::new().await,
-    };
+    let module = AppModule::new().await;
     let cors = setup_cors();
 
     let app = create_router(Arc::new(AppState {
-        db: pool.clone(),
+        driver: module.clone(),
         env: config.clone(),
     }))
     .layer(ServiceBuilder::new().layer(cors));

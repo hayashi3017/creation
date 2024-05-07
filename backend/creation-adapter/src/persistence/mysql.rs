@@ -1,4 +1,3 @@
-use creation_service::model::db::Database;
 use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
 
 use crate::config::Config;
@@ -6,8 +5,6 @@ use crate::config::Config;
 // FIXME: pub(crate) not pub
 #[derive(Clone)]
 pub struct Db(pub Pool<MySql>);
-
-impl Database for Db {}
 
 impl Db {
     pub async fn new() -> Self {

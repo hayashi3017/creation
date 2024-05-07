@@ -33,7 +33,7 @@ pub async fn register_user_handler(
     State(data): State<Arc<AppState>>,
     Json(body): Json<RegisterUserSchema>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let query_result = data.db.regist_user(body).await;
+    let query_result = data.driver.user_repository.regist_user(body).await;
 
     match query_result {
         Ok(()) => {
@@ -98,7 +98,7 @@ pub async fn login_user_handler(
         "#,
         body.email.to_ascii_lowercase()
     )
-    .fetch_optional(&data.db.pool.0)
+    .fetch_optional(&data.driver.user_repository.pool.0)
     .await
     .map_err(|e| {
         let error_response = serde_json::json!({
