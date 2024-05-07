@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 creation-service = { path = "../creation-service" }
+anyhow.workspace = true
+async-trait.workspace = true

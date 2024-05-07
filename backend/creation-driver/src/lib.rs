@@ -1,13 +1,15 @@
 use config::Config;
-use sqlx::{MySql, Pool};
+use creation_adapter::repository::mysql::DatabaseImpl;
 
+// FIXME: pub?
 pub mod config;
+mod handler;
 mod jwt_auth;
+pub mod middleware;
 mod response;
 pub mod route;
-mod handler;
 
 pub struct AppState {
-    pub db: Pool<MySql>,
+    pub db: DatabaseImpl,
     pub env: Config,
 }

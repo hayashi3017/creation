@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use argon2::{password_hash::SaltString, Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::{
     extract::State,
     http::{header, Response, StatusCode},
@@ -8,10 +8,10 @@ use axum::{
     Extension, Json,
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
-use creation_adapter::model::user::{LoginUserSchema, RegisterUserSchema};
-use creation_service::model::{TokenClaims, User};
+use creation_adapter::{errors::AppError, model::user::UserTable};
+use creation_service::model::user::{LoginUserSchema, RegisterUserSchema, TokenClaims};
+use creation_usecase::usecase::user::UsesUserUsecase;
 use jsonwebtoken::{encode, EncodingKey, Header};
-use rand_core::OsRng;
 use serde_json::json;
 
 use crate::{response::FilteredUser, AppState};
@@ -33,69 +33,49 @@ pub async fn register_user_handler(
     State(data): State<Arc<AppState>>,
     Json(body): Json<RegisterUserSchema>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let user_exists: Option<bool> =
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)")
-            .bind(body.email.to_owned().to_ascii_lowercase())
-            .fetch_one(&data.db)
-            .await
-            .map_err(|e| {
+    let query_result = data.db.regist_user(body).await;
+
+    match query_result {
+        Ok(()) => {
+            let user_response = serde_json::json!({
+                "status": "success",
+                "data": serde_json::json!({"response": "ok"})
+            });
+
+            Ok(Json(user_response))
+        }
+        // FIXME: Error handling, change thiserror defined crate
+        Err(err) => match err.into() {
+            AppError::Db(e) => {
                 let error_response = serde_json::json!({
                     "status": "fail",
                     "message": format!("Database error: {}", e),
                 });
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-            })?;
-
-    if let Some(exists) = user_exists {
-        if exists {
-            let error_response = serde_json::json!({
-                "status": "fail",
-                "message": "User with that email already exists",
-            });
-            return Err((StatusCode::CONFLICT, Json(error_response)));
-        }
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
+            }
+            AppError::DubpicateUser => {
+                let error_response = serde_json::json!({
+                    "status": "fail",
+                    "message": "User with that email already exists",
+                });
+                return Err((StatusCode::CONFLICT, Json(error_response)));
+            }
+            AppError::HashingPassword(e) => {
+                let error_response = serde_json::json!({
+                    "status": "fail",
+                    "message": format!("Error while hashing password: {}", e),
+                });
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
+            }
+            AppError::Any(e) => {
+                let error_response = serde_json::json!({
+                    "status": "fail",
+                    "message": format!("Error Something happened: {}", e),
+                });
+                return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)));
+            }
+        },
     }
-
-    let salt = SaltString::generate(&mut OsRng);
-    let hashed_password = Argon2::default()
-        .hash_password(body.password.as_bytes(), &salt)
-        .map_err(|e| {
-            let error_response = serde_json::json!({
-                "status": "fail",
-                "message": format!("Error while hashing password: {}", e),
-            });
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-        })
-        .map(|hash| hash.to_string())?;
-
-    // TODO: transaction
-    let _user = sqlx::query!(
-        r#"
-            INSERT INTO users
-                (name,email,password)
-                VALUES (?, ?, ?)
-        "#,
-        body.name.to_string(),
-        body.email.to_string().to_ascii_lowercase(),
-        hashed_password
-    )
-    .fetch_one(&data.db)
-    .await
-    .unwrap();
-    // .map_err(|e| {
-    //     let error_response = serde_json::json!({
-    //         "status": "fail",
-    //         "message": format!("Database error: {}", e),
-    //     });
-    //     (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-    // })?;
-
-    // FIXME: response user data?
-    let user_response = serde_json::json!({"status": "success","data": serde_json::json!({
-        "response": "ok"
-    })});
-
-    Ok(Json(user_response))
 }
 
 pub async fn login_user_handler(
@@ -103,7 +83,7 @@ pub async fn login_user_handler(
     Json(body): Json<LoginUserSchema>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let user = sqlx::query_as!(
-        User,
+        UserTable,
         r#"
             SELECT
                 id as `id: _`, 
@@ -118,7 +98,7 @@ pub async fn login_user_handler(
         "#,
         body.email.to_ascii_lowercase()
     )
-    .fetch_optional(&data.db)
+    .fetch_optional(&data.db.pool.0)
     .await
     .map_err(|e| {
         let error_response = serde_json::json!({
@@ -194,7 +174,7 @@ pub async fn logout_handler() -> Result<impl IntoResponse, (StatusCode, Json<ser
 }
 
 pub async fn get_me_handler(
-    Extension(user): Extension<User>,
+    Extension(user): Extension<UserTable>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let json_response = serde_json::json!({
         "status":  "success",
@@ -206,7 +186,7 @@ pub async fn get_me_handler(
     Ok(Json(json_response))
 }
 
-fn filter_user_record(user: &User) -> FilteredUser {
+fn filter_user_record(user: &UserTable) -> FilteredUser {
     FilteredUser {
         id: user.id.to_string(),
         email: user.email.to_owned(),

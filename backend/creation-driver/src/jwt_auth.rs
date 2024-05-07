@@ -10,7 +10,8 @@ use axum::{
 };
 
 use axum_extra::extract::cookie::CookieJar;
-use creation_service::model::{TokenClaims, User};
+use creation_adapter::model::user::UserTable;
+use creation_service::model::user::TokenClaims;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::Serialize;
 use uuid::Uuid;
@@ -78,7 +79,7 @@ pub async fn auth(
     // 個別にカラムを書いて、型をオーバーライドしてみる。as `id: _`
     // 参考：　https://github.com/launchbadge/sqlx/issues/2875
     let user = sqlx::query_as!(
-        User,
+        UserTable,
         r#"
             SELECT 
                 id as `id: _`, 
@@ -93,7 +94,7 @@ pub async fn auth(
         "#,
         user_id
     )
-    .fetch_optional(&data.db)
+    .fetch_optional(&data.db.pool.0)
     .await
     .map_err(|e| {
         let json_error = ErrorResponse {
