@@ -27,7 +27,6 @@ RUN cargo build --release
 
 FROM debian:bookworm-slim as run
 RUN apt-get update && apt install -y openssl && rm -rf /var/lib/apt/lists/* && apt-get clean
-# `backend`はcrate_name
 COPY --from=builder /usr/src/app/target/release/main /usr/local/bin
 
 ENTRYPOINT [ "/usr/local/bin/main" ]
