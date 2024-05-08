@@ -30,7 +30,6 @@ impl<T> RepositoryImpl<T> {
 // to avoid orphan rule, impl trait for struct type.
 #[async_trait]
 impl UsesUserRepository for RepositoryImpl<UserTable> {
-    // impl<T: Database> UsesDatabase for T {
     async fn regist_user(
         &self,
         body: creation_service::model::user::RegisterUserSchema,
