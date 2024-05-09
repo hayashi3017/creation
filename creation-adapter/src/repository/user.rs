@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use anyhow::Result;
 use argon2::{password_hash::SaltString, Argon2, PasswordHasher};
 use async_trait::async_trait;
@@ -10,22 +8,9 @@ use creation_service::{
 use creation_usecase::usecase::user::{ProvidesUserUsecase, UserUsecase};
 use rand_core::OsRng;
 
-use crate::{errors::AppError, model::user::UserTable, persistence::mysql::Db};
+use crate::{errors::AppError, model::user::UserTable};
 
-#[derive(Clone)]
-pub struct RepositoryImpl<T> {
-    pub pool: Db,
-    pub _marker: PhantomData<T>,
-}
-
-impl<T> RepositoryImpl<T> {
-    pub async fn new() -> Self {
-        RepositoryImpl::<T> {
-            pool: Db::new().await,
-            _marker: PhantomData::<T>,
-        }
-    }
-}
+use super::RepositoryImpl;
 
 // to avoid orphan rule, impl trait for struct type.
 #[async_trait]

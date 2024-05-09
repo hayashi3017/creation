@@ -1,5 +1,5 @@
 use config::Config;
-use creation_adapter::{model::user::UserTable, repository::user::RepositoryImpl};
+use creation_adapter::{model::user::UserTable, repository::RepositoryImpl};
 
 // FIXME: pub?
 pub mod config;
