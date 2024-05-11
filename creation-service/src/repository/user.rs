@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::model::user::RegisterUserSchema;
+use crate::model::user::{FilteredUser, LoginUserSchema, RegisterUserSchema};
 
 pub trait UserRepository: Send + Sync + 'static {}
 
@@ -9,6 +9,8 @@ pub trait UserRepository: Send + Sync + 'static {}
 pub enum UserRepositoryError {
     #[error(transparent)]
     UserResistError(#[from] UserResistError),
+    #[error(transparent)]
+    UserLoginError(#[from] UserLoginError),
 }
 
 #[derive(Debug, Error)]
@@ -19,6 +21,16 @@ pub enum UserResistError {
     HashingPassword(argon2::password_hash::Error),
     #[error("duplicate user")]
     DubpicateUser,
+}
+
+#[derive(Debug, Error)]
+pub enum UserLoginError {
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+    #[error("wrong password")]
+    WrongPassword,
+    #[error("wrong user")]
+    WrongUser,
 }
 
 // TODO: 検証
@@ -32,6 +44,7 @@ impl From<argon2::password_hash::Error> for UserRepositoryError {
 #[async_trait]
 pub trait UsesUserRepository: Send + Sync + 'static {
     async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserResistError>;
+    async fn login_user(&self, body: LoginUserSchema) -> Result<FilteredUser, UserLoginError>;
 }
 
 // why this is not error?

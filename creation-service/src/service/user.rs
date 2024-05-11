@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::{
-    model::user::RegisterUserSchema,
+    model::user::{FilteredUser, LoginUserSchema, RegisterUserSchema},
     repository::user::{ProvidesUserRepository, UserRepositoryError, UsesUserRepository},
 };
 
@@ -18,6 +18,7 @@ pub enum UserServiceError {
 #[async_trait]
 pub trait UsesUserService {
     async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserServiceError>;
+    async fn login_user(&self, body: LoginUserSchema) -> Result<FilteredUser, UserServiceError>;
 }
 
 #[async_trait]
@@ -28,6 +29,14 @@ impl<T: UserService> UsesUserService for T {
                 UserRepositoryError::UserResistError(err),
             )),
             Ok(()) => Ok(()),
+        }
+    }
+    async fn login_user(&self, body: LoginUserSchema) -> Result<FilteredUser, UserServiceError> {
+        match self.user_repository().login_user(body).await {
+            Err(err) => Err(UserServiceError::UserRepositoryError(
+                UserRepositoryError::UserLoginError(err),
+            )),
+            Ok(val) => Ok(val),
         }
     }
 }
