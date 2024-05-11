@@ -8,6 +8,12 @@ pub trait UserRepository: Send + Sync + 'static {}
 #[derive(Debug, Error)]
 pub enum UserRepositoryError {
     #[error(transparent)]
+    UserResistError(#[from] UserResistError),
+}
+
+#[derive(Debug, Error)]
+pub enum UserResistError {
+    #[error(transparent)]
     Db(#[from] sqlx::Error),
     #[error("hashing password")]
     HashingPassword(argon2::password_hash::Error),
@@ -19,13 +25,13 @@ pub enum UserRepositoryError {
 // ref: https://github.com/http-rs/surf/issues/335#issuecomment-1025118151
 impl From<argon2::password_hash::Error> for UserRepositoryError {
     fn from(value: argon2::password_hash::Error) -> Self {
-        UserRepositoryError::HashingPassword(value)
+        UserRepositoryError::UserResistError(UserResistError::HashingPassword(value))
     }
 }
 
 #[async_trait]
 pub trait UsesUserRepository: Send + Sync + 'static {
-    async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserRepositoryError>;
+    async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserResistError>;
 }
 
 // why this is not error?

@@ -11,7 +11,7 @@ use axum_extra::extract::cookie::{Cookie, SameSite};
 use creation_adapter::model::user::UserTable;
 use creation_service::{
     model::user::{LoginUserSchema, RegisterUserSchema, TokenClaims},
-    repository::user::UserRepositoryError,
+    repository::user::{UserRepositoryError, UserResistError},
     service::user::UserServiceError,
 };
 use creation_usecase::usecase::user::{UserUsecaseError, UsesUserUsecase};
@@ -38,21 +38,21 @@ pub async fn register_user_handler(
         Err(err) => match err {
             UserUsecaseError::UserServiceError(err) => match err {
                 UserServiceError::UserRepositoryError(err) => match err {
-                    UserRepositoryError::Db(e) => {
+                    UserRepositoryError::UserResistError(UserResistError::Db(e)) => {
                         let error_response = serde_json::json!({
                             "status": "fail",
                             "message": format!("Database error: {}", e),
                         });
                         Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
                     }
-                    UserRepositoryError::DubpicateUser => {
+                    UserRepositoryError::UserResistError(UserResistError::DubpicateUser) => {
                         let error_response = serde_json::json!({
                             "status": "fail",
                             "message": "User with that email already exists",
                         });
                         Err((StatusCode::CONFLICT, Json(error_response)))
                     }
-                    UserRepositoryError::HashingPassword(e) => {
+                    UserRepositoryError::UserResistError(UserResistError::HashingPassword(e)) => {
                         let error_response = serde_json::json!({
                             "status": "fail",
                             "message": format!("Error while hashing password: {}", e),

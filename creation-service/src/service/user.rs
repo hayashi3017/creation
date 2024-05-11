@@ -24,8 +24,10 @@ pub trait UsesUserService {
 impl<T: UserService> UsesUserService for T {
     async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserServiceError> {
         match self.user_repository().regist_user(body).await {
-            Err(err) => Err(UserServiceError::UserRepositoryError(err)),
-            _ => Ok(()),
+            Err(err) => Err(UserServiceError::UserRepositoryError(
+                UserRepositoryError::UserResistError(err),
+            )),
+            Ok(()) => Ok(()),
         }
     }
 }
