@@ -1,14 +1,15 @@
-use anyhow::Result;
 use argon2::{password_hash::SaltString, Argon2, PasswordHasher};
 use async_trait::async_trait;
 use creation_service::{
-    repository::user::{ProvidesUserRepository, UserRepository, UsesUserRepository},
+    repository::user::{
+        ProvidesUserRepository, UserRepository, UserRepositoryError, UsesUserRepository,
+    },
     service::user::{ProvidesUserService, UserService},
 };
 use creation_usecase::usecase::user::{ProvidesUserUsecase, UserUsecase};
 use rand_core::OsRng;
 
-use crate::{errors::AppError, model::user::UserTable};
+use crate::model::user::UserTable;
 
 use super::RepositoryImpl;
 
@@ -18,24 +19,24 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
     async fn regist_user(
         &self,
         body: creation_service::model::user::RegisterUserSchema,
-    ) -> Result<()> {
+    ) -> Result<(), UserRepositoryError> {
         let user_exists: Option<bool> =
             sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)")
                 .bind(body.email.to_owned().to_ascii_lowercase())
                 .fetch_one(&self.pool.0)
                 .await
-                .map_err(|e| AppError::Db(e))?;
+                .map_err(|e| UserRepositoryError::Db(e))?;
 
         if let Some(exists) = user_exists {
             if exists {
-                return Err(AppError::DubpicateUser.into());
+                return Err(UserRepositoryError::DubpicateUser);
             }
         }
 
         let salt = SaltString::generate(&mut OsRng);
         let hashed_password = Argon2::default()
             .hash_password(body.password.as_bytes(), &salt)
-            .map_err(|e| AppError::HashingPassword(e))
+            .map_err(|e| UserRepositoryError::HashingPassword(e))
             .map(|hash| hash.to_string())?;
 
         // TODO: transaction
@@ -51,7 +52,7 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
         )
         .execute(&self.pool.0)
         .await
-        .map_err(|e| AppError::Db(e))?;
+        .map_err(|e| UserRepositoryError::Db(e))?;
 
         Ok(())
     }

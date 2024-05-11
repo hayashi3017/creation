@@ -8,9 +8,13 @@ use axum::{
     Extension, Json,
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
-use creation_adapter::{errors::AppError, model::user::UserTable};
-use creation_service::model::user::{LoginUserSchema, RegisterUserSchema, TokenClaims};
-use creation_usecase::usecase::user::UsesUserUsecase;
+use creation_adapter::model::user::UserTable;
+use creation_service::{
+    model::user::{LoginUserSchema, RegisterUserSchema, TokenClaims},
+    repository::user::UserRepositoryError,
+    service::user::UserServiceError,
+};
+use creation_usecase::usecase::user::{UserUsecaseError, UsesUserUsecase};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::json;
 
@@ -44,36 +48,32 @@ pub async fn register_user_handler(
 
             Ok(Json(user_response))
         }
-        // FIXME: Error handling, change thiserror defined crate
-        Err(err) => match err.into() {
-            AppError::Db(e) => {
-                let error_response = serde_json::json!({
-                    "status": "fail",
-                    "message": format!("Database error: {}", e),
-                });
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
-            }
-            AppError::DubpicateUser => {
-                let error_response = serde_json::json!({
-                    "status": "fail",
-                    "message": "User with that email already exists",
-                });
-                return Err((StatusCode::CONFLICT, Json(error_response)));
-            }
-            AppError::HashingPassword(e) => {
-                let error_response = serde_json::json!({
-                    "status": "fail",
-                    "message": format!("Error while hashing password: {}", e),
-                });
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
-            }
-            AppError::Any(e) => {
-                let error_response = serde_json::json!({
-                    "status": "fail",
-                    "message": format!("Error Something happened: {}", e),
-                });
-                return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)));
-            }
+        Err(err) => match err {
+            UserUsecaseError::UserServiceError(err) => match err {
+                UserServiceError::UserRepositoryError(err) => match err {
+                    UserRepositoryError::Db(e) => {
+                        let error_response = serde_json::json!({
+                            "status": "fail",
+                            "message": format!("Database error: {}", e),
+                        });
+                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
+                    }
+                    UserRepositoryError::DubpicateUser => {
+                        let error_response = serde_json::json!({
+                            "status": "fail",
+                            "message": "User with that email already exists",
+                        });
+                        Err((StatusCode::CONFLICT, Json(error_response)))
+                    }
+                    UserRepositoryError::HashingPassword(e) => {
+                        let error_response = serde_json::json!({
+                            "status": "fail",
+                            "message": format!("Error while hashing password: {}", e),
+                        });
+                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
+                    }
+                },
+            },
         },
     }
 }

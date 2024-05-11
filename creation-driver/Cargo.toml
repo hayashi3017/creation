@@ -26,5 +26,4 @@ chrono.workspace = true
 time.workspace = true
 uuid.workspace = true
 thiserror.workspace = true
-anyhow.workspace = true
 tower.workspace = true
