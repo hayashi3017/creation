@@ -8,8 +8,8 @@ use axum::{
 
 use crate::{
     handler::{
-        get_me_handler, health_checker_handler, login_user_handler, logout_handler,
-        register_user_handler,
+        health_check::health_checker_handler,
+        user::{get_me_handler, login_user_handler, logout_handler, register_user_handler},
     },
     jwt_auth::auth,
     AppState,
