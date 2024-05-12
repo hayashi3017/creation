@@ -3,7 +3,10 @@ use thiserror::Error;
 
 use crate::{
     model::user::{FilteredUser, LoginUserSchema, RegisterUserSchema},
-    repository::user::{ProvidesUserRepository, UserRepositoryError, UsesUserRepository},
+    repository::user::{
+        ProvidesUserRepository, UserConfirmRepositoryError, UserLoginRepositoryError,
+        UserResistRepositoryError, UsesUserRepository,
+    },
 };
 
 #[async_trait]
@@ -12,30 +15,55 @@ pub trait UserService: ProvidesUserRepository {}
 #[derive(Debug, Error)]
 pub enum UserServiceError {
     #[error(transparent)]
-    UserRepositoryError(#[from] UserRepositoryError),
+    UserRegistServiceError(#[from] UserRegistServiceError),
+    #[error(transparent)]
+    UserLoginServiceError(#[from] UserLoginServiceError),
+}
+
+#[derive(Debug, Error)]
+pub enum UserRegistServiceError {
+    #[error(transparent)]
+    UserConfirmRepositoryError(#[from] UserConfirmRepositoryError),
+    #[error(transparent)]
+    UserResistRepositoryError(#[from] UserResistRepositoryError),
+    #[error("duplicate user")]
+    DubpicateUser,
+}
+
+#[derive(Debug, Error)]
+pub enum UserLoginServiceError {
+    #[error(transparent)]
+    UserLoginRepositoryError(#[from] UserLoginRepositoryError),
 }
 
 #[async_trait]
 pub trait UsesUserService {
-    async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserServiceError>;
-    async fn login_user(&self, body: LoginUserSchema) -> Result<FilteredUser, UserServiceError>;
+    async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserRegistServiceError>;
+    async fn login_user(
+        &self,
+        body: LoginUserSchema,
+    ) -> Result<FilteredUser, UserLoginServiceError>;
 }
 
 #[async_trait]
 impl<T: UserService> UsesUserService for T {
-    async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserServiceError> {
+    async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserRegistServiceError> {
+        let user_exists = self.user_repository().confirm_user_exist(&body).await?;
+        if user_exists {
+            return Err(UserRegistServiceError::DubpicateUser);
+        }
+
         match self.user_repository().regist_user(body).await {
-            Err(err) => Err(UserServiceError::UserRepositoryError(
-                UserRepositoryError::UserResistError(err),
-            )),
+            Err(err) => Err(UserRegistServiceError::UserResistRepositoryError(err)),
             Ok(()) => Ok(()),
         }
     }
-    async fn login_user(&self, body: LoginUserSchema) -> Result<FilteredUser, UserServiceError> {
+    async fn login_user(
+        &self,
+        body: LoginUserSchema,
+    ) -> Result<FilteredUser, UserLoginServiceError> {
         match self.user_repository().login_user(body).await {
-            Err(err) => Err(UserServiceError::UserRepositoryError(
-                UserRepositoryError::UserLoginError(err),
-            )),
+            Err(err) => Err(UserLoginServiceError::UserLoginRepositoryError(err)),
             Ok(val) => Ok(val),
         }
     }

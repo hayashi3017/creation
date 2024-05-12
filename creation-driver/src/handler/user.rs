@@ -10,10 +10,14 @@ use axum_extra::extract::cookie::{Cookie, SameSite};
 use creation_adapter::model::user::UserTable;
 use creation_service::{
     model::user::{FilteredUser, LoginUserSchema, RegisterUserSchema, TokenClaims},
-    repository::user::{UserLoginError, UserRepositoryError, UserResistError},
-    service::user::UserServiceError,
+    repository::user::{
+        UserConfirmRepositoryError, UserLoginRepositoryError, UserResistRepositoryError,
+    },
+    service::user::{UserLoginServiceError, UserRegistServiceError},
 };
-use creation_usecase::usecase::user::{UserUsecaseError, UsesUserUsecase};
+use creation_usecase::usecase::user::{
+    UserLoginUsecaseError, UserRegistUsecaseError, UsesUserUsecase,
+};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::json;
 
@@ -35,30 +39,38 @@ pub async fn register_user_handler(
             Ok(Json(user_response))
         }
         Err(err) => match err {
-            UserUsecaseError::UserServiceError(err) => match err {
-                UserServiceError::UserRepositoryError(err) => match err {
-                    UserRepositoryError::UserResistError(UserResistError::Db(e)) => {
+            UserRegistUsecaseError::UserRegistServiceError(err) => match err {
+                UserRegistServiceError::UserConfirmRepositoryError(err) => match err {
+                    UserConfirmRepositoryError::Db(e) => {
                         let error_response = serde_json::json!({
                             "status": "fail",
                             "message": format!("Database error: {}", e),
                         });
                         Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
                     }
-                    UserRepositoryError::UserResistError(UserResistError::DubpicateUser) => {
+                },
+                UserRegistServiceError::DubpicateUser => {
+                    let error_response = serde_json::json!({
+                        "status": "fail",
+                        "message": "User with that email already exists",
+                    });
+                    Err((StatusCode::CONFLICT, Json(error_response)))
+                }
+                UserRegistServiceError::UserResistRepositoryError(err) => match err {
+                    UserResistRepositoryError::Db(e) => {
                         let error_response = serde_json::json!({
                             "status": "fail",
-                            "message": "User with that email already exists",
+                            "message": format!("Database error: {}", e),
                         });
-                        Err((StatusCode::CONFLICT, Json(error_response)))
+                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
                     }
-                    UserRepositoryError::UserResistError(UserResistError::HashingPassword(e)) => {
+                    UserResistRepositoryError::HashingPassword(e) => {
                         let error_response = serde_json::json!({
                             "status": "fail",
                             "message": format!("Error while hashing password: {}", e),
                         });
                         Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
                     }
-                    _ => panic!("unexpected error!"),
                 },
             },
         },
@@ -103,30 +115,29 @@ pub async fn login_user_handler(
             Ok(response)
         }
         Err(err) => match err {
-            UserUsecaseError::UserServiceError(err) => match err {
-                UserServiceError::UserRepositoryError(err) => match err {
-                    UserRepositoryError::UserLoginError(UserLoginError::Db(e)) => {
+            UserLoginUsecaseError::UserLoginServiceError(err) => match err {
+                UserLoginServiceError::UserLoginRepositoryError(err) => match err {
+                    UserLoginRepositoryError::Db(e) => {
                         let error_response = serde_json::json!({
                             "status": "error",
                             "message": format!("Database error: {}", e),
                         });
                         Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
                     }
-                    UserRepositoryError::UserLoginError(UserLoginError::WrongUser) => {
+                    UserLoginRepositoryError::WrongUser => {
                         let error_response = serde_json::json!({
                             "status": "fail",
                             "message": "Invalid email or password",
                         });
                         Err((StatusCode::BAD_REQUEST, Json(error_response)))
                     }
-                    UserRepositoryError::UserLoginError(UserLoginError::WrongPassword) => {
+                    UserLoginRepositoryError::WrongPassword => {
                         let error_response = serde_json::json!({
                             "status": "fail",
                             "message": "Wrong password",
                         });
                         Err((StatusCode::BAD_REQUEST, Json(error_response)))
                     }
-                    _ => panic!("unexpected error!"),
                 },
             },
         },
