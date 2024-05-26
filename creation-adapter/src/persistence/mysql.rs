@@ -26,4 +26,7 @@ impl Db {
 
         Db(pool)
     }
+    pub async fn new_test(pool: Pool<MySql>) -> Self {
+        Db(pool)
+    }
 }

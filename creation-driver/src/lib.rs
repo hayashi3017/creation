@@ -1,5 +1,6 @@
 use config::Config;
 use creation_adapter::{model::user::UserTable, repository::RepositoryImpl};
+use sqlx::{MySql, Pool};
 
 // FIXME: pub?
 pub mod config;
@@ -23,6 +24,11 @@ impl AppModule {
     pub async fn new() -> Self {
         AppModule {
             user_repository: RepositoryImpl::<UserTable>::new().await,
+        }
+    }
+    pub async fn new_test(pool: Pool<MySql>) -> Self {
+        AppModule {
+            user_repository: RepositoryImpl::<UserTable>::new_test(pool).await,
         }
     }
 }

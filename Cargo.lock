@@ -445,6 +445,7 @@ dependencies = [
  "creation-service",
  "creation-usecase",
  "dotenvy",
+ "http",
  "jsonwebtoken",
  "rand_core",
  "serde",

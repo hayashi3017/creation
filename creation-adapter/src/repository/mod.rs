@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 
+use sqlx::{MySql, Pool};
+
 use crate::persistence::mysql::Db;
 
 pub mod user;
@@ -14,6 +16,12 @@ impl<T> RepositoryImpl<T> {
     pub async fn new() -> Self {
         RepositoryImpl::<T> {
             pool: Db::new().await,
+            _marker: PhantomData::<T>,
+        }
+    }
+    pub async fn new_test(pool: Pool<MySql>) -> Self {
+        RepositoryImpl::<T> {
+            pool: Db::new_test(pool).await,
             _marker: PhantomData::<T>,
         }
     }
