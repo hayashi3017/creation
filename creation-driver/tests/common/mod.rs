@@ -5,10 +5,10 @@ use creation_driver::{
     config::Config, middleware::cors::setup_cors, route::create_router, AppModule, AppState,
 };
 use dotenvy::dotenv;
-use sqlx::{MySql, Pool};
+use sqlx::{Pool, Postgres};
 use tower::ServiceBuilder;
 
-pub async fn setup_router(pool: Pool<MySql>) -> Router {
+pub async fn setup_router(pool: Pool<Postgres>) -> Router {
     dotenv().ok();
     let config = Config::init();
 

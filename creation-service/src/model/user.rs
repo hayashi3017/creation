@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::types::Decimal;
+use sqlx::types::chrono::{DateTime, Utc};
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -20,8 +20,8 @@ pub struct FilteredUser {
     pub email: String,
     pub role: String,
     pub photo: String,
-    pub createdAt: Decimal,
-    pub updatedAt: Decimal,
+    pub createdAt: DateTime<Utc>,
+    pub updatedAt: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]

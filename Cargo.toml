@@ -1,5 +1,5 @@
 [workspace]
-members = ["creation-adapter", "creation-driver", "creation-service", "creation-usecase"]
+members = ["creation-adapter", "creation-driver", "creation-service", "creation-usecase", "xtask"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -14,7 +14,7 @@ rand_core = { version = "0.6.4", features = ["std"] }
 redis = "0.25.2"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
-sqlx = { version = "0.7.4", features = ["runtime-tokio", "tls-native-tls", "mysql", "chrono", "time", "rust_decimal", "uuid", "migrate"] }
+sqlx = { version = "0.7.4", features = ["runtime-tokio", "tls-native-tls", "postgres", "chrono", "time", "rust_decimal", "uuid", "migrate"] }
 time = "0.3.34"
 tokio = { version = "1.36.0", features = ["full"] }
 tower = "0.4.13"

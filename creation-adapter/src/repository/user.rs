@@ -22,8 +22,8 @@ fn filter_user_record(user: &UserTable) -> FilteredUser {
         name: user.name.to_owned(),
         photo: user.photo.to_owned(),
         role: user.role.to_owned(),
-        createdAt: user.created_at.unwrap(),
-        updatedAt: user.updated_at.unwrap(),
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
     }
 }
 
@@ -52,7 +52,7 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
             r#"
                 INSERT INTO users
                     (name,email,password)
-                    VALUES (?, ?, ?)
+                    VALUES ($1, $2, $3)
             "#,
             body.name.to_string(),
             body.email.to_string().to_ascii_lowercase(),
@@ -73,15 +73,13 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
             UserTable,
             r#"
                 SELECT
-                    id as `id: _`, 
+                    id,
                     name, email, photo,
                     password,
                     role,
                     created_at,
-                    tz_created_at as `tz_created_at: _`,
-                    updated_at,
-                    tz_updated_at as `tz_updated_at: _`
-                FROM users WHERE email = ?
+                    updated_at
+                FROM users WHERE email = $1
             "#,
             body.email.to_ascii_lowercase()
         )

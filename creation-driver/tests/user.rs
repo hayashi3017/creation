@@ -6,11 +6,11 @@ use crate::common::setup_router;
 use axum::{body::Body, http::Request};
 use http::{Method, StatusCode};
 use serde_json::json;
-use sqlx::MySqlPool;
+use sqlx::PgPool;
 use tower::ServiceExt;
 
 #[sqlx::test(fixtures("user"))]
-async fn regist_new_user(db: MySqlPool) {
+async fn regist_new_user(db: PgPool) {
     let mut router = setup_router(db).await;
     let resp = router
         .borrow_mut()
@@ -38,7 +38,7 @@ async fn regist_new_user(db: MySqlPool) {
 }
 
 #[sqlx::test(fixtures("user"))]
-async fn duplicate_regist_email(db: MySqlPool) {
+async fn duplicate_regist_email(db: PgPool) {
     let mut router = setup_router(db).await;
     let resp = router
         .borrow_mut()

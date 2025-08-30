@@ -76,21 +76,17 @@ pub async fn auth(
         (StatusCode::UNAUTHORIZED, Json(json_error))
     })?;
 
-    // 個別にカラムを書いて、型をオーバーライドしてみる。as `id: _`
-    // 参考：　https://github.com/launchbadge/sqlx/issues/2875
     let user = sqlx::query_as!(
         UserTable,
         r#"
             SELECT 
-                id as `id: _`, 
+                id,
                 name, email, photo,
                 password,
                 role,
                 created_at,
-                tz_created_at as `tz_created_at: _`,
-                updated_at,
-                tz_updated_at as `tz_updated_at: _`
-            FROM users WHERE id = ?
+                updated_at
+            FROM users WHERE id = $1
         "#,
         user_id
     )

@@ -1,18 +1,20 @@
+use std::fmt::Debug;
+
 use chrono::{DateTime, Utc};
+use creation_service::model::diagram::DiagramKind;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, sqlx::FromRow, Serialize, Clone)]
-pub struct UserTable {
-    pub id: Uuid,
+pub struct DiagramTable {
+    pub id: i64,
     pub name: String,
-    pub email: String,
-    pub password: String,
-    pub role: String,
-    pub photo: String,
+    pub kind: DiagramKind,
+    pub description: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: DateTime<Utc>,
     #[serde(rename = "updatedAt")]
     pub updated_at: DateTime<Utc>,
+    #[serde(rename = "deletedAt")]
+    pub deleted_at: Option<DateTime<Utc>>,
 }

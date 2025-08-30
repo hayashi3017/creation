@@ -13,14 +13,17 @@ COPY creation-service/Cargo.toml ./creation-service/Cargo.toml
 RUN mkdir creation-service/src && echo 'fn main() {}' > creation-service/src/main.rs
 COPY creation-usecase/Cargo.toml ./creation-usecase/Cargo.toml
 RUN mkdir creation-usecase/src && echo 'fn main() {}' > creation-usecase/src/main.rs
+COPY xtask/Cargo.toml ./xtask/Cargo.toml
+RUN mkdir xtask/src && echo 'fn main() {}' > xtask/src/main.rs
 RUN cargo build --release
-RUN rm -rf creation-adapter creation-driver creation-service creation-usecase
+RUN rm -rf creation-adapter creation-driver creation-service creation-usecase xtask
 
 # build source
 COPY creation-adapter ./creation-adapter
 COPY creation-driver ./creation-driver
 COPY creation-service ./creation-service
 COPY creation-usecase ./creation-usecase
+COPY xtask ./xtask
 # break the Cargo cache
 RUN touch creation-driver/src/bin/main.rs
 RUN cargo build --release

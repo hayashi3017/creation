@@ -1,94 +1,94 @@
--- Add up migration script here
-
-CREATE TABLE IF NOT EXISTS `users` (
-    `id` BINARY(16) NOT NULL PRIMARY KEY DEFAULT (UUID_TO_BIN(UUID(), 1)),
-    `name` VARCHAR(100) NOT NULL,
-    `email` VARCHAR(255) NOT NULL UNIQUE,
-    `photo` VARCHAR(255) NOT NULL DEFAULT 'default.png',
-    `password` VARCHAR(100) NOT NULL,
-    `role` VARCHAR(50) NOT NULL DEFAULT 'user',
-    -- `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `created_at` DECIMAL(65, 6) NOT NULL DEFAULT (UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6))),
-    `tz_created_at` DATETIME(6) AS (FROM_UNIXTIME(created_at)) VIRTUAL NOT NULL,
-    -- `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    `updated_at` DECIMAL(65, 6) NOT NULL DEFAULT (UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6))),
-    `tz_updated_at` DATETIME(6) AS (FROM_UNIXTIME(updated_at)) VIRTUAL NOT NULL
+-- type
+CREATE TYPE diagram_kind AS ENUM ('family_tree', 'correlation');
+CREATE TYPE entity_kind AS ENUM ('person');
+CREATE TYPE gender_kind AS ENUM ('male', 'female', 'other', 'unknown');
+CREATE TYPE relationship_kind AS ENUM (
+  'parent',
+  'child',
+  'spouse',
+  'adopted_parent',
+  'adopted_child',
+  'divorced_spouse',
+  'cohabitant',
+  'step_parent',
+  'step_child'
 );
 
-CREATE INDEX users_email_idx ON users (email);
 
 
--- Diagramテーブル
+-- 必要な拡張（UUID v4用）
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Users テーブル
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    photo VARCHAR(255) NOT NULL DEFAULT 'default.png',
+    password VARCHAR(100) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'user',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS users_email_idx ON users (email);
+
+-- Diagram テーブル
 CREATE TABLE IF NOT EXISTS diagram (
-    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    type ENUM('family_tree') NOT NULL,
+    kind diagram_kind NOT NULL,
     description TEXT,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at DATETIME(6) NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
 
--- Entityテーブル（diagram_id追加）
+-- Entity テーブル
 CREATE TABLE IF NOT EXISTS entity (
-    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    diagram_id BIGINT NOT NULL,
-    type ENUM('person') NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
+    kind entity_kind NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at DATETIME(6) NULL,
-    CONSTRAINT fk_entity_diagram FOREIGN KEY (diagram_id) REFERENCES diagram(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
 
--- Personテーブル
+-- Person テーブル
 CREATE TABLE IF NOT EXISTS person (
-    entity_id BIGINT NOT NULL PRIMARY KEY,
-    gender ENUM('male', 'female', 'other', 'unknown') DEFAULT 'unknown',
+    entity_id BIGINT PRIMARY KEY REFERENCES entity(id) ON DELETE CASCADE,
+    gender gender_kind DEFAULT 'unknown',
     birth_date DATE,
     death_date DATE,
     birthplace VARCHAR(255),
     residence VARCHAR(255),
     photo_url VARCHAR(512),
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at DATETIME(6) NULL,
-    CONSTRAINT fk_person_entity FOREIGN KEY (entity_id) REFERENCES entity(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
 
--- Relationshipテーブル（diagram_id追加）
+-- Relationship テーブル
 CREATE TABLE IF NOT EXISTS relationship (
-    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    diagram_id BIGINT NOT NULL,
-    source_entity_id BIGINT NOT NULL,
-    target_entity_id BIGINT NOT NULL,
-    type ENUM(
-      'parent',
-      'child',
-      'spouse',
-      'adopted_parent',
-      'adopted_child',
-      'divorced_spouse',
-      'cohabitant',
-      'step_parent',
-      'step_child'
-    ) NOT NULL,
-    start_date DATE NULL,
-    end_date DATE NULL,
+    id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
+    source_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+    target_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+    kind relationship_kind NOT NULL,
+    start_date DATE,
+    end_date DATE,
     notes TEXT,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at DATETIME(6) NULL,
-    CONSTRAINT fk_relationship_diagram FOREIGN KEY (diagram_id) REFERENCES diagram(id) ON DELETE CASCADE,
-    CONSTRAINT fk_relationship_source_entity FOREIGN KEY (source_entity_id) REFERENCES entity(id) ON DELETE CASCADE,
-    CONSTRAINT fk_relationship_target_entity FOREIGN KEY (target_entity_id) REFERENCES entity(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
 
 -- インデックス
-CREATE INDEX idx_entity_type ON entity(type);
-CREATE INDEX idx_relationship_source_entity ON relationship(source_entity_id);
-CREATE INDEX idx_relationship_target_entity ON relationship(target_entity_id);
-CREATE INDEX idx_relationship_type ON relationship(type);
-CREATE INDEX idx_entity_diagram ON entity(diagram_id);
-CREATE INDEX idx_relationship_diagram ON relationship(diagram_id);
+CREATE INDEX IF NOT EXISTS idx_entity_kind ON entity(kind);
+CREATE INDEX IF NOT EXISTS idx_relationship_source_entity ON relationship(source_entity_id);
+CREATE INDEX IF NOT EXISTS idx_relationship_target_entity ON relationship(target_entity_id);
+CREATE INDEX IF NOT EXISTS idx_relationship_kind ON relationship(kind);
+CREATE INDEX IF NOT EXISTS idx_entity_diagram ON entity(diagram_id);
+CREATE INDEX IF NOT EXISTS idx_relationship_diagram ON relationship(diagram_id);

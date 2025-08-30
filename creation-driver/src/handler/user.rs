@@ -178,7 +178,7 @@ pub fn filter_user_record(user: &UserTable) -> FilteredUser {
         name: user.name.to_owned(),
         photo: user.photo.to_owned(),
         role: user.role.to_owned(),
-        createdAt: user.created_at.unwrap(),
-        updatedAt: user.updated_at.unwrap(),
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
     }
 }

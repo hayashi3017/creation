@@ -1,9 +1,10 @@
 use std::marker::PhantomData;
 
-use sqlx::{MySql, Pool};
+use sqlx::{Pool, Postgres};
 
-use crate::persistence::mysql::Db;
+use crate::persistence::postgres::Db;
 
+pub mod diagram;
 pub mod user;
 
 #[derive(Clone)]
@@ -19,7 +20,7 @@ impl<T> RepositoryImpl<T> {
             _marker: PhantomData::<T>,
         }
     }
-    pub async fn new_test(pool: Pool<MySql>) -> Self {
+    pub async fn new_test(pool: Pool<Postgres>) -> Self {
         RepositoryImpl::<T> {
             pool: Db::new_test(pool).await,
             _marker: PhantomData::<T>,

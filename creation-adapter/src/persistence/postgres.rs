@@ -1,15 +1,15 @@
-use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
 use crate::config::Config;
 
 // FIXME: pub(crate) not pub
 #[derive(Clone)]
-pub struct Db(pub Pool<MySql>);
+pub struct Db(pub Pool<Postgres>);
 
 impl Db {
     pub async fn new() -> Self {
         let config = Config::init();
-        let pool = match MySqlPoolOptions::new()
+        let pool = match PgPoolOptions::new()
             .max_connections(10)
             .connect(&config.database_url)
             .await
@@ -26,7 +26,7 @@ impl Db {
 
         Db(pool)
     }
-    pub async fn new_test(pool: Pool<MySql>) -> Self {
+    pub async fn new_test(pool: Pool<Postgres>) -> Self {
         Db(pool)
     }
 }
