@@ -34,7 +34,7 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
         &self,
         body: &RegisterUserSchema,
     ) -> Result<bool, UserConfirmRepositoryError> {
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)")
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)")
             .bind(body.email.to_owned().to_ascii_lowercase())
             .fetch_one(&self.pool.0)
             .await

@@ -58,6 +58,13 @@ docker compose up -d
 docker compose stop
 ```
 
+or
+
+```bash
+cd xtask
+cargo xtask docker
+```
+
 
 FIXME: Running just Rust contianer
 ```bash
@@ -66,3 +73,9 @@ docker run --rm -p 8000:8000 creation_backend
 ```
 [Compose file versions and upgrading | Docker Docs](https://docs.docker.com/compose/compose-file/compose-versioning/)
 [docs/rust at master · docker-library/docs](https://github.com/docker-library/docs/tree/master/rust)
+
+## debug
+
+`backend_debug` service is available with hot reload developping.
+`target_debug` directory is `backend_debug`'s output. To avoid sync loop in cargo-watch, I separeted output directory into `target` and `target_debug`.
+

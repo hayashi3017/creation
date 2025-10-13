@@ -4,8 +4,8 @@
       "Name": "Local Postgres",
       "Group": "Servers",
       "Host": "db",
-      "Port": 6500,
-      "MaintenanceDB": "mypostgres",
+      "Port": 5432,
+      "MaintenanceDB": "creation",
       "Username": "hayashi3017",
       "SSLMode": "prefer"
     }

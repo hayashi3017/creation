@@ -24,3 +24,4 @@ tracing-subscriber = { version = "0.3.18", features = ["json"]}
 uuid = { version = "1.7.0", features = ["serde", "v4"] }
 thiserror = "1.0.59"
 async-trait = "0.1.80"
+listenfd = "1.0.2"

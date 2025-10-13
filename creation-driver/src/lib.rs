@@ -9,6 +9,7 @@ mod jwt_auth;
 pub mod middleware;
 mod response;
 pub mod route;
+pub mod utils;
 
 pub struct AppState {
     pub driver: AppModule,

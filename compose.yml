@@ -2,7 +2,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/backend/Dockerfile
     container_name: creation_backend
     restart: unless-stopped
     ports:
@@ -13,6 +13,30 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRED_IN: ${JWT_EXPIRED_IN}
       JWT_MAXAGE: ${JWT_MAXAGE}
+      RUNTIME_MODE: "release"
+    networks:
+      - creation_network
+    depends_on:
+      - db
+
+  backend_debug:
+    build:
+      context: .
+      dockerfile: docker/backend_debug/Dockerfile
+    container_name: creation_backend_debug
+    restart: unless-stopped
+    volumes:
+      - .:/usr/src/app
+      - ./target_debug:/usr/src/app/target_debug
+    ports:
+      - "8001:8001"
+    # needs below, bacause .env file's setting isn't loaded in multi-stage build Dockerfile.
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRED_IN: ${JWT_EXPIRED_IN}
+      JWT_MAXAGE: ${JWT_MAXAGE}
+      RUNTIME_MODE: "debug"
     networks:
       - creation_network
     depends_on:

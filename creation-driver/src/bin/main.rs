@@ -1,10 +1,13 @@
 use std::sync::Arc;
 
 use creation_driver::{
-    config::Config, middleware::cors::setup_cors, route::create_router, AppModule, AppState,
+    config::Config, middleware::cors::setup_cors, route::create_router, utils::get_port, AppModule,
+    AppState,
 };
 use dotenvy::dotenv;
 
+use listenfd::ListenFd;
+use tokio::{net::TcpListener, signal};
 use tower::ServiceBuilder;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -22,7 +25,8 @@ async fn main() {
         .init();
 
     let module = AppModule::new().await;
-    let cors = setup_cors();
+    let addr = format!("{}:{}", "0.0.0.0", get_port(config.runtime_mode));
+    let cors = setup_cors(&addr);
 
     let app = create_router(Arc::new(AppState {
         driver: module.clone(),
@@ -30,7 +34,36 @@ async fn main() {
     }))
     .layer(ServiceBuilder::new().layer(cors));
 
-    println!("🚀 Server started successfully");
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let mut listenfd = ListenFd::from_env();
+    let listener = match listenfd.take_tcp_listener(0) {
+        Ok(Some(std_listener)) => {
+            println!("✅ Received socket from systemfd!");
+            std_listener
+                .set_nonblocking(true)
+                .expect("Cannot set non-blocking");
+            TcpListener::from_std(std_listener).expect("Failed to convert to Tokio TcpListener")
+        }
+        Ok(None) => {
+            println!("⚠️ No socket received. Binding manually to {}", &addr);
+            TcpListener::bind(&addr).await.expect("Failed to bind")
+        }
+        Err(e) => {
+            println!("listenfd error: {e:?}, falling back to manual bind");
+            TcpListener::bind(&addr).await.expect("Failed to bind")
+        }
+    };
+    println!("listener local addr: {:?}", listener.local_addr());
+    println!("🚀 Server started successfully on {}", addr);
+
+    // let result = axum::serve(listener, app).await;
+    // println!("Server exited with: {:?}", result);
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async {
+            signal::ctrl_c()
+                .await
+                .expect("failed to install Ctrl+C handler");
+        })
+        .await
+        .unwrap();
 }

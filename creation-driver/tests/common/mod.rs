@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use axum::Router;
 use creation_driver::{
-    config::Config, middleware::cors::setup_cors, route::create_router, AppModule, AppState,
+    config::Config, middleware::cors::setup_cors, route::create_router, utils::get_port, AppModule,
+    AppState,
 };
 use dotenvy::dotenv;
 use sqlx::{Pool, Postgres};
@@ -13,7 +14,8 @@ pub async fn setup_router(pool: Pool<Postgres>) -> Router {
     let config = Config::init();
 
     let module = AppModule::new_test(pool).await;
-    let cors = setup_cors();
+    let addr = format!("{}:{}", "0.0.0.0", get_port(config.runtime_mode));
+    let cors = setup_cors(&addr);
 
     create_router(Arc::new(AppState {
         driver: module.clone(),
