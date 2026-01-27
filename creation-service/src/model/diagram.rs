@@ -1,10 +1,7 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
-use sqlx::{
-    prelude::Type,
-    types::chrono::{DateTime, Utc},
-};
+use sqlx::prelude::Type;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -13,14 +10,12 @@ pub struct Diagram {
     pub name: String,
     pub kind: DiagramKind,
     pub description: Option<String>,
-    pub createdAt: DateTime<Utc>,
-    pub updatedAt: DateTime<Utc>,
-    pub deletedAt: Option<DateTime<Utc>>,
 }
 
 #[derive(Deserialize, Serialize, Type)]
+#[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "diagram_kind")]
-#[sqlx(rename_all = "lowercase")]
+#[sqlx(rename_all = "snake_case")]
 pub enum DiagramKind {
     FamilyTree,
     Correlation,
@@ -30,7 +25,7 @@ impl Debug for DiagramKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::FamilyTree => write!(f, "FAMILY TREE"),
-            _ => unimplemented!(),
+            Self::Correlation => write!(f, "CORRELATION"),
         }
     }
 }
@@ -39,7 +34,7 @@ impl Clone for DiagramKind {
     fn clone(&self) -> Self {
         match self {
             Self::FamilyTree => Self::FamilyTree,
-            _ => unimplemented!(),
+            Self::Correlation => Self::Correlation,
         }
     }
 }
@@ -86,6 +81,12 @@ pub struct CreateDiagramSchema {
     pub name: String,
     pub kind: DiagramKind,
     pub description: String,
+}
+
+impl Display for CreateDiagramSchema {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
 }
 
 #[derive(Debug, Deserialize)]

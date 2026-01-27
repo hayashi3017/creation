@@ -86,7 +86,7 @@ impl<T: DiagramService> UsesDiagramService for T {
     ) -> Result<Vec<Diagram>, GetDiagramsServiceError> {
         match self.diagram_repository().get_diagrams(body).await {
             Err(err) => Err(GetDiagramsServiceError::GetDiagramsRepositoryError(err)),
-            Ok(diagmras) => Ok(diagmras),
+            Ok(diagrams) => Ok(diagrams),
         }
     }
 

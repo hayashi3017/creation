@@ -8,6 +8,7 @@ use axum::{
 
 use crate::{
     handler::{
+        diagram::{create_diagram, get_diagrams},
         health_check::health_checker_handler,
         user::{get_me_handler, login_user_handler, logout_handler, register_user_handler},
     },
@@ -28,6 +29,15 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route(
             "/api/users/me",
             get(get_me_handler)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/diagrams",
+            get(get_diagrams).route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/diagrams/create",
+            post(create_diagram)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .with_state(app_state)

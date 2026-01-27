@@ -1,5 +1,8 @@
 use config::Config;
-use creation_adapter::{model::user::UserTable, repository::RepositoryImpl};
+use creation_adapter::{
+    model::{diagram::DiagramTable, user::UserTable},
+    repository::RepositoryImpl,
+};
 use sqlx::{Pool, Postgres};
 
 // FIXME: pub?
@@ -19,17 +22,21 @@ pub struct AppState {
 #[derive(Clone)]
 pub struct AppModule {
     pub user_repository: RepositoryImpl<UserTable>,
+    pub diagram_repository: RepositoryImpl<DiagramTable>,
 }
 
 impl AppModule {
     pub async fn new() -> Self {
         AppModule {
             user_repository: RepositoryImpl::<UserTable>::new().await,
+            diagram_repository: RepositoryImpl::<DiagramTable>::new().await,
         }
     }
     pub async fn new_test(pool: Pool<Postgres>) -> Self {
+        // FIXME: pass refs instead of clone.
         AppModule {
-            user_repository: RepositoryImpl::<UserTable>::new_test(pool).await,
+            user_repository: RepositoryImpl::<UserTable>::new_test(pool.clone()).await,
+            diagram_repository: RepositoryImpl::<DiagramTable>::new_test(pool.clone()).await,
         }
     }
 }

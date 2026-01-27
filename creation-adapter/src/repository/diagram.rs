@@ -21,7 +21,7 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         &self,
         _body: GetDiagramsSchema,
     ) -> Result<Vec<Diagram>, GetDiagramsRepositoryError> {
-        let diagram = sqlx::query_as!(
+        let diagrams = sqlx::query_as!(
             DiagramTable,
             r#"
                 SELECT
@@ -34,11 +34,27 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
                     deleted_at
                 FROM diagram
                 WHERE
-                    deleted_at IS NOT NULL
+                    deleted_at IS NULL
             "#,
-        );
+        )
+        .fetch_all(&self.pool.0)
+        .await
+        .map_err(|e| GetDiagramsRepositoryError::Db(e))?;
 
-        Ok(vec![])
+        // convert
+        let ret: Vec<Diagram> = diagrams
+            .iter()
+            .map(|d| {
+                return Diagram {
+                    id: d.id as usize,
+                    name: d.name.clone(),
+                    kind: d.kind.clone(),
+                    description: d.description.clone(),
+                };
+            })
+            .collect();
+
+        Ok(ret)
     }
 
     async fn create_diagram(

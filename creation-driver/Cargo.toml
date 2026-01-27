@@ -29,3 +29,4 @@ thiserror.workspace = true
 tower.workspace = true
 http.workspace = true
 listenfd.workspace = true
+utoipa.workspace = true
