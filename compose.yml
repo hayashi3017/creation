@@ -44,10 +44,9 @@ services:
 
   db:
     image: postgres:16
-    container_name: creation_postgres
     restart: always
     ports:
-      - "6500:5432" # PostgreSQL のデフォルトは 5432
+      - "5432:5432" # PostgreSQL のデフォルトは 5432
     volumes:
       - creation_db:/var/lib/postgresql/data
     environment:
@@ -69,6 +68,8 @@ services:
       PGADMIN_DEFAULT_PASSWORD: password123
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    networks:
+      - creation_network
     depends_on:
       - db
 

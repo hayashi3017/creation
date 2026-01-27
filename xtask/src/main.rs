@@ -103,8 +103,10 @@ fn run_migration_info(source: &str) -> Result<()> {
 }
 
 fn run_docker() -> Result<()> {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let env_file_path = format!("{}/../.env.docker", root);
     let status = Command::new("docker")
-        .args(["compose", "--env-file", "./../.env.docker", "up", "-d"])
+        .args(["compose", "--env-file", &env_file_path, "up", "-d"])
         .status()
         .context("Failed to execute docker up")?;
 
