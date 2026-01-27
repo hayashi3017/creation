@@ -47,7 +47,13 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
             .map_err(|e| UserResistRepositoryError::HashingPassword(e))
             .map(|hash| hash.to_string())?;
 
-        // TODO: transaction
+        let mut tx = self
+            .pool
+            .0
+            .begin()
+            .await
+            .map_err(|e| UserResistRepositoryError::Db(e))?;
+
         let _user = sqlx::query!(
             r#"
                 INSERT INTO users
@@ -58,9 +64,13 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
             body.email.to_string().to_ascii_lowercase(),
             hashed_password
         )
-        .execute(&self.pool.0)
+        .execute(&mut *tx)
         .await
         .map_err(|e| UserResistRepositoryError::Db(e))?;
+
+        tx.commit()
+            .await
+            .map_err(|e| UserResistRepositoryError::Db(e))?;
 
         Ok(())
     }
