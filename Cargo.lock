@@ -545,6 +545,7 @@ dependencies = [
  "creation-usecase",
  "dotenvy",
  "http",
+ "http-body-util",
  "jsonwebtoken",
  "listenfd",
  "rand_core",

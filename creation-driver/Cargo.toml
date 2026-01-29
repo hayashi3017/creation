@@ -30,3 +30,6 @@ tower.workspace = true
 http.workspace = true
 listenfd.workspace = true
 utoipa.workspace = true
+
+[dev-dependencies]
+http-body-util = "0.1"
