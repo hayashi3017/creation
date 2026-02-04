@@ -80,14 +80,14 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
 
     async fn update_diagram(
         &self,
-        body: UpdateDiagramSchema,
+        _body: UpdateDiagramSchema,
     ) -> Result<(), UpdateDiagramRepositoryError> {
         Ok(())
     }
 
     async fn delete_diagram(
         &self,
-        body: DeleteDiagramSchema,
+        _body: DeleteDiagramSchema,
     ) -> Result<(), DeleteDiagramRepositoryError> {
         Ok(())
     }

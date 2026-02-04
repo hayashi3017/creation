@@ -16,8 +16,8 @@ use crate::common::setup_router;
 async fn health_checker_returns_ok(db: PgPool) {
     set_test_env();
 
-    let mut router = setup_router(db).await;
-    let resp = router
+    let resp = setup_router(db)
+        .await
         .oneshot(
             Request::builder()
                 .method(Method::GET)
@@ -39,8 +39,8 @@ async fn health_checker_returns_ok(db: PgPool) {
 async fn login_user_returns_token_and_cookie(db: PgPool) {
     set_test_env();
 
-    let mut router = setup_router(db).await;
-    let resp = router
+    let resp = setup_router(db)
+        .await
         .oneshot(
             Request::builder()
                 .method(Method::POST)
@@ -76,8 +76,8 @@ async fn login_user_returns_token_and_cookie(db: PgPool) {
 async fn login_user_rejects_wrong_password(db: PgPool) {
     set_test_env();
 
-    let mut router = setup_router(db).await;
-    let resp = router
+    let resp = setup_router(db)
+        .await
         .oneshot(
             Request::builder()
                 .method(Method::POST)
@@ -110,8 +110,8 @@ async fn get_me_returns_user(db: PgPool) {
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000020").unwrap();
     let token = create_token(user_id, "test_secret");
 
-    let mut router = setup_router(db).await;
-    let resp = router
+    let resp = setup_router(db)
+        .await
         .oneshot(
             Request::builder()
                 .method(Method::GET)
@@ -138,8 +138,8 @@ async fn logout_clears_cookie(db: PgPool) {
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000021").unwrap();
     let token = create_token(user_id, "test_secret");
 
-    let mut router = setup_router(db).await;
-    let resp = router
+    let resp = setup_router(db)
+        .await
         .oneshot(
             Request::builder()
                 .method(Method::GET)
