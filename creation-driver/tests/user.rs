@@ -11,6 +11,7 @@ use tower::ServiceExt;
 
 #[sqlx::test(fixtures("user"))]
 async fn regist_new_user(db: PgPool) {
+    set_test_env();
     let mut router = setup_router(db).await;
     let resp = router
         .borrow_mut()
@@ -39,6 +40,7 @@ async fn regist_new_user(db: PgPool) {
 
 #[sqlx::test(fixtures("user"))]
 async fn duplicate_regist_email(db: PgPool) {
+    set_test_env();
     let mut router = setup_router(db).await;
     let resp = router
         .borrow_mut()
@@ -63,4 +65,11 @@ async fn duplicate_regist_email(db: PgPool) {
         .unwrap();
 
     assert_eq!(resp.status(), StatusCode::CONFLICT);
+}
+
+fn set_test_env() {
+    std::env::set_var("JWT_SECRET", "test_secret");
+    std::env::set_var("JWT_EXPIRED_IN", "60m");
+    std::env::set_var("JWT_MAXAGE", "60");
+    std::env::set_var("RUNTIME_MODE", "debug");
 }

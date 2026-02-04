@@ -1,15 +1,17 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS users (
-    id BINARY(16) NOT NULL PRIMARY KEY DEFAULT (UUID_TO_BIN(UUID(), 1)),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     photo VARCHAR(255) NOT NULL DEFAULT 'default.png',
-    password VARCHAR(100) NOT NULL,
+    password VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX users_email_idx ON users (email);
+CREATE INDEX IF NOT EXISTS users_email_idx ON users (email);
 
 INSERT INTO users
   (email, name, password, photo, role)
