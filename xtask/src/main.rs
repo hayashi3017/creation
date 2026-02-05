@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use dotenvy::dotenv;
 use std::process::Command;
 
 mod logger;
@@ -27,6 +28,12 @@ enum Commands {
         #[arg(long, default_value = "../creation-adapter/migrations")]
         source: String,
     },
+    /// Generate SQLx query cache for offline mode (loads .env)
+    SqlxPrepare {
+        /// Generate a workspace-level .sqlx cache
+        #[arg(long, default_value_t = true)]
+        workspace: bool,
+    },
     Docker {},
 }
 
@@ -42,6 +49,9 @@ fn main() -> Result<()> {
         }
         Commands::MigrateInfo { source } => {
             run_migration_info(&source).context("Migration Info failed")?;
+        }
+        Commands::SqlxPrepare { workspace } => {
+            run_sqlx_prepare(workspace).context("SQLx prepare failed")?;
         }
         Commands::Docker {} => {
             run_docker().context("Migration Info failed")?;
@@ -114,6 +124,35 @@ fn run_docker() -> Result<()> {
         logger::success("docker compose up");
     } else {
         anyhow::bail!("docker compose up failed with status: {}", status);
+    }
+
+    Ok(())
+}
+
+// FIXME: fix below error
+// error: Failed to create temporary query cache directory: "/home/hayashi3017/git/creation/.sqlx"
+// Error: SQLx prepare failed
+fn run_sqlx_prepare(workspace: bool) -> Result<()> {
+    dotenv().ok();
+
+    // Avoid "Invalid cross-device link (os error 18)" from incremental cache hardlinks.
+    let mut cmd = Command::new("cargo");
+    cmd.env("CARGO_INCREMENTAL", "0")
+        .env("CARGO_TARGET_DIR", "target_debug")
+        .args(["sqlx", "prepare"]);
+
+    if workspace {
+        cmd.arg("--workspace");
+    }
+
+    let status = cmd
+        .status()
+        .context("Failed to execute cargo sqlx prepare")?;
+
+    if status.success() {
+        logger::success("sqlx prepare");
+    } else {
+        anyhow::bail!("sqlx prepare failed with status: {}", status);
     }
 
     Ok(())

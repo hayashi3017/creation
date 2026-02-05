@@ -28,3 +28,15 @@
   - [ ] add git hook
 - [ ] add mail server or use sendgrid
 - [ ] add git tag and git-cliff for versioning
+
+
+
+## Command
+
+
+```bash
+# at pj root dir
+cargo sqlx prepare --workspace
+```
+
+
