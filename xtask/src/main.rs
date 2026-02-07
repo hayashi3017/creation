@@ -80,6 +80,7 @@ fn main() -> Result<()> {
 }
 
 fn run_migration(source: &str) -> Result<()> {
+    let source_path = resolve_source_path(source);
     let status = Command::new("sqlx")
         .args(["database", "drop", "-y"])
         .status()
@@ -103,7 +104,7 @@ fn run_migration(source: &str) -> Result<()> {
     }
 
     let status = Command::new("sqlx")
-        .args(["migrate", "run", "--source", source])
+        .args(["migrate", "run", "--source", source_path.as_str()])
         .status()
         .context("Failed to execute sqlx migrate")?;
 
@@ -117,8 +118,9 @@ fn run_migration(source: &str) -> Result<()> {
 }
 
 fn run_migration_info(source: &str) -> Result<()> {
+    let source_path = resolve_source_path(source);
     let status = Command::new("sqlx")
-        .args(["migrate", "info", "--source", source])
+        .args(["migrate", "info", "--source", source_path.as_str()])
         .status()
         .context("Failed to execute sqlx info")?;
 
@@ -129,6 +131,17 @@ fn run_migration_info(source: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn resolve_source_path(source: &str) -> String {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let candidate = std::path::Path::new(source);
+    if candidate.is_absolute() {
+        return source.to_string();
+    }
+
+    let resolved = std::path::Path::new(root).join(source);
+    resolved.to_string_lossy().to_string()
 }
 
 fn run_docker() -> Result<()> {

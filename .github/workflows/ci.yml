@@ -33,6 +33,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features postgres
+      - name: Run migrations
+        run: cargo run -p xtask -- migrate
       - name: API tests
         run: cargo test -p creation-driver
       - name: Repository tests
