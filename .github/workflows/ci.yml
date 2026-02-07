@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: creation
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d creation"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:password@localhost:5432/creation
+      JWT_SECRET: ci_secret
+      JWT_EXPIRED_IN: 60m
+      JWT_MAXAGE: 60
+      RUNTIME_MODE: debug
+      SQLX_OFFLINE: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: API tests
+        run: cargo test -p creation-driver
+      - name: Repository tests
+        run: cargo test -p creation-adapter --tests
