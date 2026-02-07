@@ -13,6 +13,7 @@
 - `cargo run -p xtask -- migrate` — drops/creates the database and runs migrations (requires `sqlx` CLI).
 - `cargo run -p xtask -- migrate-info` — shows migration status.
 - `cargo run -p xtask -- docker` — `docker compose up -d` with `.env.docker`.
+- `cargo run -p xtask -- test` — runs tests (use `-p <crate>` / `--test <name>` / `-- --nocapture` to scope).
 
 ## Coding Style & Naming Conventions
 - Rust standard style: `snake_case` modules/functions, `CamelCase` types, `SCREAMING_SNAKE_CASE` constants.

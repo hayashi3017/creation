@@ -34,6 +34,18 @@ enum Commands {
         #[arg(long, default_value_t = true)]
         workspace: bool,
     },
+    /// Run tests (optionally scoped to a package or a single integration test)
+    Test {
+        /// Cargo package name (e.g. creation-driver)
+        #[arg(long, short)]
+        package: Option<String>,
+        /// Integration test name (e.g. auth)
+        #[arg(long)]
+        test: Option<String>,
+        /// Extra args passed after `--` (e.g. -- --nocapture)
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
     Docker {},
 }
 
@@ -52,6 +64,13 @@ fn main() -> Result<()> {
         }
         Commands::SqlxPrepare { workspace } => {
             run_sqlx_prepare(workspace).context("SQLx prepare failed")?;
+        }
+        Commands::Test {
+            package,
+            test,
+            args,
+        } => {
+            run_tests(package.as_deref(), test.as_deref(), &args).context("Test failed")?;
         }
         Commands::Docker {} => {
             run_docker().context("Migration Info failed")?;
@@ -153,6 +172,34 @@ fn run_sqlx_prepare(workspace: bool) -> Result<()> {
         logger::success("sqlx prepare");
     } else {
         anyhow::bail!("sqlx prepare failed with status: {}", status);
+    }
+
+    Ok(())
+}
+
+fn run_tests(package: Option<&str>, test: Option<&str>, args: &[String]) -> Result<()> {
+    let mut cmd = Command::new("cargo");
+    cmd.arg("test");
+
+    if let Some(package) = package {
+        cmd.args(["-p", package]);
+    }
+
+    if let Some(test) = test {
+        cmd.args(["--test", test]);
+    }
+
+    if !args.is_empty() {
+        cmd.arg("--");
+        cmd.args(args);
+    }
+
+    let status = cmd.status().context("Failed to execute cargo test")?;
+
+    if status.success() {
+        logger::success("tests");
+    } else {
+        anyhow::bail!("tests failed with status: {}", status);
     }
 
     Ok(())

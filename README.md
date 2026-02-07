@@ -37,6 +37,11 @@
 ```bash
 # at pj root dir
 cargo sqlx prepare --workspace
-```
 
+# run tests (scoped)
+cargo run -p xtask -- test
+cargo run -p xtask -- test -p creation-driver
+cargo run -p xtask -- test -p creation-driver --test auth
+cargo run -p xtask -- test -p creation-driver --test auth -- --nocapture
+```
 
