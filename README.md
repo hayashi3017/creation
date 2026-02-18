@@ -3,6 +3,12 @@
 
 ## TOC
 
+- [Docs Index](./docs/README.md)
+- [Workspace Directory Structure](./docs/directory-structure.md)
+- [Workspace Architecture](./docs/architecture.md)
+- [API Overview](./docs/api-overview.md)
+- [Data Model](./docs/data-model.md)
+- [Request Flow](./docs/request-flow.md)
 - [How to Develop](./docs/how-to-develop.md)
 - [Environment Variables](./docs/environment-variables.md)
 
@@ -44,4 +50,3 @@ cargo run -p xtask -- test -p creation-driver
 cargo run -p xtask -- test -p creation-driver --test auth
 cargo run -p xtask -- test -p creation-driver --test auth -- --nocapture
 ```
-
