@@ -27,7 +27,7 @@ pub async fn register_user_handler(
     State(data): State<Arc<AppState>>,
     Json(body): Json<RegisterUserSchema>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let query_result = data.driver.user_repository.regist_user(body).await;
+    let query_result = data.driver.regist_user(body).await;
 
     match query_result {
         Ok(()) => {
@@ -81,7 +81,7 @@ pub async fn login_user_handler(
     State(data): State<Arc<AppState>>,
     Json(body): Json<LoginUserSchema>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let query_result = data.driver.user_repository.login_user(body).await;
+    let query_result = data.driver.login_user(body).await;
 
     match query_result {
         Ok(user) => {

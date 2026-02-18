@@ -18,7 +18,7 @@ pub async fn get_diagrams(
     Json(body): Json<GetDiagramsSchema>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     // let query_result = data.driver.user_repository.regist_user(body).await;
-    let query_result = data.driver.diagram_repository.get_diagrams(body).await;
+    let query_result = data.driver.get_diagrams(body).await;
 
     match query_result {
         Ok(ret) => {
@@ -49,7 +49,7 @@ pub async fn create_diagram(
     State(data): State<Arc<AppState>>,
     Json(body): Json<CreateDiagramSchema>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let query_result = data.driver.diagram_repository.create_diagram(body).await;
+    let query_result = data.driver.create_diagram(body).await;
 
     match query_result {
         Ok(_) => Ok(()),

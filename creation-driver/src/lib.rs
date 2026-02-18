@@ -3,6 +3,17 @@ use creation_adapter::{
     model::{diagram::DiagramTable, user::UserTable},
     repository::RepositoryImpl,
 };
+use creation_service::{
+    repository::{diagram::ProvidesDiagramRepository, user::ProvidesUserRepository},
+    service::{
+        diagram::{DiagramService, ProvidesDiagramService},
+        user::{ProvidesUserService, UserService},
+    },
+};
+use creation_usecase::usecase::{
+    diagram::{DiagramUsecase, ProvidesDiagramUsecase},
+    user::{ProvidesUserUsecase, UserUsecase},
+};
 use sqlx::{Pool, Postgres};
 
 // FIXME: pub?
@@ -38,5 +49,86 @@ impl AppModule {
             user_repository: RepositoryImpl::<UserTable>::new_test(pool.clone()).await,
             diagram_repository: RepositoryImpl::<DiagramTable>::new_test(pool.clone()).await,
         }
+    }
+}
+
+impl ProvidesUserRepository for AppModule {
+    type T = RepositoryImpl<UserTable>;
+
+    fn user_repository(&self) -> &Self::T {
+        &self.user_repository
+    }
+}
+
+impl ProvidesDiagramRepository for AppModule {
+    type T = RepositoryImpl<DiagramTable>;
+
+    fn diagram_repository(&self) -> &Self::T {
+        &self.diagram_repository
+    }
+}
+
+impl UserService for AppModule {}
+impl DiagramService for AppModule {}
+
+impl ProvidesUserService for AppModule {
+    type T = Self;
+
+    fn user_service(&self) -> &Self::T {
+        self
+    }
+}
+
+impl ProvidesDiagramService for AppModule {
+    type T = Self;
+
+    fn diagram_service(&self) -> &Self::T {
+        self
+    }
+}
+
+impl UserUsecase for AppModule {}
+impl DiagramUsecase for AppModule {}
+
+impl ProvidesUserUsecase for AppModule {
+    type T = Self;
+
+    fn user_usecase(&self) -> &Self::T {
+        self
+    }
+}
+
+impl ProvidesDiagramUsecase for AppModule {
+    type T = Self;
+
+    fn diagram_usecase(&self) -> &Self::T {
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AppModule;
+    use creation_service::{
+        repository::{diagram::ProvidesDiagramRepository, user::ProvidesUserRepository},
+        service::{diagram::ProvidesDiagramService, user::ProvidesUserService},
+    };
+    use creation_usecase::usecase::{diagram::UsesDiagramUsecase, user::UsesUserUsecase};
+
+    trait UsesMultipleRepositories: ProvidesUserRepository + ProvidesDiagramRepository {}
+    impl<T> UsesMultipleRepositories for T where T: ProvidesUserRepository + ProvidesDiagramRepository {}
+
+    trait UsesMultipleServices: ProvidesUserService + ProvidesDiagramService {}
+    impl<T> UsesMultipleServices for T where T: ProvidesUserService + ProvidesDiagramService {}
+
+    fn assert_module_supports_multi_dependencies<T>()
+    where
+        T: UsesMultipleRepositories + UsesMultipleServices + UsesUserUsecase + UsesDiagramUsecase,
+    {
+    }
+
+    #[test]
+    fn app_module_implements_multi_dependency_traits() {
+        assert_module_supports_multi_dependencies::<AppModule>();
     }
 }
