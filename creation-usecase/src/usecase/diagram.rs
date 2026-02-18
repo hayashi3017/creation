@@ -52,27 +52,15 @@ pub enum DeleteDiagramUsecaseError {
 }
 
 #[async_trait]
-pub trait UsesDiagramUsecase {
+pub trait UsesGetDiagramsUsecase {
     async fn get_diagrams(
         &self,
         body: GetDiagramsSchema,
     ) -> Result<Vec<Diagram>, GetDiagramsUsecaseError>;
-    async fn create_diagram(
-        &self,
-        body: CreateDiagramSchema,
-    ) -> Result<(), CreateDiagramUsecaseError>;
-    async fn update_diagram(
-        &self,
-        body: UpdateDiagramSchema,
-    ) -> Result<(), UpdateDiagramUsecaseError>;
-    async fn delete_diagram(
-        &self,
-        body: DeleteDiagramSchema,
-    ) -> Result<(), DeleteDiagramUsecaseError>;
 }
 
 #[async_trait]
-impl<T: DiagramUsecase> UsesDiagramUsecase for T {
+impl<T: DiagramUsecase> UsesGetDiagramsUsecase for T {
     async fn get_diagrams(
         &self,
         body: GetDiagramsSchema,
@@ -82,6 +70,18 @@ impl<T: DiagramUsecase> UsesDiagramUsecase for T {
             GetDiagramsUsecaseError::GetDiagramsServiceError
         )
     }
+}
+
+#[async_trait]
+pub trait UsesCreateDiagramUsecase {
+    async fn create_diagram(
+        &self,
+        body: CreateDiagramSchema,
+    ) -> Result<(), CreateDiagramUsecaseError>;
+}
+
+#[async_trait]
+impl<T: DiagramUsecase> UsesCreateDiagramUsecase for T {
     async fn create_diagram(
         &self,
         body: CreateDiagramSchema,
@@ -91,6 +91,18 @@ impl<T: DiagramUsecase> UsesDiagramUsecase for T {
             CreateDiagramUsecaseError::CreateDiagramServiceError
         )
     }
+}
+
+#[async_trait]
+pub trait UsesUpdateDiagramUsecase {
+    async fn update_diagram(
+        &self,
+        body: UpdateDiagramSchema,
+    ) -> Result<(), UpdateDiagramUsecaseError>;
+}
+
+#[async_trait]
+impl<T: DiagramUsecase> UsesUpdateDiagramUsecase for T {
     async fn update_diagram(
         &self,
         body: UpdateDiagramSchema,
@@ -100,6 +112,18 @@ impl<T: DiagramUsecase> UsesDiagramUsecase for T {
             UpdateDiagramUsecaseError::UpdateDiagramServiceError
         )
     }
+}
+
+#[async_trait]
+pub trait UsesDeleteDiagramUsecase {
+    async fn delete_diagram(
+        &self,
+        body: DeleteDiagramSchema,
+    ) -> Result<(), DeleteDiagramUsecaseError>;
+}
+
+#[async_trait]
+impl<T: DiagramUsecase> UsesDeleteDiagramUsecase for T {
     async fn delete_diagram(
         &self,
         body: DeleteDiagramSchema,
@@ -109,6 +133,50 @@ impl<T: DiagramUsecase> UsesDiagramUsecase for T {
             DeleteDiagramUsecaseError::DeleteDiagramServiceError
         )
     }
+}
+
+#[async_trait]
+pub trait UsesDiagramUsecase:
+    UsesGetDiagramsUsecase
+    + UsesCreateDiagramUsecase
+    + UsesUpdateDiagramUsecase
+    + UsesDeleteDiagramUsecase
+{
+    async fn get_diagrams(
+        &self,
+        body: GetDiagramsSchema,
+    ) -> Result<Vec<Diagram>, GetDiagramsUsecaseError> {
+        UsesGetDiagramsUsecase::get_diagrams(self, body).await
+    }
+
+    async fn create_diagram(
+        &self,
+        body: CreateDiagramSchema,
+    ) -> Result<(), CreateDiagramUsecaseError> {
+        UsesCreateDiagramUsecase::create_diagram(self, body).await
+    }
+
+    async fn update_diagram(
+        &self,
+        body: UpdateDiagramSchema,
+    ) -> Result<(), UpdateDiagramUsecaseError> {
+        UsesUpdateDiagramUsecase::update_diagram(self, body).await
+    }
+
+    async fn delete_diagram(
+        &self,
+        body: DeleteDiagramSchema,
+    ) -> Result<(), DeleteDiagramUsecaseError> {
+        UsesDeleteDiagramUsecase::delete_diagram(self, body).await
+    }
+}
+
+impl<T> UsesDiagramUsecase for T where
+    T: UsesGetDiagramsUsecase
+        + UsesCreateDiagramUsecase
+        + UsesUpdateDiagramUsecase
+        + UsesDeleteDiagramUsecase
+{
 }
 
 pub trait ProvidesDiagramUsecase: Send + Sync + 'static {

@@ -33,8 +33,22 @@ pub enum UserLoginUsecaseError {
 }
 
 #[async_trait]
-pub trait UsesUserUsecase {
+pub trait UsesRegistUserUsecase {
     async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserRegistUsecaseError>;
+}
+
+#[async_trait]
+impl<T: UserUsecase> UsesRegistUserUsecase for T {
+    async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserRegistUsecaseError> {
+        map_usecase_result_unit!(
+            self.user_service().regist_user(body),
+            UserRegistUsecaseError::UserRegistServiceError
+        )
+    }
+}
+
+#[async_trait]
+pub trait UsesLoginUserUsecase {
     async fn login_user(
         &self,
         body: LoginUserSchema,
@@ -42,13 +56,7 @@ pub trait UsesUserUsecase {
 }
 
 #[async_trait]
-impl<T: UserUsecase> UsesUserUsecase for T {
-    async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserRegistUsecaseError> {
-        map_usecase_result_unit!(
-            self.user_service().regist_user(body),
-            UserRegistUsecaseError::UserRegistServiceError
-        )
-    }
+impl<T: UserUsecase> UsesLoginUserUsecase for T {
     async fn login_user(
         &self,
         body: LoginUserSchema,
@@ -59,6 +67,22 @@ impl<T: UserUsecase> UsesUserUsecase for T {
         )
     }
 }
+
+#[async_trait]
+pub trait UsesUserUsecase: UsesRegistUserUsecase + UsesLoginUserUsecase {
+    async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserRegistUsecaseError> {
+        UsesRegistUserUsecase::regist_user(self, body).await
+    }
+
+    async fn login_user(
+        &self,
+        body: LoginUserSchema,
+    ) -> Result<FilteredUser, UserLoginUsecaseError> {
+        UsesLoginUserUsecase::login_user(self, body).await
+    }
+}
+
+impl<T> UsesUserUsecase for T where T: UsesRegistUserUsecase + UsesLoginUserUsecase {}
 
 pub trait ProvidesUserUsecase: Send + Sync + 'static {
     type T: UsesUserUsecase + Sized;
