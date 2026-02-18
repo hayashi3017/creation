@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
+use super::{map_service_result, map_service_result_unit};
+
 use crate::{
     model::user::{FilteredUser, LoginUserSchema, RegisterUserSchema},
     repository::user::{
@@ -53,19 +55,19 @@ impl<T: UserService> UsesUserService for T {
             return Err(UserRegistServiceError::DubpicateUser);
         }
 
-        match self.user_repository().regist_user(body).await {
-            Err(err) => Err(UserRegistServiceError::UserResistRepositoryError(err)),
-            Ok(()) => Ok(()),
-        }
+        map_service_result_unit!(
+            self.user_repository().regist_user(body),
+            UserRegistServiceError::UserResistRepositoryError
+        )
     }
     async fn login_user(
         &self,
         body: LoginUserSchema,
     ) -> Result<FilteredUser, UserLoginServiceError> {
-        match self.user_repository().login_user(body).await {
-            Err(err) => Err(UserLoginServiceError::UserLoginRepositoryError(err)),
-            Ok(val) => Ok(val),
-        }
+        map_service_result!(
+            self.user_repository().login_user(body),
+            UserLoginServiceError::UserLoginRepositoryError
+        )
     }
 }
 

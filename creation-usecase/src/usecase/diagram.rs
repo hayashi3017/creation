@@ -10,6 +10,8 @@ use creation_service::{
 };
 use thiserror::Error;
 
+use super::{map_usecase_result, map_usecase_result_unit};
+
 #[async_trait]
 pub trait DiagramUsecase: ProvidesDiagramService {}
 
@@ -75,37 +77,37 @@ impl<T: DiagramUsecase> UsesDiagramUsecase for T {
         &self,
         body: GetDiagramsSchema,
     ) -> Result<Vec<Diagram>, GetDiagramsUsecaseError> {
-        match self.diagram_service().get_diagrams(body).await {
-            Err(err) => Err(GetDiagramsUsecaseError::GetDiagramsServiceError(err)),
-            Ok(diagrams) => Ok(diagrams),
-        }
+        map_usecase_result!(
+            self.diagram_service().get_diagrams(body),
+            GetDiagramsUsecaseError::GetDiagramsServiceError
+        )
     }
     async fn create_diagram(
         &self,
         body: CreateDiagramSchema,
     ) -> Result<(), CreateDiagramUsecaseError> {
-        match self.diagram_service().create_diagram(body).await {
-            Err(err) => Err(CreateDiagramUsecaseError::CreateDiagramServiceError(err)),
-            Ok(_) => Ok(()),
-        }
+        map_usecase_result_unit!(
+            self.diagram_service().create_diagram(body),
+            CreateDiagramUsecaseError::CreateDiagramServiceError
+        )
     }
     async fn update_diagram(
         &self,
         body: UpdateDiagramSchema,
     ) -> Result<(), UpdateDiagramUsecaseError> {
-        match self.diagram_service().update_diagram(body).await {
-            Err(err) => Err(UpdateDiagramUsecaseError::UpdateDiagramServiceError(err)),
-            Ok(_) => Ok(()),
-        }
+        map_usecase_result_unit!(
+            self.diagram_service().update_diagram(body),
+            UpdateDiagramUsecaseError::UpdateDiagramServiceError
+        )
     }
     async fn delete_diagram(
         &self,
         body: DeleteDiagramSchema,
     ) -> Result<(), DeleteDiagramUsecaseError> {
-        match self.diagram_service().delete_diagram(body).await {
-            Err(err) => Err(DeleteDiagramUsecaseError::DeleteDiagramServiceError(err)),
-            Ok(_) => Ok(()),
-        }
+        map_usecase_result_unit!(
+            self.diagram_service().delete_diagram(body),
+            DeleteDiagramUsecaseError::DeleteDiagramServiceError
+        )
     }
 }
 

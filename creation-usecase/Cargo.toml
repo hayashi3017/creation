@@ -9,3 +9,6 @@ edition = "2021"
 creation-service = { path = "../creation-service" }
 async-trait.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+futures = "0.3"

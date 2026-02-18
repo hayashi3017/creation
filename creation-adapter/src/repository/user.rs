@@ -13,7 +13,7 @@ use rand_core::OsRng;
 
 use crate::model::user::UserTable;
 
-use super::RepositoryImpl;
+use super::{impl_minimal_cake_bindings, RepositoryImpl};
 
 fn filter_user_record(user: &UserTable) -> FilteredUser {
     FilteredUser {
@@ -115,25 +115,15 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
     }
 }
 
-impl UserRepository for RepositoryImpl<UserTable> {}
-impl UserService for RepositoryImpl<UserTable> {}
-impl UserUsecase for RepositoryImpl<UserTable> {}
-
-impl ProvidesUserRepository for RepositoryImpl<UserTable> {
-    type T = Self;
-    fn user_repository(&self) -> &Self::T {
-        self
-    }
-}
-impl ProvidesUserService for RepositoryImpl<UserTable> {
-    type T = Self;
-    fn user_service(&self) -> &Self::T {
-        self
-    }
-}
-impl ProvidesUserUsecase for RepositoryImpl<UserTable> {
-    type T = Self;
-    fn user_usecase(&self) -> &Self::T {
-        self
-    }
-}
+impl_minimal_cake_bindings!(
+    model = UserTable,
+    repository_trait = UserRepository,
+    provides_repository_trait = ProvidesUserRepository,
+    repository_getter = user_repository,
+    service_trait = UserService,
+    provides_service_trait = ProvidesUserService,
+    service_getter = user_service,
+    usecase_trait = UserUsecase,
+    provides_usecase_trait = ProvidesUserUsecase,
+    usecase_getter = user_usecase,
+);

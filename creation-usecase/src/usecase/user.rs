@@ -7,6 +7,8 @@ use creation_service::{
 };
 use thiserror::Error;
 
+use super::{map_usecase_result, map_usecase_result_unit};
+
 #[async_trait]
 pub trait UserUsecase: ProvidesUserService {}
 
@@ -42,19 +44,19 @@ pub trait UsesUserUsecase {
 #[async_trait]
 impl<T: UserUsecase> UsesUserUsecase for T {
     async fn regist_user(&self, body: RegisterUserSchema) -> Result<(), UserRegistUsecaseError> {
-        match self.user_service().regist_user(body).await {
-            Err(err) => Err(UserRegistUsecaseError::UserRegistServiceError(err)),
-            Ok(()) => Ok(()),
-        }
+        map_usecase_result_unit!(
+            self.user_service().regist_user(body),
+            UserRegistUsecaseError::UserRegistServiceError
+        )
     }
     async fn login_user(
         &self,
         body: LoginUserSchema,
     ) -> Result<FilteredUser, UserLoginUsecaseError> {
-        match self.user_service().login_user(body).await {
-            Err(err) => Err(UserLoginUsecaseError::UserLoginServiceError(err)),
-            Ok(val) => Ok(val),
-        }
+        map_usecase_result!(
+            self.user_service().login_user(body),
+            UserLoginUsecaseError::UserLoginServiceError
+        )
     }
 }
 

@@ -15,6 +15,8 @@ use creation_usecase::usecase::diagram::{DiagramUsecase, ProvidesDiagramUsecase}
 
 use crate::{model::diagram::DiagramTable, repository::RepositoryImpl};
 
+use super::impl_minimal_cake_bindings;
+
 #[async_trait]
 impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
     async fn get_diagrams(
@@ -93,25 +95,15 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
     }
 }
 
-impl DiagramRepository for RepositoryImpl<DiagramTable> {}
-impl DiagramService for RepositoryImpl<DiagramTable> {}
-impl DiagramUsecase for RepositoryImpl<DiagramTable> {}
-
-impl ProvidesDiagramRepository for RepositoryImpl<DiagramTable> {
-    type T = Self;
-    fn diagram_repository(&self) -> &Self::T {
-        self
-    }
-}
-impl ProvidesDiagramService for RepositoryImpl<DiagramTable> {
-    type T = Self;
-    fn diagram_service(&self) -> &Self::T {
-        self
-    }
-}
-impl ProvidesDiagramUsecase for RepositoryImpl<DiagramTable> {
-    type T = Self;
-    fn diagram_usecase(&self) -> &Self::T {
-        self
-    }
-}
+impl_minimal_cake_bindings!(
+    model = DiagramTable,
+    repository_trait = DiagramRepository,
+    provides_repository_trait = ProvidesDiagramRepository,
+    repository_getter = diagram_repository,
+    service_trait = DiagramService,
+    provides_service_trait = ProvidesDiagramService,
+    service_getter = diagram_service,
+    usecase_trait = DiagramUsecase,
+    provides_usecase_trait = ProvidesDiagramUsecase,
+    usecase_getter = diagram_usecase,
+);

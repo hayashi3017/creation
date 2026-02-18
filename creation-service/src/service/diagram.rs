@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
+use super::{map_service_result, map_service_result_unit};
+
 use crate::{
     model::diagram::{
         CreateDiagramSchema, DeleteDiagramSchema, Diagram, GetDiagramsSchema, UpdateDiagramSchema,
@@ -84,10 +86,10 @@ impl<T: DiagramService> UsesDiagramService for T {
         &self,
         body: GetDiagramsSchema,
     ) -> Result<Vec<Diagram>, GetDiagramsServiceError> {
-        match self.diagram_repository().get_diagrams(body).await {
-            Err(err) => Err(GetDiagramsServiceError::GetDiagramsRepositoryError(err)),
-            Ok(diagrams) => Ok(diagrams),
-        }
+        map_service_result!(
+            self.diagram_repository().get_diagrams(body),
+            GetDiagramsServiceError::GetDiagramsRepositoryError
+        )
     }
 
     async fn create_diagram(
@@ -98,30 +100,30 @@ impl<T: DiagramService> UsesDiagramService for T {
             return Err(CreateDiagramServiceError::InvalidParams);
         }
 
-        match self.diagram_repository().create_diagram(body).await {
-            Err(err) => Err(CreateDiagramServiceError::CreateDiagramRepositoryError(err)),
-            Ok(_) => Ok(()),
-        }
+        map_service_result_unit!(
+            self.diagram_repository().create_diagram(body),
+            CreateDiagramServiceError::CreateDiagramRepositoryError
+        )
     }
 
     async fn update_diagram(
         &self,
         body: UpdateDiagramSchema,
     ) -> Result<(), UpdateDiagramServiceError> {
-        match self.diagram_repository().update_diagram(body).await {
-            Err(err) => Err(UpdateDiagramServiceError::UpdateDiagramRepositoryError(err)),
-            Ok(_) => Ok(()),
-        }
+        map_service_result_unit!(
+            self.diagram_repository().update_diagram(body),
+            UpdateDiagramServiceError::UpdateDiagramRepositoryError
+        )
     }
 
     async fn delete_diagram(
         &self,
         body: DeleteDiagramSchema,
     ) -> Result<(), DeleteDiagramServiceError> {
-        match self.diagram_repository().delete_diagram(body).await {
-            Err(err) => Err(DeleteDiagramServiceError::DeleteDiagramRepositoryError(err)),
-            Ok(_) => Ok(()),
-        }
+        map_service_result_unit!(
+            self.diagram_repository().delete_diagram(body),
+            DeleteDiagramServiceError::DeleteDiagramRepositoryError
+        )
     }
 }
 
