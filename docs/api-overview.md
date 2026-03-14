@@ -29,6 +29,10 @@ Protected endpoints:
 - `POST /api/diagrams/create`
 - `POST /api/diagrams/update`
 - `POST /api/diagrams/delete`
+- `GET /api/entities`
+- `POST /api/entities/create`
+- `POST /api/entities/update`
+- `POST /api/entities/delete`
 
 ## Endpoints
 
@@ -43,6 +47,10 @@ Protected endpoints:
 | POST | `/api/diagrams/create` | Yes | create diagram |
 | POST | `/api/diagrams/update` | Yes | update diagram |
 | POST | `/api/diagrams/delete` | Yes | soft delete diagram |
+| GET | `/api/entities` | Yes | list entities in a diagram |
+| POST | `/api/entities/create` | Yes | create entity |
+| POST | `/api/entities/update` | Yes | update entity |
+| POST | `/api/entities/delete` | Yes | soft delete entity |
 
 ## Request and response details
 
@@ -237,6 +245,97 @@ or
   - DB failures
 
 ### POST `/api/diagrams/delete`
+
+- Auth required
+- Request JSON:
+
+```json
+{
+  "id": 1
+}
+```
+
+- `200 OK`:
+  - current handler returns empty body on success
+- `400 BAD_REQUEST`:
+  - invalid params (`id` is `0`)
+  - DB failures
+
+### GET `/api/entities`
+
+- Auth required
+- Current implementation expects JSON body because handler uses `Json<GetEntitiesSchema>`.
+- Request JSON:
+
+```json
+{
+  "diagram_id": 1
+}
+```
+
+- `200 OK`:
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 1,
+      "diagram_id": 1,
+      "kind": "person",
+      "name": "sample person",
+      "description": "optional"
+    }
+  ]
+}
+```
+
+- `400 BAD_REQUEST`:
+  - invalid params (`diagram_id` is `0`)
+- `500 INTERNAL_SERVER_ERROR`: DB failures
+
+### POST `/api/entities/create`
+
+- Auth required
+- Request JSON:
+
+```json
+{
+  "diagram_id": 1,
+  "kind": "person",
+  "name": "Alice",
+  "description": "created from API"
+}
+```
+
+- `200 OK`:
+  - current handler returns empty body on success
+- `400 BAD_REQUEST`:
+  - invalid params (`diagram_id` is `0` or `name` empty)
+  - DB failures
+
+### POST `/api/entities/update`
+
+- Auth required
+- Request JSON:
+
+```json
+{
+  "id": 1,
+  "diagram_id": 1,
+  "kind": "person",
+  "name": "Alice Updated",
+  "description": "updated from API"
+}
+```
+
+- `200 OK`:
+  - current handler returns empty body on success
+- `400 BAD_REQUEST`:
+  - invalid params (`id` or `diagram_id` is `0`, `name` empty)
+  - DB failures
+
+### POST `/api/entities/delete`
 
 - Auth required
 - Request JSON:

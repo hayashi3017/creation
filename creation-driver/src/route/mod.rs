@@ -9,6 +9,7 @@ use axum::{
 use crate::{
     handler::{
         diagram::{create_diagram, delete_diagram, get_diagrams, update_diagram},
+        entity::{create_entity, delete_entity, get_entities, update_entity},
         health_check::health_checker_handler,
         user::{get_me_handler, login_user_handler, logout_handler, register_user_handler},
     },
@@ -48,6 +49,25 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route(
             "/api/diagrams/delete",
             post(delete_diagram)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/entities",
+            get(get_entities).route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/entities/create",
+            post(create_entity)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/entities/update",
+            post(update_entity)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/entities/delete",
+            post(delete_entity)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .with_state(app_state)

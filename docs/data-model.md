@@ -171,10 +171,10 @@ Actively used by repository code:
 
 - `users`
 - `diagram`
+- `entity`
 
 Defined in migration but not yet wired in current repositories/handlers:
 
-- `entity`
 - `person`
 - `relationship`
 - `tree_path`

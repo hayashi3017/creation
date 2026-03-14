@@ -1,17 +1,22 @@
 use config::Config;
 use creation_adapter::{
-    model::{diagram::DiagramTable, user::UserTable},
+    model::{diagram::DiagramTable, entity::EntityTable, user::UserTable},
     repository::RepositoryImpl,
 };
 use creation_service::{
-    repository::{diagram::ProvidesDiagramRepository, user::ProvidesUserRepository},
+    repository::{
+        diagram::ProvidesDiagramRepository, entity::ProvidesEntityRepository,
+        user::ProvidesUserRepository,
+    },
     service::{
         diagram::{DiagramService, ProvidesDiagramService},
+        entity::{EntityService, ProvidesEntityService},
         user::{ProvidesUserService, UserService},
     },
 };
 use creation_usecase::usecase::{
     diagram::{DiagramUsecase, ProvidesDiagramUsecase},
+    entity::{EntityUsecase, ProvidesEntityUsecase},
     user::{ProvidesUserUsecase, UserUsecase},
 };
 use sqlx::{Pool, Postgres};
@@ -34,6 +39,7 @@ pub struct AppState {
 pub struct AppModule {
     pub user_repository: RepositoryImpl<UserTable>,
     pub diagram_repository: RepositoryImpl<DiagramTable>,
+    pub entity_repository: RepositoryImpl<EntityTable>,
 }
 
 impl AppModule {
@@ -41,6 +47,7 @@ impl AppModule {
         AppModule {
             user_repository: RepositoryImpl::<UserTable>::new().await,
             diagram_repository: RepositoryImpl::<DiagramTable>::new().await,
+            entity_repository: RepositoryImpl::<EntityTable>::new().await,
         }
     }
     pub async fn new_test(pool: Pool<Postgres>) -> Self {
@@ -48,6 +55,7 @@ impl AppModule {
         AppModule {
             user_repository: RepositoryImpl::<UserTable>::new_test(pool.clone()).await,
             diagram_repository: RepositoryImpl::<DiagramTable>::new_test(pool.clone()).await,
+            entity_repository: RepositoryImpl::<EntityTable>::new_test(pool.clone()).await,
         }
     }
 }
@@ -68,8 +76,17 @@ impl ProvidesDiagramRepository for AppModule {
     }
 }
 
+impl ProvidesEntityRepository for AppModule {
+    type T = RepositoryImpl<EntityTable>;
+
+    fn entity_repository(&self) -> &Self::T {
+        &self.entity_repository
+    }
+}
+
 impl UserService for AppModule {}
 impl DiagramService for AppModule {}
+impl EntityService for AppModule {}
 
 impl ProvidesUserService for AppModule {
     type T = Self;
@@ -87,8 +104,17 @@ impl ProvidesDiagramService for AppModule {
     }
 }
 
+impl ProvidesEntityService for AppModule {
+    type T = Self;
+
+    fn entity_service(&self) -> &Self::T {
+        self
+    }
+}
+
 impl UserUsecase for AppModule {}
 impl DiagramUsecase for AppModule {}
+impl EntityUsecase for AppModule {}
 
 impl ProvidesUserUsecase for AppModule {
     type T = Self;
@@ -106,24 +132,56 @@ impl ProvidesDiagramUsecase for AppModule {
     }
 }
 
+impl ProvidesEntityUsecase for AppModule {
+    type T = Self;
+
+    fn entity_usecase(&self) -> &Self::T {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::AppModule;
     use creation_service::{
-        repository::{diagram::ProvidesDiagramRepository, user::ProvidesUserRepository},
-        service::{diagram::ProvidesDiagramService, user::ProvidesUserService},
+        repository::{
+            diagram::ProvidesDiagramRepository, entity::ProvidesEntityRepository,
+            user::ProvidesUserRepository,
+        },
+        service::{
+            diagram::ProvidesDiagramService, entity::ProvidesEntityService,
+            user::ProvidesUserService,
+        },
     };
-    use creation_usecase::usecase::{diagram::UsesDiagramUsecase, user::UsesUserUsecase};
+    use creation_usecase::usecase::{
+        diagram::UsesDiagramUsecase, entity::UsesEntityUsecase, user::UsesUserUsecase,
+    };
 
-    trait UsesMultipleRepositories: ProvidesUserRepository + ProvidesDiagramRepository {}
-    impl<T> UsesMultipleRepositories for T where T: ProvidesUserRepository + ProvidesDiagramRepository {}
+    trait UsesMultipleRepositories:
+        ProvidesUserRepository + ProvidesDiagramRepository + ProvidesEntityRepository
+    {
+    }
+    impl<T> UsesMultipleRepositories for T where
+        T: ProvidesUserRepository + ProvidesDiagramRepository + ProvidesEntityRepository
+    {
+    }
 
-    trait UsesMultipleServices: ProvidesUserService + ProvidesDiagramService {}
-    impl<T> UsesMultipleServices for T where T: ProvidesUserService + ProvidesDiagramService {}
+    trait UsesMultipleServices:
+        ProvidesUserService + ProvidesDiagramService + ProvidesEntityService
+    {
+    }
+    impl<T> UsesMultipleServices for T where
+        T: ProvidesUserService + ProvidesDiagramService + ProvidesEntityService
+    {
+    }
 
     fn assert_module_supports_multi_dependencies<T>()
     where
-        T: UsesMultipleRepositories + UsesMultipleServices + UsesUserUsecase + UsesDiagramUsecase,
+        T: UsesMultipleRepositories
+            + UsesMultipleServices
+            + UsesUserUsecase
+            + UsesDiagramUsecase
+            + UsesEntityUsecase,
     {
     }
 

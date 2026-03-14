@@ -154,6 +154,61 @@ Handler: `creation-driver/src/handler/diagram.rs::delete_diagram`
    - `200` on success (empty body in current handler)
    - `400` invalid params / DB error mapping
 
+### `GET /api/entities` (protected)
+
+Handler: `creation-driver/src/handler/entity.rs::get_entities`
+
+1. Auth middleware validates token.
+2. Parse JSON body into `GetEntitiesSchema`.
+3. Service-level validation checks `diagram_id != 0`.
+4. Repository queries `entity` where `deleted_at IS NULL` and `diagram_id = ?`.
+5. Rows are mapped to `Vec<Entity>`.
+6. Return:
+   - `200` with list
+   - `400` invalid params
+   - `500` DB failure
+
+### `POST /api/entities/create` (protected)
+
+Handler: `creation-driver/src/handler/entity.rs::create_entity`
+
+1. Auth middleware validates token.
+2. Parse JSON into `CreateEntitySchema`.
+3. Service-level validation checks:
+   - `diagram_id != 0`
+   - `name` not empty
+4. Repository inserts into `entity`.
+5. Return:
+   - `200` on success (empty body in current handler)
+   - `400` invalid params / DB error mapping
+
+### `POST /api/entities/update` (protected)
+
+Handler: `creation-driver/src/handler/entity.rs::update_entity`
+
+1. Auth middleware validates token.
+2. Parse JSON into `UpdateEntitySchema`.
+3. Service-level validation checks:
+   - `id != 0`
+   - `diagram_id != 0`
+   - `name` not empty
+4. Repository updates the active `entity` row and refreshes `updated_at`.
+5. Return:
+   - `200` on success (empty body in current handler)
+   - `400` invalid params / DB error mapping
+
+### `POST /api/entities/delete` (protected)
+
+Handler: `creation-driver/src/handler/entity.rs::delete_entity`
+
+1. Auth middleware validates token.
+2. Parse JSON into `DeleteEntitySchema`.
+3. Service-level validation checks `id != 0`.
+4. Repository soft-deletes the active `entity` row by setting `deleted_at`.
+5. Return:
+   - `200` on success (empty body in current handler)
+   - `400` invalid params / DB error mapping
+
 ## Sequence snapshot (login -> me)
 
 ```text
@@ -171,4 +226,8 @@ Client -> GET /api/users/me (with token)
 - `POST /api/diagrams/create` returns `200` with empty body in success path.
 - `POST /api/diagrams/update` returns `200` with empty body in success path.
 - `POST /api/diagrams/delete` returns `200` with empty body in success path.
+- `GET /api/entities` expects a JSON body because the handler uses `Json<GetEntitiesSchema>`.
+- `POST /api/entities/create` returns `200` with empty body in success path.
+- `POST /api/entities/update` returns `200` with empty body in success path.
+- `POST /api/entities/delete` returns `200` with empty body in success path.
 - Error mapping status codes are not fully uniform across handlers yet.

@@ -1,4 +1,5 @@
 pub mod diagram;
+pub mod entity;
 pub mod user;
 
 macro_rules! map_service_result {

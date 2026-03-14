@@ -5,6 +5,7 @@ use sqlx::{Pool, Postgres};
 use crate::persistence::postgres::Db;
 
 pub mod diagram;
+pub mod entity;
 pub mod user;
 
 macro_rules! impl_minimal_cake_bindings {
