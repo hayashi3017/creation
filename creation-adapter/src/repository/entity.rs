@@ -85,7 +85,7 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         &self,
         body: UpdateEntitySchema,
     ) -> Result<(), UpdateEntityRepositoryError> {
-        let _ = sqlx::query(
+        let result = sqlx::query(
             r#"
                 UPDATE entity
                 SET
@@ -108,6 +108,10 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         .await
         .map_err(UpdateEntityRepositoryError::Db)?;
 
+        if result.rows_affected() == 0 {
+            return Err(UpdateEntityRepositoryError::NotFound);
+        }
+
         Ok(())
     }
 
@@ -115,7 +119,7 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         &self,
         body: DeleteEntitySchema,
     ) -> Result<(), DeleteEntityRepositoryError> {
-        let _ = sqlx::query(
+        let result = sqlx::query(
             r#"
                 UPDATE entity
                 SET
@@ -130,6 +134,10 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         .execute(&self.pool.0)
         .await
         .map_err(DeleteEntityRepositoryError::Db)?;
+
+        if result.rows_affected() == 0 {
+            return Err(DeleteEntityRepositoryError::NotFound);
+        }
 
         Ok(())
     }

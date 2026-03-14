@@ -233,6 +233,42 @@ async fn update_entity_rejects_empty_name(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("entity"))]
+async fn update_entity_returns_not_found_for_missing_id(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri("/api/entities/update/999")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "diagram_id": 1,
+                        "kind": "person",
+                        "name": "Missing Entity",
+                        "description": "missing"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["status"], "fail");
+    assert_eq!(json["message"], "Not Found");
+}
+
+#[sqlx::test(fixtures("entity"))]
 async fn delete_entity_returns_ok(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -264,6 +300,49 @@ async fn delete_entity_returns_ok(db: PgPool) {
     .unwrap();
 
     assert!(deleted_at.is_some());
+}
+
+#[sqlx::test(fixtures("entity"))]
+async fn delete_entity_returns_not_found_when_already_deleted(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+
+    let first = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri("/api/entities/2")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(first.status(), StatusCode::OK);
+
+    let second = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri("/api/entities/2")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(second.status(), StatusCode::NOT_FOUND);
+
+    let body = second.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["status"], "fail");
+    assert_eq!(json["message"], "Not Found");
 }
 
 #[sqlx::test(fixtures("entity"))]

@@ -132,6 +132,13 @@ async fn update_diagram_inner(
     match query_result {
         Ok(_) => Ok(()),
         Err(err) => match err {
+            UpdateDiagramUsecaseError::NotFound => Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({
+                    "status": "fail",
+                    "message": "Not Found"
+                })),
+            )),
             UpdateDiagramUsecaseError::UpdateDiagramServiceError(err) => match err {
                 UpdateDiagramServiceError::InvalidParams => Err((
                     StatusCode::BAD_REQUEST,
@@ -140,12 +147,26 @@ async fn update_diagram_inner(
                         "message": "Invalid Parameter"
                     })),
                 )),
+                UpdateDiagramServiceError::NotFound => Err((
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "status": "fail",
+                        "message": "Not Found"
+                    })),
+                )),
                 UpdateDiagramServiceError::UpdateDiagramRepositoryError(err) => match err {
                     UpdateDiagramRepositoryError::Db(err) => Err((
-                        StatusCode::BAD_REQUEST,
+                        StatusCode::INTERNAL_SERVER_ERROR,
                         Json(serde_json::json!({
                             "status": "fail",
                             "message": format!("Database error: {}", err)
+                        })),
+                    )),
+                    UpdateDiagramRepositoryError::NotFound => Err((
+                        StatusCode::NOT_FOUND,
+                        Json(serde_json::json!({
+                            "status": "fail",
+                            "message": "Not Found"
                         })),
                     )),
                 },
@@ -170,6 +191,13 @@ async fn delete_diagram_inner(
     match query_result {
         Ok(_) => Ok(()),
         Err(err) => match err {
+            DeleteDiagramUsecaseError::NotFound => Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({
+                    "status": "fail",
+                    "message": "Not Found"
+                })),
+            )),
             DeleteDiagramUsecaseError::DeleteDiagramServiceError(err) => match err {
                 DeleteDiagramServiceError::InvalidParams => Err((
                     StatusCode::BAD_REQUEST,
@@ -178,12 +206,26 @@ async fn delete_diagram_inner(
                         "message": "Invalid Parameter"
                     })),
                 )),
+                DeleteDiagramServiceError::NotFound => Err((
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "status": "fail",
+                        "message": "Not Found"
+                    })),
+                )),
                 DeleteDiagramServiceError::DeleteDiagramRepositoryError(err) => match err {
                     DeleteDiagramRepositoryError::Db(err) => Err((
-                        StatusCode::BAD_REQUEST,
+                        StatusCode::INTERNAL_SERVER_ERROR,
                         Json(serde_json::json!({
                             "status": "fail",
                             "message": format!("Database error: {}", err)
+                        })),
+                    )),
+                    DeleteDiagramRepositoryError::NotFound => Err((
+                        StatusCode::NOT_FOUND,
+                        Json(serde_json::json!({
+                            "status": "fail",
+                            "message": "Not Found"
                         })),
                     )),
                 },

@@ -140,7 +140,9 @@ Handler: `creation-driver/src/handler/diagram.rs::update_diagram_by_id`
 4. Repository updates the active `diagram` row and refreshes `updated_at`.
 5. Return:
    - `200` on success (empty body in current handler)
-   - `400` invalid params / DB error mapping
+   - `400` invalid params
+   - `404` target missing or already soft-deleted
+   - `500` DB failure
 
 ### `DELETE /api/diagrams/delete/{id}` (protected)
 
@@ -152,7 +154,9 @@ Handler: `creation-driver/src/handler/diagram.rs::delete_diagram_by_id`
 4. Repository soft-deletes the active `diagram` row by setting `deleted_at`.
 5. Return:
    - `200` on success (empty body in current handler)
-   - `400` invalid params / DB error mapping
+   - `400` invalid params
+   - `404` target missing or already soft-deleted
+   - `500` DB failure
 
 ### `GET /api/entities` (protected)
 
@@ -195,7 +199,9 @@ Handler: `creation-driver/src/handler/entity.rs::update_entity_by_id`
 4. Repository updates the active `entity` row and refreshes `updated_at`.
 5. Return:
    - `200` on success (empty body in current handler)
-   - `400` invalid params / DB error mapping
+   - `400` invalid params
+   - `404` target missing or already soft-deleted
+   - `500` DB failure
 
 ### `DELETE /api/entities/{id}` (protected)
 
@@ -207,7 +213,9 @@ Handler: `creation-driver/src/handler/entity.rs::delete_entity_by_id`
 4. Repository soft-deletes the active `entity` row by setting `deleted_at`.
 5. Return:
    - `200` on success (empty body in current handler)
-   - `400` invalid params / DB error mapping
+   - `400` invalid params
+   - `404` target missing or already soft-deleted
+   - `500` DB failure
 
 ## Sequence snapshot (login -> me)
 
@@ -229,4 +237,4 @@ Client -> GET /api/users/me (with token)
 - `POST /api/entities/create` returns `200` with empty body in success path.
 - `PATCH /api/entities/update/{id}` returns `200` with empty body in success path.
 - `DELETE /api/entities/{id}` returns `200` with empty body in success path.
-- Error mapping status codes are not fully uniform across handlers yet.
+- Diagram / Entity の update/delete は `404` / `500` を返し分けるが、create や User API を含めた全体の status mapping はまだ完全には統一されていない。

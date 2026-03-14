@@ -4,7 +4,9 @@ use creation_service::{
         CreateDiagramSchema, DeleteDiagramSchema, DiagramKind, GetDiagramsSchema,
         UpdateDiagramSchema,
     },
-    repository::diagram::UsesDiagramRepository,
+    repository::diagram::{
+        DeleteDiagramRepositoryError, UpdateDiagramRepositoryError, UsesDiagramRepository,
+    },
 };
 use sqlx::{PgPool, Row};
 
@@ -109,4 +111,31 @@ async fn delete_diagram_marks_row_deleted(db: PgPool) {
 
     assert_eq!(names.len(), 1);
     assert!(names.contains(&"Active Diagram 1".to_string()));
+}
+
+#[sqlx::test(fixtures("diagram_repository"))]
+async fn update_diagram_returns_not_found_for_deleted_row(db: PgPool) {
+    let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
+    let body = UpdateDiagramSchema {
+        id: 3,
+        name: "Missing Diagram".to_string(),
+        kind: DiagramKind::Correlation,
+        description: "should fail".to_string(),
+    };
+
+    let err = repo.update_diagram(body).await.unwrap_err();
+
+    assert!(matches!(err, UpdateDiagramRepositoryError::NotFound));
+}
+
+#[sqlx::test(fixtures("diagram_repository"))]
+async fn delete_diagram_returns_not_found_for_deleted_row(db: PgPool) {
+    let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
+
+    let err = repo
+        .delete_diagram(DeleteDiagramSchema { id: 3 })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, DeleteDiagramRepositoryError::NotFound));
 }

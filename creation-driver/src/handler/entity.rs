@@ -138,6 +138,13 @@ async fn update_entity_inner(
     match query_result {
         Ok(_) => Ok(()),
         Err(err) => match err {
+            UpdateEntityUsecaseError::NotFound => Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({
+                    "status": "fail",
+                    "message": "Not Found"
+                })),
+            )),
             UpdateEntityUsecaseError::UpdateEntityServiceError(err) => match err {
                 UpdateEntityServiceError::InvalidParams => Err((
                     StatusCode::BAD_REQUEST,
@@ -146,12 +153,26 @@ async fn update_entity_inner(
                         "message": "Invalid Parameter"
                     })),
                 )),
+                UpdateEntityServiceError::NotFound => Err((
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "status": "fail",
+                        "message": "Not Found"
+                    })),
+                )),
                 UpdateEntityServiceError::UpdateEntityRepositoryError(err) => match err {
                     UpdateEntityRepositoryError::Db(err) => Err((
-                        StatusCode::BAD_REQUEST,
+                        StatusCode::INTERNAL_SERVER_ERROR,
                         Json(serde_json::json!({
                             "status": "fail",
                             "message": format!("Database error: {}", err)
+                        })),
+                    )),
+                    UpdateEntityRepositoryError::NotFound => Err((
+                        StatusCode::NOT_FOUND,
+                        Json(serde_json::json!({
+                            "status": "fail",
+                            "message": "Not Found"
                         })),
                     )),
                 },
@@ -176,6 +197,13 @@ async fn delete_entity_inner(
     match query_result {
         Ok(_) => Ok(()),
         Err(err) => match err {
+            DeleteEntityUsecaseError::NotFound => Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({
+                    "status": "fail",
+                    "message": "Not Found"
+                })),
+            )),
             DeleteEntityUsecaseError::DeleteEntityServiceError(err) => match err {
                 DeleteEntityServiceError::InvalidParams => Err((
                     StatusCode::BAD_REQUEST,
@@ -184,12 +212,26 @@ async fn delete_entity_inner(
                         "message": "Invalid Parameter"
                     })),
                 )),
+                DeleteEntityServiceError::NotFound => Err((
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "status": "fail",
+                        "message": "Not Found"
+                    })),
+                )),
                 DeleteEntityServiceError::DeleteEntityRepositoryError(err) => match err {
                     DeleteEntityRepositoryError::Db(err) => Err((
-                        StatusCode::BAD_REQUEST,
+                        StatusCode::INTERNAL_SERVER_ERROR,
                         Json(serde_json::json!({
                             "status": "fail",
                             "message": format!("Database error: {}", err)
+                        })),
+                    )),
+                    DeleteEntityRepositoryError::NotFound => Err((
+                        StatusCode::NOT_FOUND,
+                        Json(serde_json::json!({
+                            "status": "fail",
+                            "message": "Not Found"
                         })),
                     )),
                 },

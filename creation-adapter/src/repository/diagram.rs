@@ -84,7 +84,7 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         &self,
         body: UpdateDiagramSchema,
     ) -> Result<(), UpdateDiagramRepositoryError> {
-        let _ = sqlx::query(
+        let result = sqlx::query(
             r#"
                 UPDATE diagram
                 SET
@@ -105,6 +105,10 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         .await
         .map_err(UpdateDiagramRepositoryError::Db)?;
 
+        if result.rows_affected() == 0 {
+            return Err(UpdateDiagramRepositoryError::NotFound);
+        }
+
         Ok(())
     }
 
@@ -112,7 +116,7 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         &self,
         body: DeleteDiagramSchema,
     ) -> Result<(), DeleteDiagramRepositoryError> {
-        let _ = sqlx::query(
+        let result = sqlx::query(
             r#"
                 UPDATE diagram
                 SET
@@ -127,6 +131,10 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         .execute(&self.pool.0)
         .await
         .map_err(DeleteDiagramRepositoryError::Db)?;
+
+        if result.rows_affected() == 0 {
+            return Err(DeleteDiagramRepositoryError::NotFound);
+        }
 
         Ok(())
     }

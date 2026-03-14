@@ -43,12 +43,16 @@ pub enum CreateEntityUsecaseError {
 pub enum UpdateEntityUsecaseError {
     #[error(transparent)]
     UpdateEntityServiceError(#[from] UpdateEntityServiceError),
+    #[error("not found")]
+    NotFound,
 }
 
 #[derive(Debug, Error)]
 pub enum DeleteEntityUsecaseError {
     #[error(transparent)]
     DeleteEntityServiceError(#[from] DeleteEntityServiceError),
+    #[error("not found")]
+    NotFound,
 }
 
 #[async_trait]
@@ -103,10 +107,11 @@ impl<T: EntityUsecase> UsesUpdateEntityUsecase for T {
         &self,
         body: UpdateEntitySchema,
     ) -> Result<(), UpdateEntityUsecaseError> {
-        map_usecase_result_unit!(
-            self.entity_service().update_entity(body),
-            UpdateEntityUsecaseError::UpdateEntityServiceError
-        )
+        match self.entity_service().update_entity(body).await {
+            Ok(()) => Ok(()),
+            Err(UpdateEntityServiceError::NotFound) => Err(UpdateEntityUsecaseError::NotFound),
+            Err(err) => Err(UpdateEntityUsecaseError::UpdateEntityServiceError(err)),
+        }
     }
 }
 
@@ -122,10 +127,11 @@ impl<T: EntityUsecase> UsesDeleteEntityUsecase for T {
         &self,
         body: DeleteEntitySchema,
     ) -> Result<(), DeleteEntityUsecaseError> {
-        map_usecase_result_unit!(
-            self.entity_service().delete_entity(body),
-            DeleteEntityUsecaseError::DeleteEntityServiceError
-        )
+        match self.entity_service().delete_entity(body).await {
+            Ok(()) => Ok(()),
+            Err(DeleteEntityServiceError::NotFound) => Err(DeleteEntityUsecaseError::NotFound),
+            Err(err) => Err(DeleteEntityUsecaseError::DeleteEntityServiceError(err)),
+        }
     }
 }
 

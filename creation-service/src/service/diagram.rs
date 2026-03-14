@@ -50,6 +50,8 @@ pub enum UpdateDiagramServiceError {
     UpdateDiagramRepositoryError(#[from] UpdateDiagramRepositoryError),
     #[error("invalid parameter")]
     InvalidParams,
+    #[error("not found")]
+    NotFound,
 }
 
 #[derive(Debug, Error)]
@@ -58,6 +60,8 @@ pub enum DeleteDiagramServiceError {
     DeleteDiagramRepositoryError(#[from] DeleteDiagramRepositoryError),
     #[error("invalid parameter")]
     InvalidParams,
+    #[error("not found")]
+    NotFound,
 }
 
 #[async_trait]
@@ -114,10 +118,11 @@ impl<T: DiagramService> UsesDiagramService for T {
             return Err(UpdateDiagramServiceError::InvalidParams);
         }
 
-        map_service_result_unit!(
-            self.diagram_repository().update_diagram(body),
-            UpdateDiagramServiceError::UpdateDiagramRepositoryError
-        )
+        match self.diagram_repository().update_diagram(body).await {
+            Ok(()) => Ok(()),
+            Err(UpdateDiagramRepositoryError::NotFound) => Err(UpdateDiagramServiceError::NotFound),
+            Err(err) => Err(UpdateDiagramServiceError::UpdateDiagramRepositoryError(err)),
+        }
     }
 
     async fn delete_diagram(
@@ -128,10 +133,11 @@ impl<T: DiagramService> UsesDiagramService for T {
             return Err(DeleteDiagramServiceError::InvalidParams);
         }
 
-        map_service_result_unit!(
-            self.diagram_repository().delete_diagram(body),
-            DeleteDiagramServiceError::DeleteDiagramRepositoryError
-        )
+        match self.diagram_repository().delete_diagram(body).await {
+            Ok(()) => Ok(()),
+            Err(DeleteDiagramRepositoryError::NotFound) => Err(DeleteDiagramServiceError::NotFound),
+            Err(err) => Err(DeleteDiagramServiceError::DeleteDiagramRepositoryError(err)),
+        }
     }
 }
 

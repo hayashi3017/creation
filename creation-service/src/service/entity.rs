@@ -50,6 +50,8 @@ pub enum UpdateEntityServiceError {
     UpdateEntityRepositoryError(#[from] UpdateEntityRepositoryError),
     #[error("invalid parameter")]
     InvalidParams,
+    #[error("not found")]
+    NotFound,
 }
 
 #[derive(Debug, Error)]
@@ -58,6 +60,8 @@ pub enum DeleteEntityServiceError {
     DeleteEntityRepositoryError(#[from] DeleteEntityRepositoryError),
     #[error("invalid parameter")]
     InvalidParams,
+    #[error("not found")]
+    NotFound,
 }
 
 #[async_trait]
@@ -112,10 +116,11 @@ impl<T: EntityService> UsesEntityService for T {
             return Err(UpdateEntityServiceError::InvalidParams);
         }
 
-        map_service_result_unit!(
-            self.entity_repository().update_entity(body),
-            UpdateEntityServiceError::UpdateEntityRepositoryError
-        )
+        match self.entity_repository().update_entity(body).await {
+            Ok(()) => Ok(()),
+            Err(UpdateEntityRepositoryError::NotFound) => Err(UpdateEntityServiceError::NotFound),
+            Err(err) => Err(UpdateEntityServiceError::UpdateEntityRepositoryError(err)),
+        }
     }
 
     async fn delete_entity(
@@ -126,10 +131,11 @@ impl<T: EntityService> UsesEntityService for T {
             return Err(DeleteEntityServiceError::InvalidParams);
         }
 
-        map_service_result_unit!(
-            self.entity_repository().delete_entity(body),
-            DeleteEntityServiceError::DeleteEntityRepositoryError
-        )
+        match self.entity_repository().delete_entity(body).await {
+            Ok(()) => Ok(()),
+            Err(DeleteEntityRepositoryError::NotFound) => Err(DeleteEntityServiceError::NotFound),
+            Err(err) => Err(DeleteEntityServiceError::DeleteEntityRepositoryError(err)),
+        }
     }
 }
 

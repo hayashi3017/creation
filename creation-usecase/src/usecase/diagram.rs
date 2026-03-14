@@ -43,12 +43,16 @@ pub enum CreateDiagramUsecaseError {
 pub enum UpdateDiagramUsecaseError {
     #[error(transparent)]
     UpdateDiagramServiceError(#[from] UpdateDiagramServiceError),
+    #[error("not found")]
+    NotFound,
 }
 
 #[derive(Debug, Error)]
 pub enum DeleteDiagramUsecaseError {
     #[error(transparent)]
     DeleteDiagramServiceError(#[from] DeleteDiagramServiceError),
+    #[error("not found")]
+    NotFound,
 }
 
 #[async_trait]
@@ -107,10 +111,11 @@ impl<T: DiagramUsecase> UsesUpdateDiagramUsecase for T {
         &self,
         body: UpdateDiagramSchema,
     ) -> Result<(), UpdateDiagramUsecaseError> {
-        map_usecase_result_unit!(
-            self.diagram_service().update_diagram(body),
-            UpdateDiagramUsecaseError::UpdateDiagramServiceError
-        )
+        match self.diagram_service().update_diagram(body).await {
+            Ok(()) => Ok(()),
+            Err(UpdateDiagramServiceError::NotFound) => Err(UpdateDiagramUsecaseError::NotFound),
+            Err(err) => Err(UpdateDiagramUsecaseError::UpdateDiagramServiceError(err)),
+        }
     }
 }
 
@@ -128,10 +133,11 @@ impl<T: DiagramUsecase> UsesDeleteDiagramUsecase for T {
         &self,
         body: DeleteDiagramSchema,
     ) -> Result<(), DeleteDiagramUsecaseError> {
-        map_usecase_result_unit!(
-            self.diagram_service().delete_diagram(body),
-            DeleteDiagramUsecaseError::DeleteDiagramServiceError
-        )
+        match self.diagram_service().delete_diagram(body).await {
+            Ok(()) => Ok(()),
+            Err(DeleteDiagramServiceError::NotFound) => Err(DeleteDiagramUsecaseError::NotFound),
+            Err(err) => Err(DeleteDiagramUsecaseError::DeleteDiagramServiceError(err)),
+        }
     }
 }
 

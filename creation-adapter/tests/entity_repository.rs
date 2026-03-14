@@ -3,7 +3,9 @@ use creation_service::{
     model::entity::{
         CreateEntitySchema, DeleteEntitySchema, EntityKind, GetEntitiesSchema, UpdateEntitySchema,
     },
-    repository::entity::UsesEntityRepository,
+    repository::entity::{
+        DeleteEntityRepositoryError, UpdateEntityRepositoryError, UsesEntityRepository,
+    },
 };
 use sqlx::{PgPool, Row};
 
@@ -116,4 +118,32 @@ async fn delete_entity_marks_row_deleted(db: PgPool) {
 
     assert_eq!(names.len(), 1);
     assert!(names.contains(&"Active Entity 1".to_string()));
+}
+
+#[sqlx::test(fixtures("entity_repository"))]
+async fn update_entity_returns_not_found_for_deleted_row(db: PgPool) {
+    let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
+    let body = UpdateEntitySchema {
+        id: 3,
+        diagram_id: 1,
+        kind: EntityKind::Person,
+        name: "Missing Entity".to_string(),
+        description: "should fail".to_string(),
+    };
+
+    let err = repo.update_entity(body).await.unwrap_err();
+
+    assert!(matches!(err, UpdateEntityRepositoryError::NotFound));
+}
+
+#[sqlx::test(fixtures("entity_repository"))]
+async fn delete_entity_returns_not_found_for_deleted_row(db: PgPool) {
+    let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
+
+    let err = repo
+        .delete_entity(DeleteEntitySchema { id: 3 })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, DeleteEntityRepositoryError::NotFound));
 }

@@ -35,12 +35,16 @@ pub enum CreateDiagramRepositoryError {
 pub enum UpdateDiagramRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
+    #[error("not found")]
+    NotFound,
 }
 
 #[derive(Debug, Error)]
 pub enum DeleteDiagramRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
+    #[error("not found")]
+    NotFound,
 }
 
 #[async_trait]

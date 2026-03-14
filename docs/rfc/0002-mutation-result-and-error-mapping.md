@@ -1,6 +1,6 @@
 # RFC 0002: Mutation Result And Error Mapping
 
-- Status: `Draft`
+- Status: `Accepted`
 - Last updated: `2026-03-14`
 
 ## Background
@@ -41,6 +41,13 @@ Standardize mutation outcomes for Diagram / Entity handlers as follows.
 1. Add `NotFound` variants to repository/service/usecase errors.
 2. Update handlers to map typed errors to `404`.
 3. Move database-originated unexpected errors to `500`.
+
+## Implementation Status
+
+- `update_diagram`, `delete_diagram`, `update_entity`, and `delete_entity` now inspect `rows_affected()` through typed repository errors.
+- When no active row matches the target ID, including already soft-deleted rows, handlers return `404 Not Found`.
+- Database-originated failures in these update/delete handlers now map to `500 Internal Server Error`.
+- User APIs remain out of scope for this pass.
 
 ## Review Points
 

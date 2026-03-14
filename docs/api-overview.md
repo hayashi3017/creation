@@ -236,6 +236,10 @@ or
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
   - invalid params (`id` is `0` or `name` empty)
+- `404 NOT_FOUND`:
+  - target diagram does not exist
+  - target diagram is already soft-deleted
+- `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 
 ### DELETE `/api/diagrams/delete/{id}`
@@ -247,6 +251,10 @@ or
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
   - invalid params (`id` is `0`)
+- `404 NOT_FOUND`:
+  - target diagram does not exist
+  - target diagram is already soft-deleted
+- `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 
 ### GET `/api/entities`
@@ -320,6 +328,10 @@ or
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
   - invalid params (`id` or `diagram_id` is `0`, `name` empty)
+- `404 NOT_FOUND`:
+  - target entity does not exist
+  - target entity is already soft-deleted
+- `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 
 ### DELETE `/api/entities/{id}`
@@ -331,6 +343,10 @@ or
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
   - invalid params (`id` is `0`)
+- `404 NOT_FOUND`:
+  - target entity does not exist
+  - target entity is already soft-deleted
+- `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 
 ## Common auth error responses

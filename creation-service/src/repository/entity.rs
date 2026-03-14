@@ -35,12 +35,16 @@ pub enum CreateEntityRepositoryError {
 pub enum UpdateEntityRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
+    #[error("not found")]
+    NotFound,
 }
 
 #[derive(Debug, Error)]
 pub enum DeleteEntityRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
+    #[error("not found")]
+    NotFound,
 }
 
 #[async_trait]
