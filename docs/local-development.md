@@ -1,6 +1,6 @@
 # Local Development
 
-Last updated: 2026-03-14
+Last updated: 2026-03-15
 
 ## Goal
 
@@ -59,6 +59,15 @@ Scoped examples:
 cargo run -p xtask -- test -p creation-driver
 cargo run -p xtask -- test -p creation-driver --test auth
 cargo run -p xtask -- test -p creation-driver --test auth -- --nocapture
+```
+
+Convention-based aliases for common scopes:
+
+```bash
+cargo run -p xtask -- test-scope diagram
+cargo run -p xtask -- test-scope entity auth
+cargo run -p xtask -- test-scope package:xtask
+cargo run -p xtask -- test-scope full
 ```
 
 CI uses the same full-suite command after database bootstrap and migrations:

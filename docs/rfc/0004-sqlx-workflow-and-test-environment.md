@@ -1,7 +1,7 @@
 # RFC 0004: SQLx Workflow And Test Environment
 
 - Status: `Accepted`
-- Last updated: `2026-03-14`
+- Last updated: `2026-03-15`
 
 ## Background
 
@@ -20,6 +20,7 @@ Treat `xtask` as the documented entrypoint for SQLx and DB-backed test workflows
 - run migrations: `cargo run -p xtask -- migrate`
 - refresh SQLx cache: `cargo run -p xtask -- sqlx-prepare`
 - run scoped tests: `cargo run -p xtask -- test -p creation-driver --test entity`
+- run convention-based scopes: `cargo run -p xtask -- test-scope entity`
 
 ### CI expectations
 
@@ -44,6 +45,7 @@ Treat `xtask` as the documented entrypoint for SQLx and DB-backed test workflows
 - `xtask test` now loads `.env` before spawning `cargo test`, so local runs inherit `DATABASE_URL` the same way other xtask database commands do.
 - `xtask` host-side DB commands now normalize `DATABASE_URL=...@host.docker.internal...` to `localhost` before spawning `sqlx` / `cargo test`, avoiding setup DB failures from container-only hostnames.
 - `xtask test` now uses `cargo test --no-fail-fast`, so one failing test binary does not stop the rest of the workspace suite from running.
+- `xtask test-scope` now resolves convention-based feature scopes to the matching driver and adapter test suites, so new resources can reuse the same post-implementation workflow if they follow the existing test naming pattern.
 - Installing `sqlx-cli` is still a manual prerequisite.
 
 ## Review Points

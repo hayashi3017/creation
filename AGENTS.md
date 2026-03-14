@@ -25,6 +25,13 @@
 - Prefer focused API-level tests in `creation-driver/tests/` and keep fixtures minimal.
 - Run: `cargo test -p creation-driver` for API tests; `cargo test` for full workspace.
 
+## Post-Implementation Testing
+- After completing an implementation, run the smallest relevant automated test scope before reporting back, unless the change is docs-only.
+- Prefer `cargo run -p xtask -- test-scope <scope>` for feature/resource-scoped changes. This resolves convention-based suites such as `creation-driver/tests/<scope>.rs` and `creation-adapter/tests/<scope>_repository.rs`, so newly added resources can use the same workflow without adding one-off rules here.
+- Use `cargo run -p xtask -- test-scope full` when shared layers, routing, config, or multiple scopes were changed and a focused scope is no longer sufficient.
+- Use `cargo run -p xtask -- test-scope package:<crate>` for package-level changes that do not map to a single feature scope, such as `package:xtask`.
+- If a scope needs a one-off explicit test target, use `cargo run -p xtask -- test-scope driver:<test>` or `cargo run -p xtask -- test-scope adapter:<test>`.
+
 ## Commit & Pull Request Guidelines
 - Commit messages follow a concise `type: summary` pattern (examples: `add: ...`, `fix: ...`, `chore: ...`).
 - PRs should include: a short description, related issues, migration notes (if DB changes), and API/behavior changes. Add screenshots or curl examples when touching HTTP responses.

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod logger;
@@ -49,6 +50,15 @@ enum Commands {
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
+    /// Run a convention-based test alias (e.g. diagram -> adapter + driver suites)
+    TestScope {
+        /// Scope names such as diagram, entity, auth, xtask, package:creation-service, or full
+        #[arg(required = true)]
+        scopes: Vec<String>,
+        /// Extra args passed after `--` (e.g. -- --nocapture)
+        #[arg(last = true)]
+        args: Vec<String>,
+    },
     Docker {},
 }
 
@@ -74,6 +84,9 @@ fn main() -> Result<()> {
             args,
         } => {
             run_tests(package.as_deref(), test.as_deref(), &args).context("Test failed")?;
+        }
+        Commands::TestScope { scopes, args } => {
+            run_test_scopes(&scopes, &args).context("Test scope failed")?;
         }
         Commands::Docker {} => {
             run_docker().context("Migration Info failed")?;
@@ -249,10 +262,134 @@ fn run_tests(package: Option<&str>, test: Option<&str>, args: &[String]) -> Resu
     Ok(())
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct TestSelection {
+    package: Option<String>,
+    test: Option<String>,
+}
+
+impl TestSelection {
+    fn full() -> Self {
+        Self {
+            package: None,
+            test: None,
+        }
+    }
+
+    fn package(package: impl Into<String>) -> Self {
+        Self {
+            package: Some(package.into()),
+            test: None,
+        }
+    }
+
+    fn integration(package: impl Into<String>, test: impl Into<String>) -> Self {
+        Self {
+            package: Some(package.into()),
+            test: Some(test.into()),
+        }
+    }
+
+    fn label(&self) -> String {
+        match (&self.package, &self.test) {
+            (None, None) => "full workspace".to_string(),
+            (Some(package), None) => format!("package `{package}`"),
+            (Some(package), Some(test)) => format!("package `{package}` test `{test}`"),
+            (None, Some(test)) => format!("test `{test}`"),
+        }
+    }
+}
+
+fn run_test_scopes(scopes: &[String], args: &[String]) -> Result<()> {
+    let selections = resolve_test_scopes(scopes)?;
+
+    for selection in selections {
+        run_tests(
+            selection.package.as_deref(),
+            selection.test.as_deref(),
+            args,
+        )
+        .with_context(|| format!("Failed while running {}", selection.label()))?;
+    }
+
+    Ok(())
+}
+
+fn resolve_test_scopes(scopes: &[String]) -> Result<Vec<TestSelection>> {
+    if scopes.is_empty() {
+        anyhow::bail!("At least one test scope must be provided");
+    }
+
+    if scopes.iter().any(|scope| scope == "full") {
+        return Ok(vec![TestSelection::full()]);
+    }
+
+    let mut selections = Vec::new();
+
+    for scope in scopes {
+        for selection in resolve_single_test_scope(scope)? {
+            if !selections.contains(&selection) {
+                selections.push(selection);
+            }
+        }
+    }
+
+    Ok(selections)
+}
+
+fn resolve_single_test_scope(scope: &str) -> Result<Vec<TestSelection>> {
+    if scope == "xtask" {
+        return Ok(vec![TestSelection::package("xtask")]);
+    }
+
+    if let Some(package) = scope.strip_prefix("package:") {
+        return Ok(vec![TestSelection::package(package)]);
+    }
+
+    if let Some(test) = scope.strip_prefix("driver:") {
+        return Ok(vec![TestSelection::integration("creation-driver", test)]);
+    }
+
+    if let Some(test) = scope.strip_prefix("adapter:") {
+        return Ok(vec![TestSelection::integration("creation-adapter", test)]);
+    }
+
+    let mut selections = Vec::new();
+
+    if test_file_exists("creation-adapter/tests", &format!("{scope}_repository.rs")) {
+        selections.push(TestSelection::integration(
+            "creation-adapter",
+            format!("{scope}_repository"),
+        ));
+    }
+
+    if test_file_exists("creation-driver/tests", &format!("{scope}.rs")) {
+        selections.push(TestSelection::integration("creation-driver", scope));
+    }
+
+    if selections.is_empty() {
+        anyhow::bail!(
+            "Unknown test scope `{scope}`. Use full, xtask, package:<crate>, driver:<test>, adapter:<test>, or add convention-based test files."
+        );
+    }
+
+    Ok(selections)
+}
+
 fn ensure_env_var(name: &str) -> Result<()> {
     std::env::var(name)
         .with_context(|| format!("{name} must be set"))
         .map(|_| ())
+}
+
+fn test_file_exists(dir: &str, file: &str) -> bool {
+    repo_root().join(dir).join(file).is_file()
+}
+
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .to_path_buf()
 }
 
 fn apply_host_database_url_workaround(cmd: &mut Command) {
@@ -300,7 +437,7 @@ fn test_requires_database(package: Option<&str>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_host_database_url;
+    use super::{normalize_host_database_url, resolve_single_test_scope, resolve_test_scopes};
 
     #[test]
     fn normalize_host_database_url_rewrites_container_only_hostname() {
@@ -320,5 +457,38 @@ mod tests {
             normalize_host_database_url("postgres://hayashi3017:password@localhost:5432/creation");
 
         assert!(normalized.is_none());
+    }
+
+    #[test]
+    fn resolve_single_test_scope_maps_convention_based_resource() {
+        let selections = resolve_single_test_scope("diagram").unwrap();
+
+        assert_eq!(selections.len(), 2);
+        assert_eq!(selections[0].package.as_deref(), Some("creation-adapter"));
+        assert_eq!(selections[0].test.as_deref(), Some("diagram_repository"));
+        assert_eq!(selections[1].package.as_deref(), Some("creation-driver"));
+        assert_eq!(selections[1].test.as_deref(), Some("diagram"));
+    }
+
+    #[test]
+    fn resolve_single_test_scope_maps_driver_only_scope() {
+        let selections = resolve_single_test_scope("auth").unwrap();
+
+        assert_eq!(selections.len(), 1);
+        assert_eq!(selections[0].package.as_deref(), Some("creation-driver"));
+        assert_eq!(selections[0].test.as_deref(), Some("auth"));
+    }
+
+    #[test]
+    fn resolve_test_scopes_supports_full_and_package_aliases() {
+        let full = resolve_test_scopes(&["full".to_string()]).unwrap();
+        let package = resolve_test_scopes(&["package:xtask".to_string()]).unwrap();
+
+        assert_eq!(full.len(), 1);
+        assert!(full[0].package.is_none());
+        assert!(full[0].test.is_none());
+        assert_eq!(package.len(), 1);
+        assert_eq!(package[0].package.as_deref(), Some("xtask"));
+        assert!(package[0].test.is_none());
     }
 }
