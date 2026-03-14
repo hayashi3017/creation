@@ -29,6 +29,12 @@
 - Commit messages follow a concise `type: summary` pattern (examples: `add: ...`, `fix: ...`, `chore: ...`).
 - PRs should include: a short description, related issues, migration notes (if DB changes), and API/behavior changes. Add screenshots or curl examples when touching HTTP responses.
 
+## Documentation Workflow
+- For each implementation, if you identify follow-up work or design issues that should be addressed later, record them in `docs/improvements.md`.
+- When the follow-up is a proposed change that needs review, add or update a focused file under `docs/rfc/`.
+- When the follow-up is an architectural decision or policy that should guide future implementations, add or update a focused file under `docs/adr/`.
+- Prefer one topic per RFC/ADR file so reviews stay small and diffable.
+
 ## Configuration Tips
 - Local config is loaded via `.env` (see `dotenvy` usage in tests). Docker uses `.env.docker` (see `xtask` and `compose.yml`).
 - Required env vars include `DATABASE_URL`, JWT settings, and Postgres credentials.
