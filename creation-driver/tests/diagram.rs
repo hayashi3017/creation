@@ -27,8 +27,7 @@ async fn get_diagrams_returns_list(db: PgPool) {
                 .method(Method::GET)
                 .uri("/api/diagrams")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from("{}"))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -119,13 +118,12 @@ async fn update_diagram_returns_ok(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/diagrams/update")
+                .method(Method::PATCH)
+                .uri("/api/diagrams/update/1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "id": 1,
                         "name": "Updated Diagram",
                         "kind": "correlation",
                         "description": "updated from handler test"
@@ -166,13 +164,12 @@ async fn update_diagram_rejects_empty_name(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/diagrams/update")
+                .method(Method::PATCH)
+                .uri("/api/diagrams/update/1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "id": 1,
                         "name": "",
                         "kind": "family_tree",
                         "description": "invalid"
@@ -202,16 +199,10 @@ async fn delete_diagram_returns_ok(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/diagrams/delete")
+                .method(Method::DELETE)
+                .uri("/api/diagrams/delete/2")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    serde_json::to_string(&json!({
-                        "id": 2
-                    }))
-                    .unwrap(),
-                ))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -242,16 +233,10 @@ async fn delete_diagram_rejects_zero_id(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/diagrams/delete")
+                .method(Method::DELETE)
+                .uri("/api/diagrams/delete/0")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    serde_json::to_string(&json!({
-                        "id": 0
-                    }))
-                    .unwrap(),
-                ))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await

@@ -1,6 +1,6 @@
 # Workspace Architecture
 
-Last updated: 2026-02-18
+Last updated: 2026-03-14
 
 ## Goal
 
@@ -81,12 +81,12 @@ Protected routes (JWT auth middleware):
 - `GET /api/users/me`
 - `GET /api/diagrams`
 - `POST /api/diagrams/create`
-- `POST /api/diagrams/update`
-- `POST /api/diagrams/delete`
+- `PATCH /api/diagrams/update/{id}`
+- `DELETE /api/diagrams/delete/{id}`
 - `GET /api/entities`
 - `POST /api/entities/create`
-- `POST /api/entities/update`
-- `POST /api/entities/delete`
+- `PATCH /api/entities/update/{id}`
+- `DELETE /api/entities/{id}`
 
 Request processing pattern (current):
 

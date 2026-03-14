@@ -158,13 +158,12 @@ async fn update_entity_returns_ok(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/entities/update")
+                .method(Method::PATCH)
+                .uri("/api/entities/update/1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "id": 1,
                         "diagram_id": 2,
                         "kind": "person",
                         "name": "Updated Entity",
@@ -207,13 +206,12 @@ async fn update_entity_rejects_empty_name(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/entities/update")
+                .method(Method::PATCH)
+                .uri("/api/entities/update/1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "id": 1,
                         "diagram_id": 1,
                         "kind": "person",
                         "name": "",
@@ -244,16 +242,10 @@ async fn delete_entity_returns_ok(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/entities/delete")
+                .method(Method::DELETE)
+                .uri("/api/entities/2")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    serde_json::to_string(&json!({
-                        "id": 2
-                    }))
-                    .unwrap(),
-                ))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -284,16 +276,10 @@ async fn delete_entity_rejects_zero_id(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/entities/delete")
+                .method(Method::DELETE)
+                .uri("/api/entities/0")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    serde_json::to_string(&json!({
-                        "id": 0
-                    }))
-                    .unwrap(),
-                ))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await

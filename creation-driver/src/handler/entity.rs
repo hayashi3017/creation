@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use axum::{extract::State, response::IntoResponse, Json};
+use axum::{
+    extract::{Path, State},
+    response::IntoResponse,
+    Json,
+};
 use creation_service::{
     model::entity::{
         CreateEntitySchema, DeleteEntitySchema, GetEntitiesSchema, UpdateEntitySchema,
@@ -22,10 +26,19 @@ use http::StatusCode;
 
 use crate::AppState;
 
-pub async fn get_entities(
+type JsonError = (StatusCode, Json<serde_json::Value>);
+
+pub async fn get_entities_by_diagram(
     State(data): State<Arc<AppState>>,
     Json(body): Json<GetEntitiesSchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<impl IntoResponse, JsonError> {
+    get_entities_inner(data, body).await
+}
+
+async fn get_entities_inner(
+    data: Arc<AppState>,
+    body: GetEntitiesSchema,
+) -> Result<Json<serde_json::Value>, JsonError> {
     let query_result = data.driver.get_entities(body).await;
 
     match query_result {
@@ -60,10 +73,17 @@ pub async fn get_entities(
     }
 }
 
-pub async fn create_entity(
+pub async fn create_entity_in_diagram(
     State(data): State<Arc<AppState>>,
     Json(body): Json<CreateEntitySchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<impl IntoResponse, JsonError> {
+    create_entity_inner(data, body).await
+}
+
+async fn create_entity_inner(
+    data: Arc<AppState>,
+    body: CreateEntitySchema,
+) -> Result<(), JsonError> {
     let query_result = data.driver.create_entity(body).await;
 
     match query_result {
@@ -91,10 +111,28 @@ pub async fn create_entity(
     }
 }
 
-pub async fn update_entity(
+pub async fn update_entity_by_id(
+    Path(id): Path<usize>,
     State(data): State<Arc<AppState>>,
     Json(body): Json<UpdateEntitySchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<impl IntoResponse, JsonError> {
+    update_entity_inner(
+        data,
+        UpdateEntitySchema {
+            id,
+            diagram_id: body.diagram_id,
+            kind: body.kind,
+            name: body.name,
+            description: body.description,
+        },
+    )
+    .await
+}
+
+async fn update_entity_inner(
+    data: Arc<AppState>,
+    body: UpdateEntitySchema,
+) -> Result<(), JsonError> {
     let query_result = data.driver.update_entity(body).await;
 
     match query_result {
@@ -122,10 +160,17 @@ pub async fn update_entity(
     }
 }
 
-pub async fn delete_entity(
+pub async fn delete_entity_by_id(
+    Path(id): Path<usize>,
     State(data): State<Arc<AppState>>,
-    Json(body): Json<DeleteEntitySchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<impl IntoResponse, JsonError> {
+    delete_entity_inner(data, DeleteEntitySchema { id }).await
+}
+
+async fn delete_entity_inner(
+    data: Arc<AppState>,
+    body: DeleteEntitySchema,
+) -> Result<(), JsonError> {
     let query_result = data.driver.delete_entity(body).await;
 
     match query_result {

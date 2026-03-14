@@ -1,6 +1,6 @@
 # Request Flow
 
-Last updated: 2026-02-18
+Last updated: 2026-03-14
 
 ## Overview
 
@@ -109,7 +109,7 @@ Handler: `creation-driver/src/handler/user.rs::get_me_handler`
 Handler: `creation-driver/src/handler/diagram.rs::get_diagrams`
 
 1. Auth middleware validates token.
-2. Parse JSON body into `GetDiagramsSchema` (currently `{}`).
+2. Handler constructs `GetDiagramsSchema` without requiring a request body.
 3. Repository queries `diagram` where `deleted_at IS NULL`.
 4. Rows are mapped to `Vec<Diagram>`.
 5. Return:
@@ -128,12 +128,12 @@ Handler: `creation-driver/src/handler/diagram.rs::create_diagram`
    - `200` on success (empty body in current handler)
    - `400` invalid params / DB error mapping
 
-### `POST /api/diagrams/update` (protected)
+### `PATCH /api/diagrams/update/{id}` (protected)
 
-Handler: `creation-driver/src/handler/diagram.rs::update_diagram`
+Handler: `creation-driver/src/handler/diagram.rs::update_diagram_by_id`
 
 1. Auth middleware validates token.
-2. Parse JSON into `UpdateDiagramSchema`.
+2. Read `id` from path and JSON body into the update request payload.
 3. Service-level validation checks:
    - `id != 0`
    - `name` not empty
@@ -142,12 +142,12 @@ Handler: `creation-driver/src/handler/diagram.rs::update_diagram`
    - `200` on success (empty body in current handler)
    - `400` invalid params / DB error mapping
 
-### `POST /api/diagrams/delete` (protected)
+### `DELETE /api/diagrams/delete/{id}` (protected)
 
-Handler: `creation-driver/src/handler/diagram.rs::delete_diagram`
+Handler: `creation-driver/src/handler/diagram.rs::delete_diagram_by_id`
 
 1. Auth middleware validates token.
-2. Parse JSON into `DeleteDiagramSchema`.
+2. Read `id` from path.
 3. Service-level validation checks `id != 0`.
 4. Repository soft-deletes the active `diagram` row by setting `deleted_at`.
 5. Return:
@@ -156,7 +156,7 @@ Handler: `creation-driver/src/handler/diagram.rs::delete_diagram`
 
 ### `GET /api/entities` (protected)
 
-Handler: `creation-driver/src/handler/entity.rs::get_entities`
+Handler: `creation-driver/src/handler/entity.rs::get_entities_by_diagram`
 
 1. Auth middleware validates token.
 2. Parse JSON body into `GetEntitiesSchema`.
@@ -170,10 +170,10 @@ Handler: `creation-driver/src/handler/entity.rs::get_entities`
 
 ### `POST /api/entities/create` (protected)
 
-Handler: `creation-driver/src/handler/entity.rs::create_entity`
+Handler: `creation-driver/src/handler/entity.rs::create_entity_in_diagram`
 
 1. Auth middleware validates token.
-2. Parse JSON into `CreateEntitySchema`.
+2. Parse JSON body into `CreateEntitySchema`.
 3. Service-level validation checks:
    - `diagram_id != 0`
    - `name` not empty
@@ -182,12 +182,12 @@ Handler: `creation-driver/src/handler/entity.rs::create_entity`
    - `200` on success (empty body in current handler)
    - `400` invalid params / DB error mapping
 
-### `POST /api/entities/update` (protected)
+### `PATCH /api/entities/update/{id}` (protected)
 
-Handler: `creation-driver/src/handler/entity.rs::update_entity`
+Handler: `creation-driver/src/handler/entity.rs::update_entity_by_id`
 
 1. Auth middleware validates token.
-2. Parse JSON into `UpdateEntitySchema`.
+2. Read `id` from path and parse JSON body into the update request payload.
 3. Service-level validation checks:
    - `id != 0`
    - `diagram_id != 0`
@@ -197,12 +197,12 @@ Handler: `creation-driver/src/handler/entity.rs::update_entity`
    - `200` on success (empty body in current handler)
    - `400` invalid params / DB error mapping
 
-### `POST /api/entities/delete` (protected)
+### `DELETE /api/entities/{id}` (protected)
 
-Handler: `creation-driver/src/handler/entity.rs::delete_entity`
+Handler: `creation-driver/src/handler/entity.rs::delete_entity_by_id`
 
 1. Auth middleware validates token.
-2. Parse JSON into `DeleteEntitySchema`.
+2. Read `id` from path.
 3. Service-level validation checks `id != 0`.
 4. Repository soft-deletes the active `entity` row by setting `deleted_at`.
 5. Return:
@@ -222,12 +222,11 @@ Client -> GET /api/users/me (with token)
 
 ## Known behavior notes
 
-- `GET /api/diagrams` expects a JSON body because the handler uses `Json<GetDiagramsSchema>`.
 - `POST /api/diagrams/create` returns `200` with empty body in success path.
-- `POST /api/diagrams/update` returns `200` with empty body in success path.
-- `POST /api/diagrams/delete` returns `200` with empty body in success path.
+- `PATCH /api/diagrams/update/{id}` returns `200` with empty body in success path.
+- `DELETE /api/diagrams/delete/{id}` returns `200` with empty body in success path.
 - `GET /api/entities` expects a JSON body because the handler uses `Json<GetEntitiesSchema>`.
 - `POST /api/entities/create` returns `200` with empty body in success path.
-- `POST /api/entities/update` returns `200` with empty body in success path.
-- `POST /api/entities/delete` returns `200` with empty body in success path.
+- `PATCH /api/entities/update/{id}` returns `200` with empty body in success path.
+- `DELETE /api/entities/{id}` returns `200` with empty body in success path.
 - Error mapping status codes are not fully uniform across handlers yet.

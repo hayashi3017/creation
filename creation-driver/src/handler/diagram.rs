@@ -1,9 +1,14 @@
 use std::sync::Arc;
 
-use axum::{extract::State, response::IntoResponse, Json};
+use axum::{
+    extract::{Path, State},
+    response::IntoResponse,
+    Json,
+};
 use creation_service::{
     model::diagram::{
-        CreateDiagramSchema, DeleteDiagramSchema, GetDiagramsSchema, UpdateDiagramSchema,
+        CreateDiagramSchema, DeleteDiagramSchema, DiagramKind, GetDiagramsSchema,
+        UpdateDiagramSchema,
     },
     repository::diagram::{
         CreateDiagramRepositoryError, DeleteDiagramRepositoryError, GetDiagramsRepositoryError,
@@ -19,14 +24,23 @@ use creation_usecase::usecase::diagram::{
     UpdateDiagramUsecaseError, UsesDiagramUsecase,
 };
 use http::StatusCode;
+use serde::Deserialize;
 
 use crate::AppState;
 
+type JsonError = (StatusCode, Json<serde_json::Value>);
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateDiagramRequest {
+    pub name: String,
+    pub kind: DiagramKind,
+    pub description: String,
+}
+
 pub async fn get_diagrams(
     State(data): State<Arc<AppState>>,
-    Json(body): Json<GetDiagramsSchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    // let query_result = data.driver.user_repository.regist_user(body).await;
+) -> Result<impl IntoResponse, JsonError> {
+    let body = GetDiagramsSchema {};
     let query_result = data.driver.get_diagrams(body).await;
 
     match query_result {
@@ -57,7 +71,7 @@ pub async fn get_diagrams(
 pub async fn create_diagram(
     State(data): State<Arc<AppState>>,
     Json(body): Json<CreateDiagramSchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<impl IntoResponse, JsonError> {
     let query_result = data.driver.create_diagram(body).await;
 
     match query_result {
@@ -92,10 +106,27 @@ pub async fn create_diagram(
     }
 }
 
-pub async fn update_diagram(
+pub async fn update_diagram_by_id(
+    Path(id): Path<usize>,
     State(data): State<Arc<AppState>>,
-    Json(body): Json<UpdateDiagramSchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    Json(body): Json<UpdateDiagramRequest>,
+) -> Result<impl IntoResponse, JsonError> {
+    update_diagram_inner(
+        data,
+        UpdateDiagramSchema {
+            id,
+            name: body.name,
+            kind: body.kind,
+            description: body.description,
+        },
+    )
+    .await
+}
+
+async fn update_diagram_inner(
+    data: Arc<AppState>,
+    body: UpdateDiagramSchema,
+) -> Result<(), JsonError> {
     let query_result = data.driver.update_diagram(body).await;
 
     match query_result {
@@ -123,10 +154,17 @@ pub async fn update_diagram(
     }
 }
 
-pub async fn delete_diagram(
+pub async fn delete_diagram_by_id(
+    Path(id): Path<usize>,
     State(data): State<Arc<AppState>>,
-    Json(body): Json<DeleteDiagramSchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<impl IntoResponse, JsonError> {
+    delete_diagram_inner(data, DeleteDiagramSchema { id }).await
+}
+
+async fn delete_diagram_inner(
+    data: Arc<AppState>,
+    body: DeleteDiagramSchema,
+) -> Result<(), JsonError> {
     let query_result = data.driver.delete_diagram(body).await;
 
     match query_result {

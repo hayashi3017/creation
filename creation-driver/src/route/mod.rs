@@ -2,14 +2,17 @@ use std::sync::Arc;
 
 use axum::{
     middleware,
-    routing::{get, post},
+    routing::{get, patch, post},
     Router,
 };
 
 use crate::{
     handler::{
-        diagram::{create_diagram, delete_diagram, get_diagrams, update_diagram},
-        entity::{create_entity, delete_entity, get_entities, update_entity},
+        diagram::{create_diagram, delete_diagram_by_id, get_diagrams, update_diagram_by_id},
+        entity::{
+            create_entity_in_diagram, delete_entity_by_id, get_entities_by_diagram,
+            update_entity_by_id,
+        },
         health_check::health_checker_handler,
         user::{get_me_handler, login_user_handler, logout_handler, register_user_handler},
     },
@@ -42,32 +45,33 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/diagrams/update",
-            post(update_diagram)
+            "/api/diagrams/update/{id}",
+            patch(update_diagram_by_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/diagrams/delete",
-            post(delete_diagram)
+            "/api/diagrams/delete/{id}",
+            axum::routing::delete(delete_diagram_by_id)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/entities/create",
+            post(create_entity_in_diagram)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
             "/api/entities",
-            get(get_entities).route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
-        )
-        .route(
-            "/api/entities/create",
-            post(create_entity)
+            get(get_entities_by_diagram)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/entities/update",
-            post(update_entity)
+            "/api/entities/update/{id}",
+            patch(update_entity_by_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/entities/delete",
-            post(delete_entity)
+            "/api/entities/{id}",
+            axum::routing::delete(delete_entity_by_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .with_state(app_state)

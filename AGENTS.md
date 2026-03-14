@@ -34,6 +34,8 @@
 - When the follow-up is a proposed change that needs review, add or update a focused file under `docs/rfc/`.
 - When the follow-up is an architectural decision or policy that should guide future implementations, add or update a focused file under `docs/adr/`.
 - Prefer one topic per RFC/ADR file so reviews stay small and diffable.
+- When implementing an existing RFC, do not rewrite sections such as `Background` or other review context just to match the current implementation. Limit updates to implementation status or other explicitly execution-tracking sections unless the user asks for broader RFC edits.
+- When reviewing `docs/improvements.md`, append to an existing RFC if the follow-up is the same review topic or decision axis. Add a new RFC only when the follow-up introduces a meaningfully different topic that should be reviewed separately.
 
 ## Configuration Tips
 - Local config is loaded via `.env` (see `dotenvy` usage in tests). Docker uses `.env.docker` (see `xtask` and `compose.yml`).

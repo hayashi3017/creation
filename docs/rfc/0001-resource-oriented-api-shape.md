@@ -40,7 +40,27 @@ Adopt resource-oriented paths in the next API revision.
 
 1. Add the new routes alongside the current ones.
 2. Mark `/create`, `/update`, `/delete` style routes as deprecated in docs.
-3. Remove body-dependent `GET` routes after clients migrate.
+3. Remove legacy routes after clients migrate.
+
+## Implementation Status
+
+- The current implementation only partially follows this RFC.
+
+### Already aligned with this RFC
+
+- `GET /api/diagrams`
+- `DELETE /api/entities/{id}`
+
+### Still diverging from this RFC
+
+- Diagram write routes still use action-style segments:
+  - `POST /api/diagrams/create`
+  - `PATCH /api/diagrams/update/{id}`
+  - `DELETE /api/diagrams/delete/{id}`
+- Entity list/create/update still diverge:
+  - `GET /api/entities` depends on a JSON body with `diagram_id`
+  - `POST /api/entities/create`
+  - `PATCH /api/entities/update/{id}`
 
 ## Review Points
 

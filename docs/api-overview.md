@@ -1,6 +1,6 @@
 # API Overview
 
-Last updated: 2026-02-18
+Last updated: 2026-03-14
 
 ## Scope
 
@@ -27,12 +27,12 @@ Protected endpoints:
 - `GET /api/users/me`
 - `GET /api/diagrams`
 - `POST /api/diagrams/create`
-- `POST /api/diagrams/update`
-- `POST /api/diagrams/delete`
+- `PATCH /api/diagrams/update/{id}`
+- `DELETE /api/diagrams/delete/{id}`
 - `GET /api/entities`
 - `POST /api/entities/create`
-- `POST /api/entities/update`
-- `POST /api/entities/delete`
+- `PATCH /api/entities/update/{id}`
+- `DELETE /api/entities/{id}`
 
 ## Endpoints
 
@@ -45,12 +45,12 @@ Protected endpoints:
 | GET | `/api/users/me` | Yes | current user profile |
 | GET | `/api/diagrams` | Yes | list diagrams |
 | POST | `/api/diagrams/create` | Yes | create diagram |
-| POST | `/api/diagrams/update` | Yes | update diagram |
-| POST | `/api/diagrams/delete` | Yes | soft delete diagram |
+| PATCH | `/api/diagrams/update/{id}` | Yes | update diagram |
+| DELETE | `/api/diagrams/delete/{id}` | Yes | soft delete diagram |
 | GET | `/api/entities` | Yes | list entities in a diagram |
 | POST | `/api/entities/create` | Yes | create entity |
-| POST | `/api/entities/update` | Yes | update entity |
-| POST | `/api/entities/delete` | Yes | soft delete entity |
+| PATCH | `/api/entities/update/{id}` | Yes | update entity |
+| DELETE | `/api/entities/{id}` | Yes | soft delete entity |
 
 ## Request and response details
 
@@ -176,12 +176,7 @@ or
 ### GET `/api/diagrams`
 
 - Auth required
-- Current implementation expects JSON body (`{}`) because handler uses `Json<GetDiagramsSchema>`.
-- Request example:
-
-```json
-{}
-```
+- Request body: none
 
 - `200 OK`:
 
@@ -224,14 +219,13 @@ or
   - invalid params (`name` empty)
   - duplicate/DB validation failures
 
-### POST `/api/diagrams/update`
+### PATCH `/api/diagrams/update/{id}`
 
 - Auth required
 - Request JSON:
 
 ```json
 {
-  "id": 1,
   "name": "Family Tree v2",
   "kind": "correlation",
   "description": "updated from API"
@@ -244,16 +238,10 @@ or
   - invalid params (`id` is `0` or `name` empty)
   - DB failures
 
-### POST `/api/diagrams/delete`
+### DELETE `/api/diagrams/delete/{id}`
 
 - Auth required
-- Request JSON:
-
-```json
-{
-  "id": 1
-}
-```
+- Request body: none
 
 - `200 OK`:
   - current handler returns empty body on success
@@ -314,14 +302,13 @@ or
   - invalid params (`diagram_id` is `0` or `name` empty)
   - DB failures
 
-### POST `/api/entities/update`
+### PATCH `/api/entities/update/{id}`
 
 - Auth required
 - Request JSON:
 
 ```json
 {
-  "id": 1,
   "diagram_id": 1,
   "kind": "person",
   "name": "Alice Updated",
@@ -335,16 +322,10 @@ or
   - invalid params (`id` or `diagram_id` is `0`, `name` empty)
   - DB failures
 
-### POST `/api/entities/delete`
+### DELETE `/api/entities/{id}`
 
 - Auth required
-- Request JSON:
-
-```json
-{
-  "id": 1
-}
-```
+- Request body: none
 
 - `200 OK`:
   - current handler returns empty body on success
