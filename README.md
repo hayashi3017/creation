@@ -9,8 +9,7 @@
 - [API Overview](./docs/api-overview.md)
 - [Data Model](./docs/data-model.md)
 - [Request Flow](./docs/request-flow.md)
-- [How to Develop](./docs/how-to-develop.md)
-- [Environment Variables](./docs/environment-variables.md)
+- [Local Development](./docs/local-development.md)
 
 
 ## TODO
@@ -37,16 +36,6 @@
 
 
 
-## Command
+## Development
 
-
-```bash
-# at pj root dir
-cargo sqlx prepare --workspace
-
-# run tests (scoped)
-cargo run -p xtask -- test
-cargo run -p xtask -- test -p creation-driver
-cargo run -p xtask -- test -p creation-driver --test auth
-cargo run -p xtask -- test -p creation-driver --test auth -- --nocapture
-```
+Local bootstrap, test commands, and SQLx workflow are documented in [docs/local-development.md](./docs/local-development.md).

@@ -24,5 +24,5 @@ Detailed proposals and decisions:
 
 ## Tooling And Tests
 
-- このリポジトリは `SQLX_OFFLINE=true` 前提のビルドパスがあるため、新しい `query!` / `query_as!` を追加すると SQLx キャッシュ更新が必要になる。`sqlx prepare` を CI に組み込むか、追加方針を明文化した方が変更時の詰まりを減らせる。 See `docs/rfc/0004-sqlx-workflow-and-test-environment.md`.
-- `sqlx::test` を使うテストは、実行環境によってはセットアップ用 DB に接続できず失敗する。ローカル/CI で必ず到達可能な Postgres 起動手順を `xtask` かテスト手順に寄せておくと再現性が上がる。 See `docs/rfc/0004-sqlx-workflow-and-test-environment.md`.
+- `xtask` は依然として外部の `sqlx-cli` バイナリに依存している。初回セットアップでの詰まりを減らすなら、前提ツールの検査や bootstrap コマンドを追加してもよい。 See `docs/rfc/0004-sqlx-workflow-and-test-environment.md`.
+- `.env` と `.env.docker` で host / container 向けの `DATABASE_URL` が混ざりやすい。`localhost` を前提にした `.env.example` や bootstrap 時の設定チェックを追加すると、`cargo run` / `cargo test` の接続失敗を減らせる。 See `docs/rfc/0004-sqlx-workflow-and-test-environment.md`.

@@ -45,12 +45,12 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/diagrams/update/{id}",
+            "/api/diagrams/update/:id",
             patch(update_diagram_by_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/diagrams/delete/{id}",
+            "/api/diagrams/delete/:id",
             axum::routing::delete(delete_diagram_by_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
@@ -65,12 +65,12 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/entities/update/{id}",
+            "/api/entities/update/:id",
             patch(update_entity_by_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/entities/{id}",
+            "/api/entities/:id",
             axum::routing::delete(delete_entity_by_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )

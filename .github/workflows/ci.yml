@@ -37,7 +37,7 @@ jobs:
         run: cargo install sqlx-cli --no-default-features --features postgres
       - name: Run migrations
         run: cargo run -p xtask -- migrate
-      - name: API tests
-        run: cargo test -p creation-driver
-      - name: Repository tests
-        run: cargo test -p creation-adapter --tests
+      - name: Verify SQLx cache
+        run: cargo run -p xtask -- sqlx-prepare --check
+      - name: Run tests
+        run: cargo run -p xtask -- test
