@@ -128,6 +128,32 @@ Handler: `creation-driver/src/handler/diagram.rs::create_diagram`
    - `200` on success (empty body in current handler)
    - `400` invalid params / DB error mapping
 
+### `POST /api/diagrams/update` (protected)
+
+Handler: `creation-driver/src/handler/diagram.rs::update_diagram`
+
+1. Auth middleware validates token.
+2. Parse JSON into `UpdateDiagramSchema`.
+3. Service-level validation checks:
+   - `id != 0`
+   - `name` not empty
+4. Repository updates the active `diagram` row and refreshes `updated_at`.
+5. Return:
+   - `200` on success (empty body in current handler)
+   - `400` invalid params / DB error mapping
+
+### `POST /api/diagrams/delete` (protected)
+
+Handler: `creation-driver/src/handler/diagram.rs::delete_diagram`
+
+1. Auth middleware validates token.
+2. Parse JSON into `DeleteDiagramSchema`.
+3. Service-level validation checks `id != 0`.
+4. Repository soft-deletes the active `diagram` row by setting `deleted_at`.
+5. Return:
+   - `200` on success (empty body in current handler)
+   - `400` invalid params / DB error mapping
+
 ## Sequence snapshot (login -> me)
 
 ```text
@@ -143,4 +169,6 @@ Client -> GET /api/users/me (with token)
 
 - `GET /api/diagrams` expects a JSON body because the handler uses `Json<GetDiagramsSchema>`.
 - `POST /api/diagrams/create` returns `200` with empty body in success path.
+- `POST /api/diagrams/update` returns `200` with empty body in success path.
+- `POST /api/diagrams/delete` returns `200` with empty body in success path.
 - Error mapping status codes are not fully uniform across handlers yet.

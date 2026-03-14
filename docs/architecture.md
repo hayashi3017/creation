@@ -81,6 +81,8 @@ Protected routes (JWT auth middleware):
 - `GET /api/users/me`
 - `GET /api/diagrams`
 - `POST /api/diagrams/create`
+- `POST /api/diagrams/update`
+- `POST /api/diagrams/delete`
 
 Request processing pattern (current):
 

@@ -27,6 +27,8 @@ Protected endpoints:
 - `GET /api/users/me`
 - `GET /api/diagrams`
 - `POST /api/diagrams/create`
+- `POST /api/diagrams/update`
+- `POST /api/diagrams/delete`
 
 ## Endpoints
 
@@ -39,6 +41,8 @@ Protected endpoints:
 | GET | `/api/users/me` | Yes | current user profile |
 | GET | `/api/diagrams` | Yes | list diagrams |
 | POST | `/api/diagrams/create` | Yes | create diagram |
+| POST | `/api/diagrams/update` | Yes | update diagram |
+| POST | `/api/diagrams/delete` | Yes | soft delete diagram |
 
 ## Request and response details
 
@@ -211,6 +215,43 @@ or
 - `400 BAD_REQUEST`:
   - invalid params (`name` empty)
   - duplicate/DB validation failures
+
+### POST `/api/diagrams/update`
+
+- Auth required
+- Request JSON:
+
+```json
+{
+  "id": 1,
+  "name": "Family Tree v2",
+  "kind": "correlation",
+  "description": "updated from API"
+}
+```
+
+- `200 OK`:
+  - current handler returns empty body on success
+- `400 BAD_REQUEST`:
+  - invalid params (`id` is `0` or `name` empty)
+  - DB failures
+
+### POST `/api/diagrams/delete`
+
+- Auth required
+- Request JSON:
+
+```json
+{
+  "id": 1
+}
+```
+
+- `200 OK`:
+  - current handler returns empty body on success
+- `400 BAD_REQUEST`:
+  - invalid params (`id` is `0`)
+  - DB failures
 
 ## Common auth error responses
 

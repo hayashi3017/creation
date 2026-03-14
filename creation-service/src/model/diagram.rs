@@ -91,11 +91,13 @@ impl Display for CreateDiagramSchema {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateDiagramSchema {
+    pub id: usize,
     pub name: String,
     pub kind: DiagramKind,
     pub description: String,
 }
 
+#[derive(Debug, Deserialize)]
 pub struct DeleteDiagramSchema {
     pub id: usize,
 }

@@ -110,6 +110,10 @@ impl<T: DiagramService> UsesDiagramService for T {
         &self,
         body: UpdateDiagramSchema,
     ) -> Result<(), UpdateDiagramServiceError> {
+        if body.id == 0 || body.name.is_empty() {
+            return Err(UpdateDiagramServiceError::InvalidParams);
+        }
+
         map_service_result_unit!(
             self.diagram_repository().update_diagram(body),
             UpdateDiagramServiceError::UpdateDiagramRepositoryError
@@ -120,6 +124,10 @@ impl<T: DiagramService> UsesDiagramService for T {
         &self,
         body: DeleteDiagramSchema,
     ) -> Result<(), DeleteDiagramServiceError> {
+        if body.id == 0 {
+            return Err(DeleteDiagramServiceError::InvalidParams);
+        }
+
         map_service_result_unit!(
             self.diagram_repository().delete_diagram(body),
             DeleteDiagramServiceError::DeleteDiagramRepositoryError

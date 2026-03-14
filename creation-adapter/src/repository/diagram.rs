@@ -82,15 +82,52 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
 
     async fn update_diagram(
         &self,
-        _body: UpdateDiagramSchema,
+        body: UpdateDiagramSchema,
     ) -> Result<(), UpdateDiagramRepositoryError> {
+        let _ = sqlx::query(
+            r#"
+                UPDATE diagram
+                SET
+                    name = $1,
+                    kind = $2,
+                    description = $3,
+                    updated_at = now()
+                WHERE
+                    id = $4
+                    AND deleted_at IS NULL
+            "#,
+        )
+        .bind(body.name)
+        .bind(body.kind)
+        .bind(body.description)
+        .bind(body.id as i64)
+        .execute(&self.pool.0)
+        .await
+        .map_err(UpdateDiagramRepositoryError::Db)?;
+
         Ok(())
     }
 
     async fn delete_diagram(
         &self,
-        _body: DeleteDiagramSchema,
+        body: DeleteDiagramSchema,
     ) -> Result<(), DeleteDiagramRepositoryError> {
+        let _ = sqlx::query(
+            r#"
+                UPDATE diagram
+                SET
+                    deleted_at = now(),
+                    updated_at = now()
+                WHERE
+                    id = $1
+                    AND deleted_at IS NULL
+            "#,
+        )
+        .bind(body.id as i64)
+        .execute(&self.pool.0)
+        .await
+        .map_err(DeleteDiagramRepositoryError::Db)?;
+
         Ok(())
     }
 }

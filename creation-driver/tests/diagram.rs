@@ -8,7 +8,7 @@ use http::{header, Method, Request, StatusCode};
 use http_body_util::BodyExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::json;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use tower::ServiceExt;
 
 use crate::common::setup_router;
@@ -93,6 +93,162 @@ async fn create_diagram_rejects_empty_name(db: PgPool) {
                         "name": "",
                         "kind": "family_tree",
                         "description": "invalid"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["status"], "fail");
+    assert_eq!(json["message"], "Invalid Parameter");
+}
+
+#[sqlx::test(fixtures("get_diagrams"))]
+async fn update_diagram_returns_ok(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/diagrams/update")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "id": 1,
+                        "name": "Updated Diagram",
+                        "kind": "correlation",
+                        "description": "updated from handler test"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = sqlx::query(
+        r#"
+            SELECT name, description FROM diagram WHERE id = $1
+        "#,
+    )
+    .bind(1_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(row.get::<String, _>("name"), "Updated Diagram");
+    assert_eq!(
+        row.get::<Option<String>, _>("description").as_deref(),
+        Some("updated from handler test")
+    );
+}
+
+#[sqlx::test(fixtures("get_diagrams"))]
+async fn update_diagram_rejects_empty_name(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/diagrams/update")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "id": 1,
+                        "name": "",
+                        "kind": "family_tree",
+                        "description": "invalid"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["status"], "fail");
+    assert_eq!(json["message"], "Invalid Parameter");
+}
+
+#[sqlx::test(fixtures("get_diagrams"))]
+async fn delete_diagram_returns_ok(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/diagrams/delete")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "id": 2
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let deleted_at: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
+        r#"
+            SELECT deleted_at FROM diagram WHERE id = $1
+        "#,
+    )
+    .bind(2_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert!(deleted_at.is_some());
+}
+
+#[sqlx::test(fixtures("get_diagrams"))]
+async fn delete_diagram_rejects_zero_id(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/diagrams/delete")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "id": 0
                     }))
                     .unwrap(),
                 ))
