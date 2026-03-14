@@ -2,6 +2,28 @@ pub mod diagram;
 pub mod entity;
 pub mod user;
 
+pub(crate) fn normalize_name(name: &str, max_chars: usize) -> Option<String> {
+    let trimmed = name.trim();
+
+    if trimmed.is_empty() || trimmed.chars().count() > max_chars {
+        return None;
+    }
+
+    Some(trimmed.to_string())
+}
+
+pub(crate) fn normalize_optional_text(text: Option<String>) -> Option<String> {
+    text.and_then(|value| {
+        let trimmed = value.trim();
+
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
 macro_rules! map_service_result {
     ($future:expr, $error:path) => {{
         match $future.await {
@@ -56,5 +78,28 @@ mod tests {
             map_service_result_unit!(async { Err::<usize, u8>(3) }, WrappedError::Inner)
         });
         assert_eq!(err, Err(WrappedError::Inner(3)));
+    }
+
+    #[test]
+    fn normalize_name_trims_and_validates_length() {
+        assert_eq!(
+            super::normalize_name("  sample  ", 10),
+            Some("sample".to_string())
+        );
+        assert_eq!(super::normalize_name("   ", 10), None);
+        assert_eq!(super::normalize_name("abcdef", 5), None);
+    }
+
+    #[test]
+    fn normalize_optional_text_trims_and_empty_becomes_none() {
+        assert_eq!(
+            super::normalize_optional_text(Some("  value  ".to_string())),
+            Some("value".to_string())
+        );
+        assert_eq!(
+            super::normalize_optional_text(Some("   ".to_string())),
+            None
+        );
+        assert_eq!(super::normalize_optional_text(None), None);
     }
 }

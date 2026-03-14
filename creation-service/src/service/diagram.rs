@@ -1,11 +1,12 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
-use super::{map_service_result, map_service_result_unit};
+use super::{map_service_result, map_service_result_unit, normalize_name, normalize_optional_text};
 
 use crate::{
     model::diagram::{
         CreateDiagramSchema, DeleteDiagramSchema, Diagram, GetDiagramsSchema, UpdateDiagramSchema,
+        DIAGRAM_NAME_MAX_CHARS,
     },
     repository::diagram::{
         CreateDiagramRepositoryError, DeleteDiagramRepositoryError, GetDiagramsRepositoryError,
@@ -100,9 +101,13 @@ impl<T: DiagramService> UsesDiagramService for T {
         &self,
         body: CreateDiagramSchema,
     ) -> Result<(), CreateDiagramServiceError> {
-        if body.name.is_empty() {
+        let mut body = body;
+        let Some(name) = normalize_name(&body.name, DIAGRAM_NAME_MAX_CHARS) else {
             return Err(CreateDiagramServiceError::InvalidParams);
-        }
+        };
+
+        body.name = name;
+        body.description = normalize_optional_text(body.description);
 
         map_service_result_unit!(
             self.diagram_repository().create_diagram(body),
@@ -114,9 +119,18 @@ impl<T: DiagramService> UsesDiagramService for T {
         &self,
         body: UpdateDiagramSchema,
     ) -> Result<(), UpdateDiagramServiceError> {
-        if body.id == 0 || body.name.is_empty() {
+        let mut body = body;
+
+        if body.id == 0 {
             return Err(UpdateDiagramServiceError::InvalidParams);
         }
+
+        let Some(name) = normalize_name(&body.name, DIAGRAM_NAME_MAX_CHARS) else {
+            return Err(UpdateDiagramServiceError::InvalidParams);
+        };
+
+        body.name = name;
+        body.description = normalize_optional_text(body.description);
 
         match self.diagram_repository().update_diagram(body).await {
             Ok(()) => Ok(()),

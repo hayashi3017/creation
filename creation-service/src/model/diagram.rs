@@ -3,6 +3,8 @@ use std::fmt::{Debug, Display};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::Type;
 
+pub const DIAGRAM_NAME_MAX_CHARS: usize = 255;
+
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Diagram {
@@ -80,7 +82,8 @@ pub struct GetDiagramsSchema {}
 pub struct CreateDiagramSchema {
     pub name: String,
     pub kind: DiagramKind,
-    pub description: String,
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 impl Display for CreateDiagramSchema {
@@ -94,7 +97,8 @@ pub struct UpdateDiagramSchema {
     pub id: usize,
     pub name: String,
     pub kind: DiagramKind,
-    pub description: String,
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

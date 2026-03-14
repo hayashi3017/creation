@@ -1,6 +1,6 @@
 # RFC 0003: Validation And Normalization
 
-- Status: `Draft`
+- Status: `Accepted`
 - Last updated: `2026-03-14`
 
 ## Background
@@ -42,6 +42,13 @@ Define shared write-time validation rules.
 
 - normalization should happen before repository calls
 - validation errors should use typed domain errors rather than relying on DB constraint failures
+
+## Implementation Status
+
+- `diagram` / `entity` write paths now trim surrounding whitespace from `name`.
+- `name` is rejected when empty after trimming or when it exceeds the current DDL-backed `VARCHAR(255)` limit.
+- `description` is now optional in write requests and is normalized to `NULL` when omitted, `null`, or blank after trimming.
+- `diagram_id` existence checks and the final entity reassignment policy remain pending follow-up work tied to [ADR 0002](../adr/0002-entity-diagram-reassignment-policy.md).
 
 ## Review Points
 

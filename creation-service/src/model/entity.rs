@@ -3,6 +3,8 @@ use std::fmt::{Debug, Display};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::Type;
 
+pub const ENTITY_NAME_MAX_CHARS: usize = 255;
+
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Entity {
@@ -47,7 +49,8 @@ pub struct CreateEntitySchema {
     pub diagram_id: usize,
     pub kind: EntityKind,
     pub name: String,
-    pub description: String,
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 impl Display for CreateEntitySchema {
@@ -62,7 +65,8 @@ pub struct UpdateEntitySchema {
     pub diagram_id: usize,
     pub kind: EntityKind,
     pub name: String,
-    pub description: String,
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -209,6 +209,10 @@ or
 }
 ```
 
+- `description` is optional
+- `name` is trimmed before validation and must fit `VARCHAR(255)`
+- `description` is trimmed and stored as `NULL` when omitted, `null`, or blank
+
 - `kind` enum values:
   - `family_tree`
   - `correlation`
@@ -231,6 +235,10 @@ or
   "description": "updated from API"
 }
 ```
+
+- `description` is optional
+- `name` is trimmed before validation and must fit `VARCHAR(255)`
+- `description` is trimmed and stored as `NULL` when omitted, `null`, or blank
 
 - `200 OK`:
   - current handler returns empty body on success
@@ -304,6 +312,10 @@ or
 }
 ```
 
+- `description` is optional
+- `name` is trimmed before validation and must fit `VARCHAR(255)`
+- `description` is trimmed and stored as `NULL` when omitted, `null`, or blank
+
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
@@ -323,6 +335,10 @@ or
   "description": "updated from API"
 }
 ```
+
+- `description` is optional
+- `name` is trimmed before validation and must fit `VARCHAR(255)`
+- `description` is trimmed and stored as `NULL` when omitted, `null`, or blank
 
 - `200 OK`:
   - current handler returns empty body on success

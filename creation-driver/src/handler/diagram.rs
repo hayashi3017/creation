@@ -34,7 +34,8 @@ type JsonError = (StatusCode, Json<serde_json::Value>);
 pub struct UpdateDiagramRequest {
     pub name: String,
     pub kind: DiagramKind,
-    pub description: String,
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 pub async fn get_diagrams(

@@ -32,7 +32,7 @@ async fn create_entity_inserts_row(db: PgPool) {
         diagram_id: 1,
         kind: EntityKind::Person,
         name: "New Entity".to_string(),
-        description: "created from repository test".to_string(),
+        description: Some("created from repository test".to_string()),
     };
 
     repo.create_entity(body).await.unwrap();
@@ -59,7 +59,7 @@ async fn update_entity_updates_active_row(db: PgPool) {
         diagram_id: 2,
         kind: EntityKind::Person,
         name: "Updated Entity".to_string(),
-        description: "updated from repository test".to_string(),
+        description: Some("updated from repository test".to_string()),
     };
 
     repo.update_entity(body).await.unwrap();
@@ -128,7 +128,7 @@ async fn update_entity_returns_not_found_for_deleted_row(db: PgPool) {
         diagram_id: 1,
         kind: EntityKind::Person,
         name: "Missing Entity".to_string(),
-        description: "should fail".to_string(),
+        description: Some("should fail".to_string()),
     };
 
     let err = repo.update_entity(body).await.unwrap_err();

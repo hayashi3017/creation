@@ -18,8 +18,8 @@ Detailed proposals and decisions:
 
 ## Validation And Error Handling
 
-- `diagram` のサービス層バリデーションは最小限で、`name` の空文字と `id == 0` しか見ていない。長さ上限、前後空白の扱い、`description` の空文字を `NULL` に寄せるかどうかを決めると API 契約が安定する。See `docs/rfc/0003-validation-and-normalization.md`.
-- `entity` も同様に `diagram_id` / `id` と `name` の最小検証しかしていない。`diagram_id` の存在確認、diagram 間移動を許可するかどうか、`description` の扱いを決めると仕様が安定する。See `docs/rfc/0003-validation-and-normalization.md` and `docs/adr/0002-entity-diagram-reassignment-policy.md`.
+- `entity` の write validation では、まだ `diagram_id` の存在確認をしていない。作成先 / 更新先の diagram が存在し、かつ論理削除されていないことをどのレイヤで保証するかを決めた方が仕様が安定する。See `docs/rfc/0003-validation-and-normalization.md`.
+- `update_entity` で diagram 間移動を許可するかどうかは未確定。validation rule と update semantics を `docs/adr/0002-entity-diagram-reassignment-policy.md` に沿って固めた方が安全。See `docs/rfc/0003-validation-and-normalization.md` and `docs/adr/0002-entity-diagram-reassignment-policy.md`.
 - User API にも Diagram / Entity と同じ status mapping policy を適用するかは未整理。`register/login/me/logout` を同じ観点で揃えるか、User API だけ別ポリシーにするかを決めた方がエラー契約の見通しが良くなる。See `docs/rfc/0002-mutation-result-and-error-mapping.md`.
 
 ## Tooling And Tests

@@ -113,6 +113,50 @@ async fn create_entity_returns_ok(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("entity"))]
+async fn create_entity_normalizes_name_and_blank_description(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/entities/create")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "diagram_id": 1,
+                        "kind": "person",
+                        "name": "  Normalized Entity  ",
+                        "description": "   "
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = sqlx::query(
+        r#"
+            SELECT name, description FROM entity WHERE name = $1
+        "#,
+    )
+    .bind("Normalized Entity")
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(row.get::<String, _>("name"), "Normalized Entity");
+    assert!(row.get::<Option<String>, _>("description").is_none());
+}
+
+#[sqlx::test(fixtures("entity"))]
 async fn create_entity_rejects_empty_name(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -146,6 +190,38 @@ async fn create_entity_rejects_empty_name(db: PgPool) {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["status"], "fail");
     assert_eq!(json["message"], "Invalid Parameter");
+}
+
+#[sqlx::test(fixtures("entity"))]
+async fn create_entity_rejects_too_long_name(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+    let too_long_name = "a".repeat(256);
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/entities/create")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "diagram_id": 1,
+                        "kind": "person",
+                        "name": too_long_name,
+                        "description": "invalid"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
 #[sqlx::test(fixtures("entity"))]
@@ -194,6 +270,50 @@ async fn update_entity_returns_ok(db: PgPool) {
         row.get::<Option<String>, _>("description").as_deref(),
         Some("updated from handler test")
     );
+}
+
+#[sqlx::test(fixtures("entity"))]
+async fn update_entity_normalizes_name_and_missing_description(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri("/api/entities/update/1")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "diagram_id": 2,
+                        "kind": "person",
+                        "name": "  Updated Entity  "
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = sqlx::query(
+        r#"
+            SELECT diagram_id, name, description FROM entity WHERE id = $1
+        "#,
+    )
+    .bind(1_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(row.get::<i64, _>("diagram_id"), 2);
+    assert_eq!(row.get::<String, _>("name"), "Updated Entity");
+    assert!(row.get::<Option<String>, _>("description").is_none());
 }
 
 #[sqlx::test(fixtures("entity"))]

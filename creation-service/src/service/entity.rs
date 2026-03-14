@@ -1,11 +1,12 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
-use super::{map_service_result, map_service_result_unit};
+use super::{map_service_result, map_service_result_unit, normalize_name, normalize_optional_text};
 
 use crate::{
     model::entity::{
         CreateEntitySchema, DeleteEntitySchema, Entity, GetEntitiesSchema, UpdateEntitySchema,
+        ENTITY_NAME_MAX_CHARS,
     },
     repository::entity::{
         CreateEntityRepositoryError, DeleteEntityRepositoryError, GetEntitiesRepositoryError,
@@ -98,9 +99,18 @@ impl<T: EntityService> UsesEntityService for T {
         &self,
         body: CreateEntitySchema,
     ) -> Result<(), CreateEntityServiceError> {
-        if body.diagram_id == 0 || body.name.is_empty() {
+        let mut body = body;
+
+        if body.diagram_id == 0 {
             return Err(CreateEntityServiceError::InvalidParams);
         }
+
+        let Some(name) = normalize_name(&body.name, ENTITY_NAME_MAX_CHARS) else {
+            return Err(CreateEntityServiceError::InvalidParams);
+        };
+
+        body.name = name;
+        body.description = normalize_optional_text(body.description);
 
         map_service_result_unit!(
             self.entity_repository().create_entity(body),
@@ -112,9 +122,18 @@ impl<T: EntityService> UsesEntityService for T {
         &self,
         body: UpdateEntitySchema,
     ) -> Result<(), UpdateEntityServiceError> {
-        if body.id == 0 || body.diagram_id == 0 || body.name.is_empty() {
+        let mut body = body;
+
+        if body.id == 0 || body.diagram_id == 0 {
             return Err(UpdateEntityServiceError::InvalidParams);
         }
+
+        let Some(name) = normalize_name(&body.name, ENTITY_NAME_MAX_CHARS) else {
+            return Err(UpdateEntityServiceError::InvalidParams);
+        };
+
+        body.name = name;
+        body.description = normalize_optional_text(body.description);
 
         match self.entity_repository().update_entity(body).await {
             Ok(()) => Ok(()),

@@ -27,7 +27,7 @@ async fn create_diagram_inserts_row(db: PgPool) {
     let body = CreateDiagramSchema {
         name: "New Diagram".to_string(),
         kind: DiagramKind::FamilyTree,
-        description: "created from repository test".to_string(),
+        description: Some("created from repository test".to_string()),
     };
 
     repo.create_diagram(body).await.unwrap();
@@ -52,7 +52,7 @@ async fn update_diagram_updates_active_row(db: PgPool) {
         id: 1,
         name: "Updated Diagram".to_string(),
         kind: DiagramKind::Correlation,
-        description: "updated from repository test".to_string(),
+        description: Some("updated from repository test".to_string()),
     };
 
     repo.update_diagram(body).await.unwrap();
@@ -120,7 +120,7 @@ async fn update_diagram_returns_not_found_for_deleted_row(db: PgPool) {
         id: 3,
         name: "Missing Diagram".to_string(),
         kind: DiagramKind::Correlation,
-        description: "should fail".to_string(),
+        description: Some("should fail".to_string()),
     };
 
     let err = repo.update_diagram(body).await.unwrap_err();

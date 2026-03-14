@@ -122,7 +122,7 @@ Handler: `creation-driver/src/handler/diagram.rs::create_diagram`
 
 1. Auth middleware validates token.
 2. Parse JSON into `CreateDiagramSchema`.
-3. Service-level validation (through trait impl) checks `name` not empty.
+3. Service-level validation trims `name`, rejects empty / overlong values, and normalizes blank or missing `description` to `NULL`.
 4. Repository inserts into `diagram`.
 5. Return:
    - `200` on success (empty body in current handler)
@@ -136,7 +136,9 @@ Handler: `creation-driver/src/handler/diagram.rs::update_diagram_by_id`
 2. Read `id` from path and JSON body into the update request payload.
 3. Service-level validation checks:
    - `id != 0`
-   - `name` not empty
+   - trimmed `name` is not empty
+   - trimmed `name` fits `VARCHAR(255)`
+   - blank or missing `description` is normalized to `NULL`
 4. Repository updates the active `diagram` row and refreshes `updated_at`.
 5. Return:
    - `200` on success (empty body in current handler)
@@ -180,7 +182,9 @@ Handler: `creation-driver/src/handler/entity.rs::create_entity_in_diagram`
 2. Parse JSON body into `CreateEntitySchema`.
 3. Service-level validation checks:
    - `diagram_id != 0`
-   - `name` not empty
+   - trimmed `name` is not empty
+   - trimmed `name` fits `VARCHAR(255)`
+   - blank or missing `description` is normalized to `NULL`
 4. Repository inserts into `entity`.
 5. Return:
    - `200` on success (empty body in current handler)
@@ -195,7 +199,9 @@ Handler: `creation-driver/src/handler/entity.rs::update_entity_by_id`
 3. Service-level validation checks:
    - `id != 0`
    - `diagram_id != 0`
-   - `name` not empty
+   - trimmed `name` is not empty
+   - trimmed `name` fits `VARCHAR(255)`
+   - blank or missing `description` is normalized to `NULL`
 4. Repository updates the active `entity` row and refreshes `updated_at`.
 5. Return:
    - `200` on success (empty body in current handler)

@@ -7,7 +7,7 @@ use axum::{
 };
 use creation_service::{
     model::entity::{
-        CreateEntitySchema, DeleteEntitySchema, GetEntitiesSchema, UpdateEntitySchema,
+        CreateEntitySchema, DeleteEntitySchema, EntityKind, GetEntitiesSchema, UpdateEntitySchema,
     },
     repository::entity::{
         CreateEntityRepositoryError, DeleteEntityRepositoryError, GetEntitiesRepositoryError,
@@ -23,10 +23,20 @@ use creation_usecase::usecase::entity::{
     UpdateEntityUsecaseError, UsesEntityUsecase,
 };
 use http::StatusCode;
+use serde::Deserialize;
 
 use crate::AppState;
 
 type JsonError = (StatusCode, Json<serde_json::Value>);
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateEntityRequest {
+    pub diagram_id: usize,
+    pub kind: EntityKind,
+    pub name: String,
+    #[serde(default)]
+    pub description: Option<String>,
+}
 
 pub async fn get_entities_by_diagram(
     State(data): State<Arc<AppState>>,
@@ -114,7 +124,7 @@ async fn create_entity_inner(
 pub async fn update_entity_by_id(
     Path(id): Path<usize>,
     State(data): State<Arc<AppState>>,
-    Json(body): Json<UpdateEntitySchema>,
+    Json(body): Json<UpdateEntityRequest>,
 ) -> Result<impl IntoResponse, JsonError> {
     update_entity_inner(
         data,

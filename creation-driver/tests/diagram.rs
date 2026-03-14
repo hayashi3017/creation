@@ -74,6 +74,51 @@ async fn create_diagram_returns_ok(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("get_diagrams"))]
+async fn create_diagram_normalizes_name_and_blank_description(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/diagrams/create")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "name": "  Normalized Diagram  ",
+                        "kind": "family_tree",
+                        "description": "   "
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = sqlx::query(
+        r#"
+            SELECT name, description
+            FROM diagram
+            WHERE name = $1
+        "#,
+    )
+    .bind("Normalized Diagram")
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(row.get::<String, _>("name"), "Normalized Diagram");
+    assert!(row.get::<Option<String>, _>("description").is_none());
+}
+
+#[sqlx::test(fixtures("get_diagrams"))]
 async fn create_diagram_rejects_empty_name(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -106,6 +151,37 @@ async fn create_diagram_rejects_empty_name(db: PgPool) {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["status"], "fail");
     assert_eq!(json["message"], "Invalid Parameter");
+}
+
+#[sqlx::test(fixtures("get_diagrams"))]
+async fn create_diagram_rejects_too_long_name(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+    let too_long_name = "a".repeat(256);
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/diagrams/create")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "name": too_long_name,
+                        "kind": "family_tree",
+                        "description": "invalid"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
 #[sqlx::test(fixtures("get_diagrams"))]
@@ -152,6 +228,48 @@ async fn update_diagram_returns_ok(db: PgPool) {
         row.get::<Option<String>, _>("description").as_deref(),
         Some("updated from handler test")
     );
+}
+
+#[sqlx::test(fixtures("get_diagrams"))]
+async fn update_diagram_normalizes_name_and_missing_description(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri("/api/diagrams/update/1")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "name": "  Updated Diagram  ",
+                        "kind": "correlation"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = sqlx::query(
+        r#"
+            SELECT name, description FROM diagram WHERE id = $1
+        "#,
+    )
+    .bind(1_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(row.get::<String, _>("name"), "Updated Diagram");
+    assert!(row.get::<Option<String>, _>("description").is_none());
 }
 
 #[sqlx::test(fixtures("get_diagrams"))]
