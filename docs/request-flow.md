@@ -1,6 +1,6 @@
 # Request Flow
 
-Last updated: 2026-03-14
+Last updated: 2026-03-15
 
 ## Overview
 
@@ -32,7 +32,9 @@ Current runtime path:
 ```text
 HTTP route
   -> driver handler
-  -> adapter repository (RepositoryImpl<...>)
+  -> usecase
+  -> service validation / coordination
+  -> adapter repository or unit of work
   -> sqlx query / transaction
   -> driver error mapping
   -> HTTP response
@@ -40,7 +42,7 @@ HTTP route
 
 Note:
 
-- Traits for usecase/service/repository layers exist, but handlers currently call adapter repositories directly via `AppState.driver`.
+- `AppState.driver` is still an adapter-backed concrete module, but handlers call usecase traits on that module.
 
 ## Auth middleware flow
 
@@ -160,67 +162,83 @@ Handler: `creation-driver/src/handler/diagram.rs::delete_diagram_by_id`
    - `404` target missing or already soft-deleted
    - `500` DB failure
 
-### `GET /api/entities` (protected)
+### `GET /api/persons` (protected)
 
-Handler: `creation-driver/src/handler/entity.rs::get_entities_by_diagram`
+Handler: `creation-driver/src/handler/person.rs::get_persons_by_diagram`
 
 1. Auth middleware validates token.
-2. Parse JSON body into `GetEntitiesSchema`.
-3. Service-level validation checks `diagram_id != 0`.
-4. Repository queries `entity` where `deleted_at IS NULL` and `diagram_id = ?`.
-5. Rows are mapped to `Vec<Entity>`.
-6. Return:
+2. Parse JSON body into `GetPersonsSchema`.
+3. Usecase validates `diagram_id != 0`.
+4. Usecase loads active `entity(kind=person)` rows through `entity_service`.
+5. Usecase loads active `person` rows through `person_service`.
+6. Usecase merges both results into `Vec<Person>`.
+7. Return:
    - `200` with list
    - `400` invalid params
    - `500` DB failure
 
-### `POST /api/entities/create` (protected)
+### `POST /api/persons/create` (protected)
 
-Handler: `creation-driver/src/handler/entity.rs::create_entity_in_diagram`
+Handler: `creation-driver/src/handler/person.rs::create_person`
 
 1. Auth middleware validates token.
-2. Parse JSON body into `CreateEntitySchema`.
-3. Service-level validation checks:
+2. Parse JSON body into `CreatePersonSchema`.
+3. Usecase normalizes the aggregate payload using service-level validation helpers:
    - `diagram_id != 0`
    - trimmed `name` is not empty
    - trimmed `name` fits `VARCHAR(255)`
    - blank or missing `description` is normalized to `NULL`
-4. Repository inserts into `entity`.
-5. Return:
-   - `200` on success (empty body in current handler)
-   - `400` invalid params / DB error mapping
-
-### `PATCH /api/entities/update/{id}` (protected)
-
-Handler: `creation-driver/src/handler/entity.rs::update_entity_by_id`
-
-1. Auth middleware validates token.
-2. Read `id` from path and parse JSON body into the update request payload.
-3. Service-level validation checks:
-   - `id != 0`
-   - `diagram_id != 0`
-   - trimmed `name` is not empty
-   - trimmed `name` fits `VARCHAR(255)`
-   - blank or missing `description` is normalized to `NULL`
-4. Repository updates the active `entity` row and refreshes `updated_at`.
-5. Return:
+   - `birthplace` / `residence` fit `VARCHAR(255)` after trim
+   - `photo_url` fits `VARCHAR(512)` after trim
+   - blank optional strings are normalized to `NULL`
+4. Usecase begins `PersonWriteUnitOfWork`.
+5. UnitOfWork inserts `entity(kind=person)` and returns `entity_id`.
+6. UnitOfWork inserts the matching `person` row.
+7. UnitOfWork commits the transaction.
+8. Return:
    - `200` on success (empty body in current handler)
    - `400` invalid params
-   - `404` target missing or already soft-deleted
    - `500` DB failure
 
-### `DELETE /api/entities/{id}` (protected)
+### `PATCH /api/persons/update/{entity_id}` (protected)
 
-Handler: `creation-driver/src/handler/entity.rs::delete_entity_by_id`
+Handler: `creation-driver/src/handler/person.rs::update_person_by_entity_id`
 
 1. Auth middleware validates token.
-2. Read `id` from path.
-3. Service-level validation checks `id != 0`.
-4. Repository soft-deletes the active `entity` row by setting `deleted_at`.
-5. Return:
+2. Read `entity_id` from path and parse JSON body into the update request payload.
+3. Usecase normalizes the aggregate payload using service-level validation helpers:
+   - `entity_id != 0`
+   - `diagram_id != 0`
+   - trimmed `name` is not empty
+   - trimmed `name` fits `VARCHAR(255)`
+   - blank or missing `description` is normalized to `NULL`
+   - provided string fields fit DDL limits after trim
+   - blank optional strings are normalized to `NULL`
+4. Usecase begins `PersonWriteUnitOfWork`.
+5. UnitOfWork updates the active `entity(kind=person)` row.
+6. UnitOfWork updates the active `person` row.
+7. UnitOfWork commits the transaction.
+8. Return:
    - `200` on success (empty body in current handler)
    - `400` invalid params
-   - `404` target missing or already soft-deleted
+   - `404` missing / soft-deleted `entity` or `person`
+   - `500` DB failure
+
+### `DELETE /api/persons/delete/{entity_id}` (protected)
+
+Handler: `creation-driver/src/handler/person.rs::delete_person_by_entity_id`
+
+1. Auth middleware validates token.
+2. Read `entity_id` from path.
+3. Usecase validates `entity_id != 0`.
+4. Usecase begins `PersonWriteUnitOfWork`.
+5. UnitOfWork soft-deletes the active `entity(kind=person)` row.
+6. UnitOfWork soft-deletes the active `person` row.
+7. UnitOfWork commits the transaction.
+8. Return:
+   - `200` on success (empty body in current handler)
+   - `400` invalid params
+   - `404` missing / soft-deleted `entity` or `person`
    - `500` DB failure
 
 ## Sequence snapshot (login -> me)
@@ -239,8 +257,8 @@ Client -> GET /api/users/me (with token)
 - `POST /api/diagrams/create` returns `200` with empty body in success path.
 - `PATCH /api/diagrams/update/{id}` returns `200` with empty body in success path.
 - `DELETE /api/diagrams/delete/{id}` returns `200` with empty body in success path.
-- `GET /api/entities` expects a JSON body because the handler uses `Json<GetEntitiesSchema>`.
-- `POST /api/entities/create` returns `200` with empty body in success path.
-- `PATCH /api/entities/update/{id}` returns `200` with empty body in success path.
-- `DELETE /api/entities/{id}` returns `200` with empty body in success path.
-- Diagram / Entity の update/delete は `404` / `500` を返し分けるが、create や User API を含めた全体の status mapping はまだ完全には統一されていない。
+- `GET /api/persons` expects a JSON body because the handler uses `Json<GetPersonsSchema>`.
+- `POST /api/persons/create` returns `200` with empty body in success path.
+- `PATCH /api/persons/update/{entity_id}` returns `200` with empty body in success path.
+- `DELETE /api/persons/delete/{entity_id}` returns `200` with empty body in success path.
+- Diagram / Person の update/delete は `404` / `500` を返し分けるが、create や User API を含めた全体の status mapping はまだ完全には統一されていない。

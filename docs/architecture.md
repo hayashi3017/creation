@@ -1,6 +1,6 @@
 # Workspace Architecture
 
-Last updated: 2026-03-14
+Last updated: 2026-03-15
 
 ## Goal
 
@@ -43,7 +43,7 @@ driver -> usecase -> service -> adapter
 ```
 
 Implementation note:
-- The current runtime path is functional, but not fully aligned with the target direction because `creation-driver` directly uses `creation-adapter::RepositoryImpl` in handlers/state.
+- `AppModule` still owns adapter-backed concrete implementations, but handlers now call usecase traits on that module rather than reaching into repositories directly.
 
 ## Runtime composition
 
@@ -53,7 +53,7 @@ Startup flow:
 
 1. Load environment variables (`dotenv` + `Config::init`).
 2. Initialize tracing subscriber (JSON logs).
-3. Build `AppModule` (`RepositoryImpl<UserTable>` and `RepositoryImpl<DiagramTable>`).
+3. Build `AppModule` (`RepositoryImpl<UserTable>`, `RepositoryImpl<DiagramTable>`, `RepositoryImpl<EntityTable>`, `RepositoryImpl<PersonTable>`).
 4. Build Axum router with shared `AppState`.
 5. Attach CORS middleware and auth middleware per protected route.
 6. Bind listener (`listenfd` if supplied, fallback to manual bind).
@@ -83,17 +83,18 @@ Protected routes (JWT auth middleware):
 - `POST /api/diagrams/create`
 - `PATCH /api/diagrams/update/{id}`
 - `DELETE /api/diagrams/delete/{id}`
-- `GET /api/entities`
-- `POST /api/entities/create`
-- `PATCH /api/entities/update/{id}`
-- `DELETE /api/entities/{id}`
+- `GET /api/persons`
+- `POST /api/persons/create`
+- `PATCH /api/persons/update/{entity_id}`
+- `DELETE /api/persons/delete/{entity_id}`
 
 Request processing pattern (current):
 
 1. Handler receives JSON/body and shared `AppState`.
-2. Handler calls repository-backed methods via `data.driver.*_repository`.
-3. Adapter performs SQLx query / transaction.
-4. Domain/service/usecase error enums are mapped to HTTP responses.
+2. Handler calls usecase methods via `data.driver`.
+3. Usecase/service layers validate input and coordinate reads/writes.
+4. Adapter performs SQLx query / transaction.
+5. Domain/service/usecase error enums are mapped to HTTP responses.
 
 ## Authentication model
 
@@ -117,6 +118,9 @@ Persistence implementation:
 - DB pool wrapper: `creation-adapter/src/persistence/postgres.rs`
 - User repository: `creation-adapter/src/repository/user.rs`
 - Diagram repository: `creation-adapter/src/repository/diagram.rs`
+- Entity repository: `creation-adapter/src/repository/entity.rs`
+- Person repository: `creation-adapter/src/repository/person.rs`
+- Person UnitOfWork: `creation-adapter/src/repository/unit_of_work.rs`
 
 Migrations:
 
@@ -149,8 +153,7 @@ The suite uses `sqlx` test patterns and fixture SQL files for data setup.
 
 ## Current design gaps to track
 
-1. Layer boundary mismatch:
-   `creation-driver` directly depends on and calls adapter repositories.
+1. `creation-driver` still constructs adapter-backed concrete modules directly in `AppModule`, even though request execution now goes through usecase traits.
 2. Reverse dependency in adapter:
    `creation-adapter` currently depends on `creation-usecase` (marked TODO in `creation-adapter/Cargo.toml`).
 3. Trait layering exists (`Provides*` / `Uses*`) but is not fully enforced by module boundaries at runtime wiring.

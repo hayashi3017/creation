@@ -49,7 +49,6 @@ Adopt resource-oriented paths in the next API revision.
 ### Already aligned with this RFC
 
 - `GET /api/diagrams`
-- `DELETE /api/entities/{id}`
 
 ### Still diverging from this RFC
 
@@ -57,12 +56,13 @@ Adopt resource-oriented paths in the next API revision.
   - `POST /api/diagrams/create`
   - `PATCH /api/diagrams/update/{id}`
   - `DELETE /api/diagrams/delete/{id}`
-- Entity list/create/update still diverge:
-  - `GET /api/entities` depends on a JSON body with `diagram_id`
-  - `POST /api/entities/create`
-  - `PATCH /api/entities/update/{id}`
+- Public person aggregate routes still diverge:
+  - `GET /api/persons` depends on a JSON body with `diagram_id`
+  - `POST /api/persons/create`
+  - `PATCH /api/persons/update/{id}`
+  - `DELETE /api/persons/delete/{id}`
 
 ## Review Points
 
-- Should entity update/delete also be nested under `/api/diagrams/:diagram_id/...`, or is a global `/api/entities/:id` better once the ID is known?
-- Do we want to add `GET /api/diagrams/:id` and `GET /api/entities/:id` in the same revision for consistency?
+- Should person update/delete also be nested under `/api/diagrams/:diagram_id/...`, or is a global `/api/persons/:id` better once the ID is known?
+- Do we want to add `GET /api/diagrams/:id` and `GET /api/persons/:id` in the same revision for consistency?

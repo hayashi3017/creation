@@ -99,18 +99,9 @@ impl<T: EntityService> UsesEntityService for T {
         &self,
         body: CreateEntitySchema,
     ) -> Result<(), CreateEntityServiceError> {
-        let mut body = body;
-
-        if body.diagram_id == 0 {
-            return Err(CreateEntityServiceError::InvalidParams);
-        }
-
-        let Some(name) = normalize_name(&body.name, ENTITY_NAME_MAX_CHARS) else {
+        let Some(body) = prepare_create_entity(body) else {
             return Err(CreateEntityServiceError::InvalidParams);
         };
-
-        body.name = name;
-        body.description = normalize_optional_text(body.description);
 
         map_service_result_unit!(
             self.entity_repository().create_entity(body),
@@ -122,18 +113,9 @@ impl<T: EntityService> UsesEntityService for T {
         &self,
         body: UpdateEntitySchema,
     ) -> Result<(), UpdateEntityServiceError> {
-        let mut body = body;
-
-        if body.id == 0 || body.diagram_id == 0 {
-            return Err(UpdateEntityServiceError::InvalidParams);
-        }
-
-        let Some(name) = normalize_name(&body.name, ENTITY_NAME_MAX_CHARS) else {
+        let Some(body) = prepare_update_entity(body) else {
             return Err(UpdateEntityServiceError::InvalidParams);
         };
-
-        body.name = name;
-        body.description = normalize_optional_text(body.description);
 
         match self.entity_repository().update_entity(body).await {
             Ok(()) => Ok(()),
@@ -146,15 +128,54 @@ impl<T: EntityService> UsesEntityService for T {
         &self,
         body: DeleteEntitySchema,
     ) -> Result<(), DeleteEntityServiceError> {
-        if body.id == 0 {
+        let Some(body) = prepare_delete_entity(body) else {
             return Err(DeleteEntityServiceError::InvalidParams);
-        }
+        };
 
         match self.entity_repository().delete_entity(body).await {
             Ok(()) => Ok(()),
             Err(DeleteEntityRepositoryError::NotFound) => Err(DeleteEntityServiceError::NotFound),
             Err(err) => Err(DeleteEntityServiceError::DeleteEntityRepositoryError(err)),
         }
+    }
+}
+
+pub fn prepare_create_entity(body: CreateEntitySchema) -> Option<CreateEntitySchema> {
+    if body.diagram_id == 0 {
+        return None;
+    }
+
+    let name = normalize_name(&body.name, ENTITY_NAME_MAX_CHARS)?;
+
+    Some(CreateEntitySchema {
+        diagram_id: body.diagram_id,
+        kind: body.kind,
+        name,
+        description: normalize_optional_text(body.description),
+    })
+}
+
+pub fn prepare_update_entity(body: UpdateEntitySchema) -> Option<UpdateEntitySchema> {
+    if body.id == 0 || body.diagram_id == 0 {
+        return None;
+    }
+
+    let name = normalize_name(&body.name, ENTITY_NAME_MAX_CHARS)?;
+
+    Some(UpdateEntitySchema {
+        id: body.id,
+        diagram_id: body.diagram_id,
+        kind: body.kind,
+        name,
+        description: normalize_optional_text(body.description),
+    })
+}
+
+pub fn prepare_delete_entity(body: DeleteEntitySchema) -> Option<DeleteEntitySchema> {
+    if body.id == 0 {
+        None
+    } else {
+        Some(body)
     }
 }
 

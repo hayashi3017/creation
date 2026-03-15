@@ -1,6 +1,6 @@
 # API Overview
 
-Last updated: 2026-03-14
+Last updated: 2026-03-15
 
 ## Scope
 
@@ -29,10 +29,10 @@ Protected endpoints:
 - `POST /api/diagrams/create`
 - `PATCH /api/diagrams/update/{id}`
 - `DELETE /api/diagrams/delete/{id}`
-- `GET /api/entities`
-- `POST /api/entities/create`
-- `PATCH /api/entities/update/{id}`
-- `DELETE /api/entities/{id}`
+- `GET /api/persons`
+- `POST /api/persons/create`
+- `PATCH /api/persons/update/{entity_id}`
+- `DELETE /api/persons/delete/{entity_id}`
 
 ## Endpoints
 
@@ -47,10 +47,10 @@ Protected endpoints:
 | POST | `/api/diagrams/create` | Yes | create diagram |
 | PATCH | `/api/diagrams/update/{id}` | Yes | update diagram |
 | DELETE | `/api/diagrams/delete/{id}` | Yes | soft delete diagram |
-| GET | `/api/entities` | Yes | list entities in a diagram |
-| POST | `/api/entities/create` | Yes | create entity |
-| PATCH | `/api/entities/update/{id}` | Yes | update entity |
-| DELETE | `/api/entities/{id}` | Yes | soft delete entity |
+| GET | `/api/persons` | Yes | list persons in a diagram |
+| POST | `/api/persons/create` | Yes | create entity + person |
+| PATCH | `/api/persons/update/{entity_id}` | Yes | update entity + person |
+| DELETE | `/api/persons/delete/{entity_id}` | Yes | soft delete entity + person |
 
 ## Request and response details
 
@@ -265,10 +265,9 @@ or
 - `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 
-### GET `/api/entities`
+### GET `/api/persons`
 
 - Auth required
-- Current implementation expects JSON body because handler uses `Json<GetEntitiesSchema>`.
 - Request JSON:
 
 ```json
@@ -284,21 +283,25 @@ or
   "status": "success",
   "data": [
     {
-      "id": 1,
+      "entity_id": 1,
       "diagram_id": 1,
-      "kind": "person",
       "name": "sample person",
-      "description": "optional"
+      "description": "optional",
+      "gender": "female",
+      "birth_date": "1995-03-10",
+      "death_date": null,
+      "birthplace": "Tokyo",
+      "residence": "Nagoya",
+      "photo_url": "https://example.com/person-1.png"
     }
   ]
 }
 ```
 
-- `400 BAD_REQUEST`:
-  - invalid params (`diagram_id` is `0`)
-- `500 INTERNAL_SERVER_ERROR`: DB failures
+- `400 BAD_REQUEST`: invalid `diagram_id`
+- `500 INTERNAL_SERVER_ERROR`: DB failure
 
-### POST `/api/entities/create`
+### POST `/api/persons/create`
 
 - Auth required
 - Request JSON:
@@ -306,15 +309,23 @@ or
 ```json
 {
   "diagram_id": 1,
-  "kind": "person",
   "name": "Alice",
-  "description": "created from API"
+  "description": "created from API",
+  "gender": "male",
+  "birth_date": "2001-01-01",
+  "death_date": null,
+  "birthplace": "Yokohama",
+  "residence": "Kobe",
+  "photo_url": "https://example.com/create.png"
 }
 ```
 
-- `description` is optional
+- `description` and all person-specific fields are optional
 - `name` is trimmed before validation and must fit `VARCHAR(255)`
 - `description` is trimmed and stored as `NULL` when omitted, `null`, or blank
+- `birthplace` / `residence` are trimmed and must fit `VARCHAR(255)`
+- `photo_url` is trimmed and must fit `VARCHAR(512)`
+- blank optional strings are stored as `NULL`
 
 - `200 OK`:
   - current handler returns empty body on success
@@ -322,7 +333,7 @@ or
   - invalid params (`diagram_id` is `0` or `name` empty)
   - DB failures
 
-### PATCH `/api/entities/update/{id}`
+### PATCH `/api/persons/update/{entity_id}`
 
 - Auth required
 - Request JSON:
@@ -330,27 +341,34 @@ or
 ```json
 {
   "diagram_id": 1,
-  "kind": "person",
   "name": "Alice Updated",
-  "description": "updated from API"
+  "description": "updated from API",
+  "gender": "unknown",
+  "birth_date": "1996-04-01",
+  "death_date": "2024-04-01",
+  "birthplace": "Fukuoka",
+  "residence": "Sendai",
+  "photo_url": "https://example.com/update.png"
 }
 ```
 
-- `description` is optional
+- all aggregate fields are supplied in the JSON body
 - `name` is trimmed before validation and must fit `VARCHAR(255)`
 - `description` is trimmed and stored as `NULL` when omitted, `null`, or blank
+- provided string fields are trimmed and validated against DDL length limits
+- blank optional strings are stored as `NULL`
 
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`id` or `diagram_id` is `0`, `name` empty)
+  - invalid params (`entity_id` or `diagram_id` is `0`, `name` empty)
 - `404 NOT_FOUND`:
-  - target entity does not exist
-  - target entity is already soft-deleted
+  - target person aggregate does not exist
+  - target entity or person row is already soft-deleted
 - `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 
-### DELETE `/api/entities/{id}`
+### DELETE `/api/persons/delete/{entity_id}`
 
 - Auth required
 - Request body: none
@@ -358,10 +376,10 @@ or
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`id` is `0`)
+  - invalid params (`entity_id` is `0`)
 - `404 NOT_FOUND`:
-  - target entity does not exist
-  - target entity is already soft-deleted
+  - target person aggregate does not exist
+  - target entity or person row is already soft-deleted
 - `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 

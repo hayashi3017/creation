@@ -9,11 +9,11 @@ use axum::{
 use crate::{
     handler::{
         diagram::{create_diagram, delete_diagram_by_id, get_diagrams, update_diagram_by_id},
-        entity::{
-            create_entity_in_diagram, delete_entity_by_id, get_entities_by_diagram,
-            update_entity_by_id,
-        },
         health_check::health_checker_handler,
+        person::{
+            create_person, delete_person_by_entity_id, get_persons_by_diagram,
+            update_person_by_entity_id,
+        },
         user::{get_me_handler, login_user_handler, logout_handler, register_user_handler},
     },
     jwt_auth::auth,
@@ -55,23 +55,23 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/entities/create",
-            post(create_entity_in_diagram)
+            "/api/persons",
+            get(get_persons_by_diagram)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/entities",
-            get(get_entities_by_diagram)
+            "/api/persons/create",
+            post(create_person)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/entities/update/:id",
-            patch(update_entity_by_id)
+            "/api/persons/update/:entity_id",
+            patch(update_person_by_entity_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/entities/:id",
-            axum::routing::delete(delete_entity_by_id)
+            "/api/persons/delete/:entity_id",
+            axum::routing::delete(delete_person_by_entity_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .with_state(app_state)

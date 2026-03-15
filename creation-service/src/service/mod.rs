@@ -1,5 +1,6 @@
 pub mod diagram;
 pub mod entity;
+pub mod person;
 pub mod user;
 
 pub(crate) fn normalize_name(name: &str, max_chars: usize) -> Option<String> {
@@ -22,6 +23,17 @@ pub(crate) fn normalize_optional_text(text: Option<String>) -> Option<String> {
             Some(trimmed.to_string())
         }
     })
+}
+
+pub(crate) fn normalize_optional_text_with_max_chars(
+    text: Option<String>,
+    max_chars: usize,
+) -> Option<Option<String>> {
+    match normalize_optional_text(text) {
+        Some(value) if value.chars().count() > max_chars => None,
+        Some(value) => Some(Some(value)),
+        None => Some(None),
+    }
 }
 
 macro_rules! map_service_result {
@@ -101,5 +113,21 @@ mod tests {
             None
         );
         assert_eq!(super::normalize_optional_text(None), None);
+    }
+
+    #[test]
+    fn normalize_optional_text_with_max_chars_validates_length() {
+        assert_eq!(
+            super::normalize_optional_text_with_max_chars(Some("  value  ".to_string()), 10),
+            Some(Some("value".to_string()))
+        );
+        assert_eq!(
+            super::normalize_optional_text_with_max_chars(Some("   ".to_string()), 10),
+            Some(None)
+        );
+        assert_eq!(
+            super::normalize_optional_text_with_max_chars(Some("abcdef".to_string()), 5),
+            None
+        );
     }
 }

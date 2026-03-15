@@ -1,7 +1,7 @@
 # ADR 0001: Entity-Person Write Model
 
 - Status: `Draft`
-- Last updated: `2026-03-14`
+- Last updated: `2026-03-15`
 
 ## Context
 
@@ -74,5 +74,7 @@ Recommended request shape:
 
 ## Follow-Up
 
+- current implementation exposes `person` as the public aggregate endpoint and writes `entity + person` together there, but generic `/api/entities` is no longer the public write surface
+- internal transaction ownership for that aggregate write is tracked separately in `docs/adr/0003-person-aggregate-transaction-boundary.md`
 - define how reads should expose person-specific fields
 - define whether non-`person` entity kinds require their own nested object keys when introduced

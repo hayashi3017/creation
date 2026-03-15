@@ -1,6 +1,6 @@
 # Data Model
 
-Last updated: 2026-02-18
+Last updated: 2026-03-15
 
 ## Scope
 
@@ -120,6 +120,12 @@ Columns:
 - `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`
 - `deleted_at TIMESTAMPTZ`
 
+Rust mapping:
+
+- DB row model: `creation-adapter/src/model/person.rs` (`PersonTable`)
+- API/domain model: `creation-service/src/model/person.rs` (`Person`)
+- Enum mapping: `creation-service/src/model/person.rs` (`GenderKind`)
+
 ### `relationship`
 
 Purpose:
@@ -172,10 +178,10 @@ Actively used by repository code:
 - `users`
 - `diagram`
 - `entity`
+- `person`
 
 Defined in migration but not yet wired in current repositories/handlers:
 
-- `person`
 - `relationship`
 - `tree_path`
 

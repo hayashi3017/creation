@@ -30,6 +30,7 @@ tower.workspace = true
 http.workspace = true
 listenfd.workspace = true
 utoipa.workspace = true
+async-trait.workspace = true
 
 [dev-dependencies]
 http-body-util = "0.1"

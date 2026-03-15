@@ -1,22 +1,27 @@
 use config::Config;
 use creation_adapter::{
-    model::{diagram::DiagramTable, entity::EntityTable, user::UserTable},
-    repository::RepositoryImpl,
+    model::{diagram::DiagramTable, entity::EntityTable, person::PersonTable, user::UserTable},
+    repository::{unit_of_work::SqlxPersonWriteUnitOfWork, RepositoryImpl},
 };
 use creation_service::{
     repository::{
-        diagram::ProvidesDiagramRepository, entity::ProvidesEntityRepository,
+        diagram::ProvidesDiagramRepository,
+        entity::ProvidesEntityRepository,
+        person::ProvidesPersonRepository,
+        unit_of_work::{BeginPersonWriteUnitOfWorkError, ProvidesPersonWriteUnitOfWork},
         user::ProvidesUserRepository,
     },
     service::{
         diagram::{DiagramService, ProvidesDiagramService},
         entity::{EntityService, ProvidesEntityService},
+        person::{PersonService, ProvidesPersonService},
         user::{ProvidesUserService, UserService},
     },
 };
 use creation_usecase::usecase::{
     diagram::{DiagramUsecase, ProvidesDiagramUsecase},
     entity::{EntityUsecase, ProvidesEntityUsecase},
+    person::{PersonUsecase, ProvidesPersonUsecase},
     user::{ProvidesUserUsecase, UserUsecase},
 };
 use sqlx::{Pool, Postgres};
@@ -40,6 +45,7 @@ pub struct AppModule {
     pub user_repository: RepositoryImpl<UserTable>,
     pub diagram_repository: RepositoryImpl<DiagramTable>,
     pub entity_repository: RepositoryImpl<EntityTable>,
+    pub person_repository: RepositoryImpl<PersonTable>,
 }
 
 impl AppModule {
@@ -48,6 +54,7 @@ impl AppModule {
             user_repository: RepositoryImpl::<UserTable>::new().await,
             diagram_repository: RepositoryImpl::<DiagramTable>::new().await,
             entity_repository: RepositoryImpl::<EntityTable>::new().await,
+            person_repository: RepositoryImpl::<PersonTable>::new().await,
         }
     }
     pub async fn new_test(pool: Pool<Postgres>) -> Self {
@@ -56,6 +63,7 @@ impl AppModule {
             user_repository: RepositoryImpl::<UserTable>::new_test(pool.clone()).await,
             diagram_repository: RepositoryImpl::<DiagramTable>::new_test(pool.clone()).await,
             entity_repository: RepositoryImpl::<EntityTable>::new_test(pool.clone()).await,
+            person_repository: RepositoryImpl::<PersonTable>::new_test(pool.clone()).await,
         }
     }
 }
@@ -84,9 +92,29 @@ impl ProvidesEntityRepository for AppModule {
     }
 }
 
+impl ProvidesPersonRepository for AppModule {
+    type T = RepositoryImpl<PersonTable>;
+
+    fn person_repository(&self) -> &Self::T {
+        &self.person_repository
+    }
+}
+
+#[async_trait::async_trait]
+impl ProvidesPersonWriteUnitOfWork for AppModule {
+    type T = SqlxPersonWriteUnitOfWork;
+
+    async fn begin_person_write_unit_of_work(
+        &self,
+    ) -> Result<Self::T, BeginPersonWriteUnitOfWorkError> {
+        SqlxPersonWriteUnitOfWork::begin(&self.person_repository.pool.0).await
+    }
+}
+
 impl UserService for AppModule {}
 impl DiagramService for AppModule {}
 impl EntityService for AppModule {}
+impl PersonService for AppModule {}
 
 impl ProvidesUserService for AppModule {
     type T = Self;
@@ -112,9 +140,18 @@ impl ProvidesEntityService for AppModule {
     }
 }
 
+impl ProvidesPersonService for AppModule {
+    type T = Self;
+
+    fn person_service(&self) -> &Self::T {
+        self
+    }
+}
+
 impl UserUsecase for AppModule {}
 impl DiagramUsecase for AppModule {}
 impl EntityUsecase for AppModule {}
+impl PersonUsecase for AppModule {}
 
 impl ProvidesUserUsecase for AppModule {
     type T = Self;
@@ -140,38 +177,56 @@ impl ProvidesEntityUsecase for AppModule {
     }
 }
 
+impl ProvidesPersonUsecase for AppModule {
+    type T = Self;
+
+    fn person_usecase(&self) -> &Self::T {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::AppModule;
     use creation_service::{
         repository::{
             diagram::ProvidesDiagramRepository, entity::ProvidesEntityRepository,
-            user::ProvidesUserRepository,
+            person::ProvidesPersonRepository, user::ProvidesUserRepository,
         },
         service::{
             diagram::ProvidesDiagramService, entity::ProvidesEntityService,
-            user::ProvidesUserService,
+            person::ProvidesPersonService, user::ProvidesUserService,
         },
     };
     use creation_usecase::usecase::{
-        diagram::UsesDiagramUsecase, entity::UsesEntityUsecase, user::UsesUserUsecase,
+        diagram::UsesDiagramUsecase, entity::UsesEntityUsecase, person::UsesPersonUsecase,
+        user::UsesUserUsecase,
     };
 
     trait UsesMultipleRepositories:
-        ProvidesUserRepository + ProvidesDiagramRepository + ProvidesEntityRepository
+        ProvidesUserRepository
+        + ProvidesDiagramRepository
+        + ProvidesEntityRepository
+        + ProvidesPersonRepository
     {
     }
     impl<T> UsesMultipleRepositories for T where
-        T: ProvidesUserRepository + ProvidesDiagramRepository + ProvidesEntityRepository
+        T: ProvidesUserRepository
+            + ProvidesDiagramRepository
+            + ProvidesEntityRepository
+            + ProvidesPersonRepository
     {
     }
 
     trait UsesMultipleServices:
-        ProvidesUserService + ProvidesDiagramService + ProvidesEntityService
+        ProvidesUserService + ProvidesDiagramService + ProvidesEntityService + ProvidesPersonService
     {
     }
     impl<T> UsesMultipleServices for T where
-        T: ProvidesUserService + ProvidesDiagramService + ProvidesEntityService
+        T: ProvidesUserService
+            + ProvidesDiagramService
+            + ProvidesEntityService
+            + ProvidesPersonService
     {
     }
 
@@ -181,7 +236,8 @@ mod tests {
             + UsesMultipleServices
             + UsesUserUsecase
             + UsesDiagramUsecase
-            + UsesEntityUsecase,
+            + UsesEntityUsecase
+            + UsesPersonUsecase,
     {
     }
 
