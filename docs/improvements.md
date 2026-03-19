@@ -15,7 +15,7 @@ Detailed proposals and decisions:
 
 - Person API は `GET /api/persons` が body に依存し、write 系は `POST /api/persons/create`, `PATCH /api/persons/update/{id}`, `DELETE /api/persons/delete/{id}` の action-style な形になっている。resource-oriented な path と parameter policy に揃えるか、この形を正式仕様にするかを決めた方が API の一貫性が上がる。See `docs/rfc/0001-resource-oriented-api-shape.md`.
 - 現在の公開 API は `person` に `entity` の共通項目を取り込んだ aggregate write model になっている。将来 `person` 以外の `entity_kind` を追加するなら、generic `/api/entities` を復活させるのか、kind ごとの aggregate endpoint を増やすのかを早めに決めた方が拡張しやすい。See `docs/adr/0001-entity-person-write-model.md`.
-- `person` aggregate write は `PersonWriteUnitOfWork` で transaction を張る形になった。将来 specialization が増えた時に、この abstraction を generic な aggregate write transaction に一般化するか、specialization ごとに専用 UoW を増やすかは早めに決めた方が内部設計を揃えやすい。See `docs/adr/0003-person-aggregate-transaction-boundary.md`.
+- aggregate write は service-side の transaction port で transaction-aware な service container を作り、その配下の repository が内部の tx 有無を見て pool / transaction を切り替える形になった。将来 specialization が増えた時に、transaction-aware repository の状態管理と commit 後の振る舞いをどこまで共通化するかを決めておくと内部設計を揃えやすい。See `docs/adr/0003-transaction-port-for-aggregate-writes.md`.
 
 ## Validation And Error Handling
 

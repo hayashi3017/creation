@@ -191,10 +191,10 @@ Handler: `creation-driver/src/handler/person.rs::create_person`
    - `birthplace` / `residence` fit `VARCHAR(255)` after trim
    - `photo_url` fits `VARCHAR(512)` after trim
    - blank optional strings are normalized to `NULL`
-4. Usecase begins `PersonWriteUnitOfWork`.
-5. UnitOfWork inserts `entity(kind=person)` and returns `entity_id`.
-6. UnitOfWork inserts the matching `person` row.
-7. UnitOfWork commits the transaction.
+4. Usecase begins the service-side transaction port and gets a transaction-aware service container.
+5. The transactional `entity` service inserts `entity(kind=person)` and returns `entity_id`.
+6. The transactional `person` service inserts the matching `person` row.
+7. The transaction context commits.
 8. Return:
    - `200` on success (empty body in current handler)
    - `400` invalid params
@@ -214,10 +214,10 @@ Handler: `creation-driver/src/handler/person.rs::update_person_by_entity_id`
    - blank or missing `description` is normalized to `NULL`
    - provided string fields fit DDL limits after trim
    - blank optional strings are normalized to `NULL`
-4. Usecase begins `PersonWriteUnitOfWork`.
-5. UnitOfWork updates the active `entity(kind=person)` row.
-6. UnitOfWork updates the active `person` row.
-7. UnitOfWork commits the transaction.
+4. Usecase begins the service-side transaction port and gets a transaction-aware service container.
+5. The transactional `entity` service updates the active `entity(kind=person)` row.
+6. The transactional `person` service updates the active `person` row.
+7. The transaction context commits.
 8. Return:
    - `200` on success (empty body in current handler)
    - `400` invalid params
@@ -231,10 +231,10 @@ Handler: `creation-driver/src/handler/person.rs::delete_person_by_entity_id`
 1. Auth middleware validates token.
 2. Read `entity_id` from path.
 3. Usecase validates `entity_id != 0`.
-4. Usecase begins `PersonWriteUnitOfWork`.
-5. UnitOfWork soft-deletes the active `entity(kind=person)` row.
-6. UnitOfWork soft-deletes the active `person` row.
-7. UnitOfWork commits the transaction.
+4. Usecase begins the service-side transaction port and gets a transaction-aware service container.
+5. The transactional `entity` service soft-deletes the active `entity` row.
+6. The transactional `person` service soft-deletes the active `person` row.
+7. The transaction context commits.
 8. Return:
    - `200` on success (empty body in current handler)
    - `400` invalid params

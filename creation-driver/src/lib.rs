@@ -1,20 +1,24 @@
 use config::Config;
 use creation_adapter::{
     model::{diagram::DiagramTable, entity::EntityTable, person::PersonTable, user::UserTable},
-    repository::{unit_of_work::SqlxPersonWriteUnitOfWork, RepositoryImpl},
+    persistence::postgres::Db,
+    repository::{
+        transaction::{new_shared_transaction, SharedTransaction},
+        RepositoryImpl,
+    },
 };
 use creation_service::{
     repository::{
-        diagram::ProvidesDiagramRepository,
-        entity::ProvidesEntityRepository,
-        person::ProvidesPersonRepository,
-        unit_of_work::{BeginPersonWriteUnitOfWorkError, ProvidesPersonWriteUnitOfWork},
-        user::ProvidesUserRepository,
+        diagram::ProvidesDiagramRepository, entity::ProvidesEntityRepository,
+        person::ProvidesPersonRepository, user::ProvidesUserRepository,
     },
     service::{
         diagram::{DiagramService, ProvidesDiagramService},
         entity::{EntityService, ProvidesEntityService},
         person::{PersonService, ProvidesPersonService},
+        transaction::{
+            BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError,
+        },
         user::{ProvidesUserService, UserService},
     },
 };
@@ -42,6 +46,8 @@ pub struct AppState {
 
 #[derive(Clone)]
 pub struct AppModule {
+    pub db: Db,
+    pub tx: Option<SharedTransaction>,
     pub user_repository: RepositoryImpl<UserTable>,
     pub diagram_repository: RepositoryImpl<DiagramTable>,
     pub entity_repository: RepositoryImpl<EntityTable>,
@@ -50,20 +56,27 @@ pub struct AppModule {
 
 impl AppModule {
     pub async fn new() -> Self {
+        let db = Db::new().await;
+
         AppModule {
-            user_repository: RepositoryImpl::<UserTable>::new().await,
-            diagram_repository: RepositoryImpl::<DiagramTable>::new().await,
-            entity_repository: RepositoryImpl::<EntityTable>::new().await,
-            person_repository: RepositoryImpl::<PersonTable>::new().await,
+            db: db.clone(),
+            tx: None,
+            user_repository: RepositoryImpl::<UserTable>::from_db(db.clone()),
+            diagram_repository: RepositoryImpl::<DiagramTable>::from_db(db.clone()),
+            entity_repository: RepositoryImpl::<EntityTable>::from_db(db.clone()),
+            person_repository: RepositoryImpl::<PersonTable>::from_db(db),
         }
     }
     pub async fn new_test(pool: Pool<Postgres>) -> Self {
-        // FIXME: pass refs instead of clone.
+        let db = Db::new_test(pool).await;
+
         AppModule {
-            user_repository: RepositoryImpl::<UserTable>::new_test(pool.clone()).await,
-            diagram_repository: RepositoryImpl::<DiagramTable>::new_test(pool.clone()).await,
-            entity_repository: RepositoryImpl::<EntityTable>::new_test(pool.clone()).await,
-            person_repository: RepositoryImpl::<PersonTable>::new_test(pool.clone()).await,
+            db: db.clone(),
+            tx: None,
+            user_repository: RepositoryImpl::<UserTable>::from_db(db.clone()),
+            diagram_repository: RepositoryImpl::<DiagramTable>::from_db(db.clone()),
+            entity_repository: RepositoryImpl::<EntityTable>::from_db(db.clone()),
+            person_repository: RepositoryImpl::<PersonTable>::from_db(db),
         }
     }
 }
@@ -101,13 +114,49 @@ impl ProvidesPersonRepository for AppModule {
 }
 
 #[async_trait::async_trait]
-impl ProvidesPersonWriteUnitOfWork for AppModule {
-    type T = SqlxPersonWriteUnitOfWork;
+impl ProvidesTransactionManager for AppModule {
+    type T = Self;
 
-    async fn begin_person_write_unit_of_work(
-        &self,
-    ) -> Result<Self::T, BeginPersonWriteUnitOfWorkError> {
-        SqlxPersonWriteUnitOfWork::begin(&self.person_repository.pool.0).await
+    async fn begin_transaction(&self) -> Result<Self::T, BeginTransactionError> {
+        let shared_tx =
+            new_shared_transaction(self.db.0.begin().await.map_err(BeginTransactionError::Db)?);
+
+        Ok(AppModule {
+            db: self.db.clone(),
+            tx: Some(shared_tx.clone()),
+            user_repository: RepositoryImpl::<UserTable>::from_db_with_transaction(
+                self.db.clone(),
+                shared_tx.clone(),
+            ),
+            diagram_repository: RepositoryImpl::<DiagramTable>::from_db_with_transaction(
+                self.db.clone(),
+                shared_tx.clone(),
+            ),
+            entity_repository: RepositoryImpl::<EntityTable>::from_db_with_transaction(
+                self.db.clone(),
+                shared_tx.clone(),
+            ),
+            person_repository: RepositoryImpl::<PersonTable>::from_db_with_transaction(
+                self.db.clone(),
+                shared_tx,
+            ),
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl TransactionContext for AppModule {
+    async fn commit(self) -> Result<(), TransactionError> {
+        let Some(shared_tx) = self.tx else {
+            return Ok(());
+        };
+
+        let mut tx = shared_tx.lock().await;
+        let Some(tx) = tx.take() else {
+            return Ok(());
+        };
+
+        tx.commit().await.map_err(TransactionError::Db)
     }
 }
 

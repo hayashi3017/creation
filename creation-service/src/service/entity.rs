@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
-use super::{map_service_result, map_service_result_unit, normalize_name, normalize_optional_text};
+use super::{map_service_result, normalize_name, normalize_optional_text};
 
 use crate::{
     model::entity::{
@@ -71,8 +71,10 @@ pub trait UsesEntityService {
         &self,
         body: GetEntitiesSchema,
     ) -> Result<Vec<Entity>, GetEntitiesServiceError>;
-    async fn create_entity(&self, body: CreateEntitySchema)
-        -> Result<(), CreateEntityServiceError>;
+    async fn create_entity(
+        &self,
+        body: CreateEntitySchema,
+    ) -> Result<usize, CreateEntityServiceError>;
     async fn update_entity(&self, body: UpdateEntitySchema)
         -> Result<(), UpdateEntityServiceError>;
     async fn delete_entity(&self, body: DeleteEntitySchema)
@@ -98,12 +100,12 @@ impl<T: EntityService> UsesEntityService for T {
     async fn create_entity(
         &self,
         body: CreateEntitySchema,
-    ) -> Result<(), CreateEntityServiceError> {
+    ) -> Result<usize, CreateEntityServiceError> {
         let Some(body) = prepare_create_entity(body) else {
             return Err(CreateEntityServiceError::InvalidParams);
         };
 
-        map_service_result_unit!(
+        map_service_result!(
             self.entity_repository().create_entity(body),
             CreateEntityServiceError::CreateEntityRepositoryError
         )

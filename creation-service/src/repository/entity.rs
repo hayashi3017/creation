@@ -56,7 +56,7 @@ pub trait UsesEntityRepository: Send + Sync + 'static {
     async fn create_entity(
         &self,
         body: CreateEntitySchema,
-    ) -> Result<(), CreateEntityRepositoryError>;
+    ) -> Result<usize, CreateEntityRepositoryError>;
     async fn update_entity(
         &self,
         body: UpdateEntitySchema,

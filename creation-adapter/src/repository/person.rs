@@ -11,8 +11,12 @@ use creation_service::{
     },
     service::person::{PersonService, ProvidesPersonService},
 };
+use sqlx::{Executor, Postgres};
 
-use crate::{model::person::PersonTable, repository::RepositoryImpl};
+use crate::{
+    model::person::PersonTable,
+    repository::{transaction::closed_transaction_error, RepositoryImpl},
+};
 
 #[async_trait]
 impl UsesPersonRepository for RepositoryImpl<PersonTable> {
@@ -69,59 +73,44 @@ impl UsesPersonRepository for RepositoryImpl<PersonTable> {
         &self,
         body: CreatePersonRecordSchema,
     ) -> Result<(), CreatePersonRepositoryError> {
-        sqlx::query(
-            r#"
-                INSERT INTO person
-                    (entity_id, gender, birth_date, death_date, birthplace, residence, photo_url)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-            "#,
-        )
-        .bind(body.entity_id as i64)
-        .bind(body.gender)
-        .bind(body.birth_date)
-        .bind(body.death_date)
-        .bind(body.birthplace)
-        .bind(body.residence)
-        .bind(body.photo_url)
-        .execute(&self.pool.0)
-        .await
-        .map_err(CreatePersonRepositoryError::Db)?;
+        if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
 
-        Ok(())
+            if let Some(tx) = tx.as_mut() {
+                return create_person_record_with(tx.as_mut(), body)
+                    .await
+                    .map_err(CreatePersonRepositoryError::Db);
+            }
+
+            return Err(CreatePersonRepositoryError::Db(closed_transaction_error()));
+        }
+
+        create_person_record_with(&self.pool.0, body)
+            .await
+            .map_err(CreatePersonRepositoryError::Db)
     }
 
     async fn update_person_record(
         &self,
         body: UpdatePersonRecordSchema,
     ) -> Result<(), UpdatePersonRepositoryError> {
-        let result = sqlx::query(
-            r#"
-                UPDATE person
-                SET
-                    gender = $1,
-                    birth_date = $2,
-                    death_date = $3,
-                    birthplace = $4,
-                    residence = $5,
-                    photo_url = $6,
-                    updated_at = now()
-                WHERE
-                    entity_id = $7
-                    AND deleted_at IS NULL
-            "#,
-        )
-        .bind(body.gender)
-        .bind(body.birth_date)
-        .bind(body.death_date)
-        .bind(body.birthplace)
-        .bind(body.residence)
-        .bind(body.photo_url)
-        .bind(body.entity_id as i64)
-        .execute(&self.pool.0)
-        .await
-        .map_err(UpdatePersonRepositoryError::Db)?;
+        let result = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
 
-        if result.rows_affected() == 0 {
+            if let Some(tx) = tx.as_mut() {
+                update_person_record_with(tx.as_mut(), body)
+                    .await
+                    .map_err(UpdatePersonRepositoryError::Db)?
+            } else {
+                return Err(UpdatePersonRepositoryError::Db(closed_transaction_error()));
+            }
+        } else {
+            update_person_record_with(&self.pool.0, body)
+                .await
+                .map_err(UpdatePersonRepositoryError::Db)?
+        };
+
+        if result == 0 {
             return Err(UpdatePersonRepositoryError::NotFound);
         }
 
@@ -132,28 +121,116 @@ impl UsesPersonRepository for RepositoryImpl<PersonTable> {
         &self,
         body: DeletePersonSchema,
     ) -> Result<(), DeletePersonRepositoryError> {
-        let result = sqlx::query(
-            r#"
-                UPDATE person
-                SET
-                    deleted_at = now(),
-                    updated_at = now()
-                WHERE
-                    entity_id = $1
-                    AND deleted_at IS NULL
-            "#,
-        )
-        .bind(body.entity_id as i64)
-        .execute(&self.pool.0)
-        .await
-        .map_err(DeletePersonRepositoryError::Db)?;
+        let result = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
 
-        if result.rows_affected() == 0 {
+            if let Some(tx) = tx.as_mut() {
+                delete_person_record_with(tx.as_mut(), body)
+                    .await
+                    .map_err(DeletePersonRepositoryError::Db)?
+            } else {
+                return Err(DeletePersonRepositoryError::Db(closed_transaction_error()));
+            }
+        } else {
+            delete_person_record_with(&self.pool.0, body)
+                .await
+                .map_err(DeletePersonRepositoryError::Db)?
+        };
+
+        if result == 0 {
             return Err(DeletePersonRepositoryError::NotFound);
         }
 
         Ok(())
     }
+}
+
+async fn create_person_record_with<'e, E>(
+    executor: E,
+    body: CreatePersonRecordSchema,
+) -> Result<(), sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    sqlx::query(
+        r#"
+            INSERT INTO person
+                (entity_id, gender, birth_date, death_date, birthplace, residence, photo_url)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        "#,
+    )
+    .bind(body.entity_id as i64)
+    .bind(body.gender)
+    .bind(body.birth_date)
+    .bind(body.death_date)
+    .bind(body.birthplace)
+    .bind(body.residence)
+    .bind(body.photo_url)
+    .execute(executor)
+    .await?;
+
+    Ok(())
+}
+
+async fn update_person_record_with<'e, E>(
+    executor: E,
+    body: UpdatePersonRecordSchema,
+) -> Result<u64, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let result = sqlx::query(
+        r#"
+            UPDATE person
+            SET
+                gender = $1,
+                birth_date = $2,
+                death_date = $3,
+                birthplace = $4,
+                residence = $5,
+                photo_url = $6,
+                updated_at = now()
+            WHERE
+                entity_id = $7
+                AND deleted_at IS NULL
+        "#,
+    )
+    .bind(body.gender)
+    .bind(body.birth_date)
+    .bind(body.death_date)
+    .bind(body.birthplace)
+    .bind(body.residence)
+    .bind(body.photo_url)
+    .bind(body.entity_id as i64)
+    .execute(executor)
+    .await?;
+
+    Ok(result.rows_affected())
+}
+
+async fn delete_person_record_with<'e, E>(
+    executor: E,
+    body: DeletePersonSchema,
+) -> Result<u64, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let result = sqlx::query(
+        r#"
+            UPDATE person
+            SET
+                deleted_at = now(),
+                updated_at = now()
+            WHERE
+                entity_id = $1
+                AND deleted_at IS NULL
+        "#,
+    )
+    .bind(body.entity_id as i64)
+    .execute(executor)
+    .await?;
+
+    Ok(result.rows_affected())
 }
 
 impl PersonRepository for RepositoryImpl<PersonTable> {}

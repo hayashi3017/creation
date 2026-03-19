@@ -13,15 +13,19 @@ use creation_service::{
             UpdatePersonRecordSchema, UpdatePersonSchema,
         },
     },
-    repository::unit_of_work::{
-        BeginPersonWriteUnitOfWorkError, PersonWriteUnitOfWork, PersonWriteUnitOfWorkError,
-        ProvidesPersonWriteUnitOfWork,
-    },
     service::{
-        entity::{GetEntitiesServiceError, ProvidesEntityService, UsesEntityService},
+        entity::{
+            CreateEntityServiceError, DeleteEntityServiceError, GetEntitiesServiceError,
+            ProvidesEntityService, UpdateEntityServiceError, UsesEntityService,
+        },
         person::{
             prepare_create_person, prepare_delete_person, prepare_update_person,
-            GetPersonRecordsServiceError, ProvidesPersonService, UsesPersonService,
+            CreatePersonRecordServiceError, DeletePersonRecordServiceError,
+            GetPersonRecordsServiceError, ProvidesPersonService, UpdatePersonRecordServiceError,
+            UsesPersonService,
+        },
+        transaction::{
+            BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError,
         },
     },
 };
@@ -29,7 +33,10 @@ use thiserror::Error;
 
 #[async_trait]
 pub trait PersonUsecase:
-    ProvidesEntityService + ProvidesPersonService + ProvidesPersonWriteUnitOfWork
+    ProvidesEntityService + ProvidesPersonService + ProvidesTransactionManager
+where
+    <Self as ProvidesTransactionManager>::T: TransactionContext,
+    <Self as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
 {
 }
 
@@ -60,9 +67,9 @@ pub enum CreatePersonUsecaseError {
     #[error("invalid parameter")]
     InvalidParams,
     #[error(transparent)]
-    BeginPersonWriteUnitOfWorkError(#[from] BeginPersonWriteUnitOfWorkError),
+    BeginTransactionError(#[from] BeginTransactionError),
     #[error(transparent)]
-    PersonWriteUnitOfWorkError(#[from] PersonWriteUnitOfWorkError),
+    TransactionError(#[from] TransactionError),
 }
 
 #[derive(Debug, Error)]
@@ -70,9 +77,9 @@ pub enum UpdatePersonUsecaseError {
     #[error("invalid parameter")]
     InvalidParams,
     #[error(transparent)]
-    BeginPersonWriteUnitOfWorkError(#[from] BeginPersonWriteUnitOfWorkError),
+    BeginTransactionError(#[from] BeginTransactionError),
     #[error(transparent)]
-    PersonWriteUnitOfWorkError(#[from] PersonWriteUnitOfWorkError),
+    TransactionError(#[from] TransactionError),
     #[error("not found")]
     NotFound,
 }
@@ -82,9 +89,9 @@ pub enum DeletePersonUsecaseError {
     #[error("invalid parameter")]
     InvalidParams,
     #[error(transparent)]
-    BeginPersonWriteUnitOfWorkError(#[from] BeginPersonWriteUnitOfWorkError),
+    BeginTransactionError(#[from] BeginTransactionError),
     #[error(transparent)]
-    PersonWriteUnitOfWorkError(#[from] PersonWriteUnitOfWorkError),
+    TransactionError(#[from] TransactionError),
     #[error("not found")]
     NotFound,
 }
@@ -98,7 +105,12 @@ pub trait UsesGetPersonsUsecase {
 }
 
 #[async_trait]
-impl<T: PersonUsecase> UsesGetPersonsUsecase for T {
+impl<T> UsesGetPersonsUsecase for T
+where
+    T: PersonUsecase,
+    <T as ProvidesTransactionManager>::T: TransactionContext,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
+{
     async fn get_persons(
         &self,
         body: GetPersonsSchema,
@@ -158,34 +170,43 @@ pub trait UsesCreatePersonUsecase {
 }
 
 #[async_trait]
-impl<T: PersonUsecase> UsesCreatePersonUsecase for T {
+impl<T> UsesCreatePersonUsecase for T
+where
+    T: PersonUsecase,
+    <T as ProvidesTransactionManager>::T: TransactionContext,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
+{
     async fn create_person(
         &self,
         body: CreatePersonSchema,
     ) -> Result<(), CreatePersonUsecaseError> {
         let body = prepare_create_person(body).ok_or(CreatePersonUsecaseError::InvalidParams)?;
 
-        let mut tx = self.begin_person_write_unit_of_work().await?;
+        let tx = self.begin_transaction().await?;
 
         let entity_id = tx
+            .entity_service()
             .create_entity(CreateEntitySchema {
                 diagram_id: body.diagram_id,
                 kind: EntityKind::Person,
                 name: body.name,
                 description: body.description,
             })
-            .await?;
+            .await
+            .map_err(map_create_person_entity_error)?;
 
-        tx.create_person_record(CreatePersonRecordSchema {
-            entity_id,
-            gender: body.gender,
-            birth_date: body.birth_date,
-            death_date: body.death_date,
-            birthplace: body.birthplace,
-            residence: body.residence,
-            photo_url: body.photo_url,
-        })
-        .await?;
+        tx.person_service()
+            .create_person_record(CreatePersonRecordSchema {
+                entity_id,
+                gender: body.gender,
+                birth_date: body.birth_date,
+                death_date: body.death_date,
+                birthplace: body.birthplace,
+                residence: body.residence,
+                photo_url: body.photo_url,
+            })
+            .await
+            .map_err(map_create_person_record_error)?;
 
         tx.commit().await?;
 
@@ -200,38 +221,47 @@ pub trait UsesUpdatePersonUsecase {
 }
 
 #[async_trait]
-impl<T: PersonUsecase> UsesUpdatePersonUsecase for T {
+impl<T> UsesUpdatePersonUsecase for T
+where
+    T: PersonUsecase,
+    <T as ProvidesTransactionManager>::T: TransactionContext,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
+{
     async fn update_person(
         &self,
         body: UpdatePersonSchema,
     ) -> Result<(), UpdatePersonUsecaseError> {
         let body = prepare_update_person(body).ok_or(UpdatePersonUsecaseError::InvalidParams)?;
 
-        let mut tx = self.begin_person_write_unit_of_work().await?;
+        let tx = self.begin_transaction().await?;
 
-        tx.update_entity(UpdateEntitySchema {
-            id: body.entity_id,
-            diagram_id: body.diagram_id,
-            kind: EntityKind::Person,
-            name: body.name,
-            description: body.description,
-        })
-        .await
-        .map_err(map_update_person_write_error)?;
+        tx.entity_service()
+            .update_entity(UpdateEntitySchema {
+                id: body.entity_id,
+                diagram_id: body.diagram_id,
+                kind: EntityKind::Person,
+                name: body.name,
+                description: body.description,
+            })
+            .await
+            .map_err(map_update_person_entity_error)?;
 
-        tx.update_person_record(UpdatePersonRecordSchema {
-            entity_id: body.entity_id,
-            gender: body.gender,
-            birth_date: body.birth_date,
-            death_date: body.death_date,
-            birthplace: body.birthplace,
-            residence: body.residence,
-            photo_url: body.photo_url,
-        })
-        .await
-        .map_err(map_update_person_write_error)?;
+        tx.person_service()
+            .update_person_record(UpdatePersonRecordSchema {
+                entity_id: body.entity_id,
+                gender: body.gender,
+                birth_date: body.birth_date,
+                death_date: body.death_date,
+                birthplace: body.birthplace,
+                residence: body.residence,
+                photo_url: body.photo_url,
+            })
+            .await
+            .map_err(map_update_person_record_error)?;
 
-        tx.commit().await.map_err(map_update_person_write_error)?;
+        tx.commit()
+            .await
+            .map_err(map_update_person_transaction_error)?;
 
         Ok(())
     }
@@ -244,24 +274,33 @@ pub trait UsesDeletePersonUsecase {
 }
 
 #[async_trait]
-impl<T: PersonUsecase> UsesDeletePersonUsecase for T {
+impl<T> UsesDeletePersonUsecase for T
+where
+    T: PersonUsecase,
+    <T as ProvidesTransactionManager>::T: TransactionContext,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
+{
     async fn delete_person(
         &self,
         body: DeletePersonSchema,
     ) -> Result<(), DeletePersonUsecaseError> {
         let body = prepare_delete_person(body).ok_or(DeletePersonUsecaseError::InvalidParams)?;
 
-        let mut tx = self.begin_person_write_unit_of_work().await?;
+        let tx = self.begin_transaction().await?;
 
-        tx.delete_entity(DeleteEntitySchema { id: body.entity_id })
+        tx.entity_service()
+            .delete_entity(DeleteEntitySchema { id: body.entity_id })
             .await
-            .map_err(map_delete_person_write_error)?;
+            .map_err(map_delete_person_entity_error)?;
 
-        tx.delete_person_record(body)
+        tx.person_service()
+            .delete_person_record(body)
             .await
-            .map_err(map_delete_person_write_error)?;
+            .map_err(map_delete_person_record_error)?;
 
-        tx.commit().await.map_err(map_delete_person_write_error)?;
+        tx.commit()
+            .await
+            .map_err(map_delete_person_transaction_error)?;
 
         Ok(())
     }
@@ -297,17 +336,107 @@ fn merge_persons(
         .collect()
 }
 
-fn map_update_person_write_error(err: PersonWriteUnitOfWorkError) -> UpdatePersonUsecaseError {
+fn map_create_person_entity_error(err: CreateEntityServiceError) -> CreatePersonUsecaseError {
     match err {
-        PersonWriteUnitOfWorkError::NotFound => UpdatePersonUsecaseError::NotFound,
-        err => UpdatePersonUsecaseError::PersonWriteUnitOfWorkError(err),
+        CreateEntityServiceError::CreateEntityRepositoryError(err) => {
+            CreatePersonUsecaseError::TransactionError(TransactionError::Db(match err {
+                creation_service::repository::entity::CreateEntityRepositoryError::Db(err) => err,
+            }))
+        }
+        CreateEntityServiceError::InvalidParams => CreatePersonUsecaseError::InvalidParams,
     }
 }
 
-fn map_delete_person_write_error(err: PersonWriteUnitOfWorkError) -> DeletePersonUsecaseError {
+fn map_create_person_record_error(err: CreatePersonRecordServiceError) -> CreatePersonUsecaseError {
     match err {
-        PersonWriteUnitOfWorkError::NotFound => DeletePersonUsecaseError::NotFound,
-        err => DeletePersonUsecaseError::PersonWriteUnitOfWorkError(err),
+        CreatePersonRecordServiceError::CreatePersonRepositoryError(err) => {
+            CreatePersonUsecaseError::TransactionError(TransactionError::Db(match err {
+                creation_service::repository::person::CreatePersonRepositoryError::Db(err) => err,
+            }))
+        }
+        CreatePersonRecordServiceError::InvalidParams => CreatePersonUsecaseError::InvalidParams,
+    }
+}
+
+fn map_update_person_entity_error(err: UpdateEntityServiceError) -> UpdatePersonUsecaseError {
+    match err {
+        UpdateEntityServiceError::NotFound => UpdatePersonUsecaseError::NotFound,
+        UpdateEntityServiceError::UpdateEntityRepositoryError(err) => {
+            UpdatePersonUsecaseError::TransactionError(match err {
+                creation_service::repository::entity::UpdateEntityRepositoryError::Db(err) => {
+                    TransactionError::Db(err)
+                }
+                creation_service::repository::entity::UpdateEntityRepositoryError::NotFound => {
+                    TransactionError::NotFound
+                }
+            })
+        }
+        UpdateEntityServiceError::InvalidParams => UpdatePersonUsecaseError::InvalidParams,
+    }
+}
+
+fn map_update_person_record_error(err: UpdatePersonRecordServiceError) -> UpdatePersonUsecaseError {
+    match err {
+        UpdatePersonRecordServiceError::NotFound => UpdatePersonUsecaseError::NotFound,
+        UpdatePersonRecordServiceError::UpdatePersonRepositoryError(err) => {
+            UpdatePersonUsecaseError::TransactionError(match err {
+                creation_service::repository::person::UpdatePersonRepositoryError::Db(err) => {
+                    TransactionError::Db(err)
+                }
+                creation_service::repository::person::UpdatePersonRepositoryError::NotFound => {
+                    TransactionError::NotFound
+                }
+            })
+        }
+        UpdatePersonRecordServiceError::InvalidParams => UpdatePersonUsecaseError::InvalidParams,
+    }
+}
+
+fn map_update_person_transaction_error(err: TransactionError) -> UpdatePersonUsecaseError {
+    match err {
+        TransactionError::NotFound => UpdatePersonUsecaseError::NotFound,
+        err => UpdatePersonUsecaseError::TransactionError(err),
+    }
+}
+
+fn map_delete_person_entity_error(err: DeleteEntityServiceError) -> DeletePersonUsecaseError {
+    match err {
+        DeleteEntityServiceError::NotFound => DeletePersonUsecaseError::NotFound,
+        DeleteEntityServiceError::DeleteEntityRepositoryError(err) => {
+            DeletePersonUsecaseError::TransactionError(match err {
+                creation_service::repository::entity::DeleteEntityRepositoryError::Db(err) => {
+                    TransactionError::Db(err)
+                }
+                creation_service::repository::entity::DeleteEntityRepositoryError::NotFound => {
+                    TransactionError::NotFound
+                }
+            })
+        }
+        DeleteEntityServiceError::InvalidParams => DeletePersonUsecaseError::InvalidParams,
+    }
+}
+
+fn map_delete_person_transaction_error(err: TransactionError) -> DeletePersonUsecaseError {
+    match err {
+        TransactionError::NotFound => DeletePersonUsecaseError::NotFound,
+        err => DeletePersonUsecaseError::TransactionError(err),
+    }
+}
+
+fn map_delete_person_record_error(err: DeletePersonRecordServiceError) -> DeletePersonUsecaseError {
+    match err {
+        DeletePersonRecordServiceError::NotFound => DeletePersonUsecaseError::NotFound,
+        DeletePersonRecordServiceError::DeletePersonRepositoryError(err) => {
+            DeletePersonUsecaseError::TransactionError(match err {
+                creation_service::repository::person::DeletePersonRepositoryError::Db(err) => {
+                    TransactionError::Db(err)
+                }
+                creation_service::repository::person::DeletePersonRepositoryError::NotFound => {
+                    TransactionError::NotFound
+                }
+            })
+        }
+        DeletePersonRecordServiceError::InvalidParams => DeletePersonUsecaseError::InvalidParams,
     }
 }
 

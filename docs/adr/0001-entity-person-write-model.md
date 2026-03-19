@@ -75,6 +75,6 @@ Recommended request shape:
 ## Follow-Up
 
 - current implementation exposes `person` as the public aggregate endpoint and writes `entity + person` together there, but generic `/api/entities` is no longer the public write surface
-- internal transaction ownership for that aggregate write is tracked separately in `docs/adr/0003-person-aggregate-transaction-boundary.md`
+- internal transaction ownership for that aggregate write is tracked separately in `docs/adr/0003-transaction-port-for-aggregate-writes.md`
 - define how reads should expose person-specific fields
 - define whether non-`person` entity kinds require their own nested object keys when introduced

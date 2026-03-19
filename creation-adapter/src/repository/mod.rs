@@ -1,13 +1,15 @@
 use std::marker::PhantomData;
 
-use sqlx::{Pool, Postgres};
+use sqlx::{Pool, Postgres, Transaction as SqlxTransaction};
 
 use crate::persistence::postgres::Db;
+
+use self::transaction::SharedTransaction;
 
 pub mod diagram;
 pub mod entity;
 pub mod person;
-pub mod unit_of_work;
+pub mod transaction;
 pub mod user;
 
 macro_rules! impl_minimal_cake_bindings {
@@ -53,21 +55,40 @@ pub(crate) use impl_minimal_cake_bindings;
 #[derive(Clone)]
 pub struct RepositoryImpl<T> {
     pub pool: Db,
+    pub tx: Option<SharedTransaction>,
     pub _marker: PhantomData<T>,
 }
 
 impl<T> RepositoryImpl<T> {
     pub async fn new() -> Self {
+        Self::from_db(Db::new().await)
+    }
+    pub async fn new_test(pool: Pool<Postgres>) -> Self {
+        Self::from_db(Db::new_test(pool).await)
+    }
+
+    pub fn from_db(pool: Db) -> Self {
         RepositoryImpl::<T> {
-            pool: Db::new().await,
+            pool,
+            tx: None,
             _marker: PhantomData::<T>,
         }
     }
-    pub async fn new_test(pool: Pool<Postgres>) -> Self {
+
+    pub fn from_db_with_transaction(pool: Db, tx: SharedTransaction) -> Self {
         RepositoryImpl::<T> {
-            pool: Db::new_test(pool).await,
+            pool,
+            tx: Some(tx),
             _marker: PhantomData::<T>,
         }
+    }
+
+    pub async fn begin(&self) -> Result<SqlxTransaction<'static, Postgres>, sqlx::Error> {
+        self.pool.0.begin().await
+    }
+
+    pub async fn commit(tx: SqlxTransaction<'static, Postgres>) -> Result<(), sqlx::Error> {
+        tx.commit().await
     }
 }
 

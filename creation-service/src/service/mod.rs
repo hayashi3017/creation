@@ -1,6 +1,7 @@
 pub mod diagram;
 pub mod entity;
 pub mod person;
+pub mod transaction;
 pub mod user;
 
 pub(crate) fn normalize_name(name: &str, max_chars: usize) -> Option<String> {

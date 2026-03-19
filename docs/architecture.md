@@ -120,7 +120,8 @@ Persistence implementation:
 - Diagram repository: `creation-adapter/src/repository/diagram.rs`
 - Entity repository: `creation-adapter/src/repository/entity.rs`
 - Person repository: `creation-adapter/src/repository/person.rs`
-- Person UnitOfWork: `creation-adapter/src/repository/unit_of_work.rs`
+- Transaction port: `creation-adapter/src/repository/transaction.rs`
+  This provides the shared SQLx transaction state used by transaction-aware repositories. `begin_transaction()` returns a service container whose repositories switch between pool and transaction internally.
 
 Migrations:
 
