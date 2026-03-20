@@ -128,7 +128,7 @@ impl<T: EntityUsecase> UsesDeleteEntityUsecase for T {
         body: DeleteEntitySchema,
     ) -> Result<(), DeleteEntityUsecaseError> {
         match self.entity_service().delete_entity(body).await {
-            Ok(()) => Ok(()),
+            Ok(_) => Ok(()),
             Err(DeleteEntityServiceError::NotFound) => Err(DeleteEntityUsecaseError::NotFound),
             Err(err) => Err(DeleteEntityUsecaseError::DeleteEntityServiceError(err)),
         }

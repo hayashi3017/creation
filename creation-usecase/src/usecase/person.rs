@@ -12,6 +12,12 @@ use creation_service::{
             GetPersonRecordsSchema, GetPersonsSchema, Person, PersonRecord,
             UpdatePersonRecordSchema, UpdatePersonSchema,
         },
+        relationship::DeleteRelationshipsForEntitySchema,
+        tree_path::SyncTreePathsByEntityIdsSchema,
+    },
+    repository::relationship::{
+        DeleteRelationshipsForEntityRepositoryError, ProvidesRelationshipRepository,
+        UsesRelationshipRepository,
     },
     service::{
         entity::{
@@ -27,6 +33,7 @@ use creation_service::{
         transaction::{
             BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError,
         },
+        tree_path::{ProvidesTreePathService, SyncTreePathsServiceError, UsesTreePathService},
     },
 };
 use thiserror::Error;
@@ -36,7 +43,10 @@ pub trait PersonUsecase:
     ProvidesEntityService + ProvidesPersonService + ProvidesTransactionManager
 where
     <Self as ProvidesTransactionManager>::T: TransactionContext,
-    <Self as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
+    <Self as ProvidesTransactionManager>::T: ProvidesEntityService
+        + ProvidesPersonService
+        + ProvidesRelationshipRepository
+        + ProvidesTreePathService,
 {
 }
 
@@ -109,7 +119,10 @@ impl<T> UsesGetPersonsUsecase for T
 where
     T: PersonUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService
+        + ProvidesPersonService
+        + ProvidesRelationshipRepository
+        + ProvidesTreePathService,
 {
     async fn get_persons(
         &self,
@@ -174,7 +187,10 @@ impl<T> UsesCreatePersonUsecase for T
 where
     T: PersonUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService
+        + ProvidesPersonService
+        + ProvidesRelationshipRepository
+        + ProvidesTreePathService,
 {
     async fn create_person(
         &self,
@@ -225,7 +241,10 @@ impl<T> UsesUpdatePersonUsecase for T
 where
     T: PersonUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService
+        + ProvidesPersonService
+        + ProvidesRelationshipRepository
+        + ProvidesTreePathService,
 {
     async fn update_person(
         &self,
@@ -278,18 +297,22 @@ impl<T> UsesDeletePersonUsecase for T
 where
     T: PersonUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService
+        + ProvidesPersonService
+        + ProvidesRelationshipRepository
+        + ProvidesTreePathService,
 {
     async fn delete_person(
         &self,
         body: DeletePersonSchema,
     ) -> Result<(), DeletePersonUsecaseError> {
         let body = prepare_delete_person(body).ok_or(DeletePersonUsecaseError::InvalidParams)?;
+        let entity_id = body.entity_id;
 
         let tx = self.begin_transaction().await?;
 
         tx.entity_service()
-            .delete_entity(DeleteEntitySchema { id: body.entity_id })
+            .delete_entity(DeleteEntitySchema { id: entity_id })
             .await
             .map_err(map_delete_person_entity_error)?;
 
@@ -297,6 +320,22 @@ where
             .delete_person_record(body)
             .await
             .map_err(map_delete_person_record_error)?;
+
+        let mut affected_entity_ids = tx
+            .relationship_repository()
+            .delete_relationships_for_entity(DeleteRelationshipsForEntitySchema { entity_id })
+            .await
+            .map_err(map_delete_person_relationship_error)?;
+        affected_entity_ids.push(entity_id);
+        affected_entity_ids.sort_unstable();
+        affected_entity_ids.dedup();
+
+        tx.tree_path_service()
+            .sync_tree_paths_by_entity_ids(SyncTreePathsByEntityIdsSchema {
+                entity_ids: affected_entity_ids,
+            })
+            .await
+            .map_err(map_delete_person_tree_path_error)?;
 
         tx.commit()
             .await
@@ -413,6 +452,58 @@ fn map_delete_person_entity_error(err: DeleteEntityServiceError) -> DeletePerson
             })
         }
         DeleteEntityServiceError::InvalidParams => DeletePersonUsecaseError::InvalidParams,
+    }
+}
+
+fn map_delete_person_relationship_error(
+    err: DeleteRelationshipsForEntityRepositoryError,
+) -> DeletePersonUsecaseError {
+    match err {
+        DeleteRelationshipsForEntityRepositoryError::Db(err) => {
+            DeletePersonUsecaseError::TransactionError(TransactionError::Db(err))
+        }
+    }
+}
+
+fn map_delete_person_tree_path_error(err: SyncTreePathsServiceError) -> DeletePersonUsecaseError {
+    match err {
+        SyncTreePathsServiceError::CycleDetected => {
+            DeletePersonUsecaseError::TransactionError(TransactionError::Db(sqlx::Error::Protocol(
+                "cycle detected while rebuilding tree_path after person delete".to_string(),
+            )))
+        }
+        SyncTreePathsServiceError::LoadSeedEntitiesRepositoryError(err) => {
+            DeletePersonUsecaseError::TransactionError(TransactionError::Db(match err {
+                creation_service::repository::entity::LoadSeedEntitiesRepositoryError::Db(err) => {
+                    err
+                }
+            }))
+        }
+        SyncTreePathsServiceError::LoadActiveEntitiesByDiagramIdsRepositoryError(err) => {
+            DeletePersonUsecaseError::TransactionError(TransactionError::Db(match err {
+                creation_service::repository::entity::LoadActiveEntitiesByDiagramIdsRepositoryError::Db(err) => err,
+            }))
+        }
+        SyncTreePathsServiceError::LoadRelationshipEdgesByDiagramIdsRepositoryError(err) => {
+            DeletePersonUsecaseError::TransactionError(TransactionError::Db(match err {
+                creation_service::repository::relationship::LoadRelationshipEdgesByDiagramIdsRepositoryError::Db(err) => err,
+            }))
+        }
+        SyncTreePathsServiceError::LoadStaleRelatedConnectionsRepositoryError(err) => {
+            DeletePersonUsecaseError::TransactionError(TransactionError::Db(match err {
+                creation_service::repository::tree_path::LoadStaleRelatedConnectionsRepositoryError::Db(err) => err,
+            }))
+        }
+        SyncTreePathsServiceError::DeleteTreePathsByEntityIdsRepositoryError(err) => {
+            DeletePersonUsecaseError::TransactionError(TransactionError::Db(match err {
+                creation_service::repository::tree_path::DeleteTreePathsByEntityIdsRepositoryError::Db(err) => err,
+            }))
+        }
+        SyncTreePathsServiceError::CreateTreePathsRepositoryError(err) => {
+            DeletePersonUsecaseError::TransactionError(TransactionError::Db(match err {
+                creation_service::repository::tree_path::CreateTreePathsRepositoryError::Db(err) => err,
+            }))
+        }
     }
 }
 

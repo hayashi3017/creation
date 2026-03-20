@@ -1,6 +1,6 @@
 # Data Model
 
-Last updated: 2026-03-15
+Last updated: 2026-03-20
 
 ## Scope
 
@@ -181,12 +181,11 @@ Actively used by repository code:
 - `person`
 
 Defined in migration but not yet wired in current repositories/handlers:
-
-- `relationship`
-- `tree_path`
+- none
 
 ## Data handling notes
 
 - User email is normalized to lowercase at registration and login query paths.
 - Passwords are hashed with Argon2 before insert (`creation-adapter/src/repository/user.rs`).
 - JWT `sub` claim stores user UUID as string.
+- `relationship` write APIs currently accept only `parent` and `child`; `tree_path` is rebuilt from those lineage edges only.

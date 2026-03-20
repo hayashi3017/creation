@@ -1,6 +1,9 @@
 use config::Config;
 use creation_adapter::{
-    model::{diagram::DiagramTable, entity::EntityTable, person::PersonTable, user::UserTable},
+    model::{
+        diagram::DiagramTable, entity::EntityTable, person::PersonTable,
+        relationship::RelationshipTable, tree_path::TreePathTable, user::UserTable,
+    },
     persistence::postgres::Db,
     repository::{
         transaction::{new_shared_transaction, SharedTransaction},
@@ -10,15 +13,18 @@ use creation_adapter::{
 use creation_service::{
     repository::{
         diagram::ProvidesDiagramRepository, entity::ProvidesEntityRepository,
-        person::ProvidesPersonRepository, user::ProvidesUserRepository,
+        person::ProvidesPersonRepository, relationship::ProvidesRelationshipRepository,
+        tree_path::ProvidesTreePathRepository, user::ProvidesUserRepository,
     },
     service::{
         diagram::{DiagramService, ProvidesDiagramService},
         entity::{EntityService, ProvidesEntityService},
         person::{PersonService, ProvidesPersonService},
+        relationship::{ProvidesRelationshipService, RelationshipService},
         transaction::{
             BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError,
         },
+        tree_path::{ProvidesTreePathService, TreePathService},
         user::{ProvidesUserService, UserService},
     },
 };
@@ -26,6 +32,7 @@ use creation_usecase::usecase::{
     diagram::{DiagramUsecase, ProvidesDiagramUsecase},
     entity::{EntityUsecase, ProvidesEntityUsecase},
     person::{PersonUsecase, ProvidesPersonUsecase},
+    relationship::{ProvidesRelationshipUsecase, RelationshipUsecase},
     user::{ProvidesUserUsecase, UserUsecase},
 };
 use sqlx::{Pool, Postgres};
@@ -52,6 +59,8 @@ pub struct AppModule {
     pub diagram_repository: RepositoryImpl<DiagramTable>,
     pub entity_repository: RepositoryImpl<EntityTable>,
     pub person_repository: RepositoryImpl<PersonTable>,
+    pub relationship_repository: RepositoryImpl<RelationshipTable>,
+    pub tree_path_repository: RepositoryImpl<TreePathTable>,
 }
 
 impl AppModule {
@@ -64,7 +73,9 @@ impl AppModule {
             user_repository: RepositoryImpl::<UserTable>::from_db(db.clone()),
             diagram_repository: RepositoryImpl::<DiagramTable>::from_db(db.clone()),
             entity_repository: RepositoryImpl::<EntityTable>::from_db(db.clone()),
-            person_repository: RepositoryImpl::<PersonTable>::from_db(db),
+            person_repository: RepositoryImpl::<PersonTable>::from_db(db.clone()),
+            relationship_repository: RepositoryImpl::<RelationshipTable>::from_db(db.clone()),
+            tree_path_repository: RepositoryImpl::<TreePathTable>::from_db(db),
         }
     }
     pub async fn new_test(pool: Pool<Postgres>) -> Self {
@@ -76,7 +87,9 @@ impl AppModule {
             user_repository: RepositoryImpl::<UserTable>::from_db(db.clone()),
             diagram_repository: RepositoryImpl::<DiagramTable>::from_db(db.clone()),
             entity_repository: RepositoryImpl::<EntityTable>::from_db(db.clone()),
-            person_repository: RepositoryImpl::<PersonTable>::from_db(db),
+            person_repository: RepositoryImpl::<PersonTable>::from_db(db.clone()),
+            relationship_repository: RepositoryImpl::<RelationshipTable>::from_db(db.clone()),
+            tree_path_repository: RepositoryImpl::<TreePathTable>::from_db(db),
         }
     }
 }
@@ -113,6 +126,22 @@ impl ProvidesPersonRepository for AppModule {
     }
 }
 
+impl ProvidesRelationshipRepository for AppModule {
+    type T = RepositoryImpl<RelationshipTable>;
+
+    fn relationship_repository(&self) -> &Self::T {
+        &self.relationship_repository
+    }
+}
+
+impl ProvidesTreePathRepository for AppModule {
+    type T = RepositoryImpl<TreePathTable>;
+
+    fn tree_path_repository(&self) -> &Self::T {
+        &self.tree_path_repository
+    }
+}
+
 #[async_trait::async_trait]
 impl ProvidesTransactionManager for AppModule {
     type T = Self;
@@ -137,6 +166,14 @@ impl ProvidesTransactionManager for AppModule {
                 shared_tx.clone(),
             ),
             person_repository: RepositoryImpl::<PersonTable>::from_db_with_transaction(
+                self.db.clone(),
+                shared_tx.clone(),
+            ),
+            relationship_repository: RepositoryImpl::<RelationshipTable>::from_db_with_transaction(
+                self.db.clone(),
+                shared_tx.clone(),
+            ),
+            tree_path_repository: RepositoryImpl::<TreePathTable>::from_db_with_transaction(
                 self.db.clone(),
                 shared_tx,
             ),
@@ -164,6 +201,8 @@ impl UserService for AppModule {}
 impl DiagramService for AppModule {}
 impl EntityService for AppModule {}
 impl PersonService for AppModule {}
+impl RelationshipService for AppModule {}
+impl TreePathService for AppModule {}
 
 impl ProvidesUserService for AppModule {
     type T = Self;
@@ -197,10 +236,27 @@ impl ProvidesPersonService for AppModule {
     }
 }
 
+impl ProvidesRelationshipService for AppModule {
+    type T = Self;
+
+    fn relationship_service(&self) -> &Self::T {
+        self
+    }
+}
+
+impl ProvidesTreePathService for AppModule {
+    type T = Self;
+
+    fn tree_path_service(&self) -> &Self::T {
+        self
+    }
+}
+
 impl UserUsecase for AppModule {}
 impl DiagramUsecase for AppModule {}
 impl EntityUsecase for AppModule {}
 impl PersonUsecase for AppModule {}
+impl RelationshipUsecase for AppModule {}
 
 impl ProvidesUserUsecase for AppModule {
     type T = Self;
@@ -234,22 +290,32 @@ impl ProvidesPersonUsecase for AppModule {
     }
 }
 
+impl ProvidesRelationshipUsecase for AppModule {
+    type T = Self;
+
+    fn relationship_usecase(&self) -> &Self::T {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::AppModule;
     use creation_service::{
         repository::{
             diagram::ProvidesDiagramRepository, entity::ProvidesEntityRepository,
-            person::ProvidesPersonRepository, user::ProvidesUserRepository,
+            person::ProvidesPersonRepository, relationship::ProvidesRelationshipRepository,
+            user::ProvidesUserRepository,
         },
         service::{
             diagram::ProvidesDiagramService, entity::ProvidesEntityService,
-            person::ProvidesPersonService, user::ProvidesUserService,
+            person::ProvidesPersonService, relationship::ProvidesRelationshipService,
+            user::ProvidesUserService,
         },
     };
     use creation_usecase::usecase::{
         diagram::UsesDiagramUsecase, entity::UsesEntityUsecase, person::UsesPersonUsecase,
-        user::UsesUserUsecase,
+        relationship::UsesRelationshipUsecase, user::UsesUserUsecase,
     };
 
     trait UsesMultipleRepositories:
@@ -257,6 +323,7 @@ mod tests {
         + ProvidesDiagramRepository
         + ProvidesEntityRepository
         + ProvidesPersonRepository
+        + ProvidesRelationshipRepository
     {
     }
     impl<T> UsesMultipleRepositories for T where
@@ -264,11 +331,16 @@ mod tests {
             + ProvidesDiagramRepository
             + ProvidesEntityRepository
             + ProvidesPersonRepository
+            + ProvidesRelationshipRepository
     {
     }
 
     trait UsesMultipleServices:
-        ProvidesUserService + ProvidesDiagramService + ProvidesEntityService + ProvidesPersonService
+        ProvidesUserService
+        + ProvidesDiagramService
+        + ProvidesEntityService
+        + ProvidesPersonService
+        + ProvidesRelationshipService
     {
     }
     impl<T> UsesMultipleServices for T where
@@ -276,6 +348,7 @@ mod tests {
             + ProvidesDiagramService
             + ProvidesEntityService
             + ProvidesPersonService
+            + ProvidesRelationshipService
     {
     }
 
@@ -286,7 +359,8 @@ mod tests {
             + UsesUserUsecase
             + UsesDiagramUsecase
             + UsesEntityUsecase
-            + UsesPersonUsecase,
+            + UsesPersonUsecase
+            + UsesRelationshipUsecase,
     {
     }
 

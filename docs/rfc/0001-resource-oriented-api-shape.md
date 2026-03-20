@@ -61,6 +61,11 @@ Adopt resource-oriented paths in the next API revision.
   - `POST /api/persons/create`
   - `PATCH /api/persons/update/{id}`
   - `DELETE /api/persons/delete/{id}`
+- Public relationship routes also diverge:
+  - `GET /api/relationships` depends on a JSON body with `diagram_id`
+  - `POST /api/relationships/create`
+  - `PATCH /api/relationships/update/{id}`
+  - `DELETE /api/relationships/delete/{id}`
 
 ## Review Points
 

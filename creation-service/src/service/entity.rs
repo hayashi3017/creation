@@ -77,8 +77,10 @@ pub trait UsesEntityService {
     ) -> Result<usize, CreateEntityServiceError>;
     async fn update_entity(&self, body: UpdateEntitySchema)
         -> Result<(), UpdateEntityServiceError>;
-    async fn delete_entity(&self, body: DeleteEntitySchema)
-        -> Result<(), DeleteEntityServiceError>;
+    async fn delete_entity(
+        &self,
+        body: DeleteEntitySchema,
+    ) -> Result<usize, DeleteEntityServiceError>;
 }
 
 #[async_trait]
@@ -129,13 +131,13 @@ impl<T: EntityService> UsesEntityService for T {
     async fn delete_entity(
         &self,
         body: DeleteEntitySchema,
-    ) -> Result<(), DeleteEntityServiceError> {
+    ) -> Result<usize, DeleteEntityServiceError> {
         let Some(body) = prepare_delete_entity(body) else {
             return Err(DeleteEntityServiceError::InvalidParams);
         };
 
         match self.entity_repository().delete_entity(body).await {
-            Ok(()) => Ok(()),
+            Ok(diagram_id) => Ok(diagram_id),
             Err(DeleteEntityRepositoryError::NotFound) => Err(DeleteEntityServiceError::NotFound),
             Err(err) => Err(DeleteEntityServiceError::DeleteEntityRepositoryError(err)),
         }

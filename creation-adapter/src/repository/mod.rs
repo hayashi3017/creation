@@ -9,7 +9,9 @@ use self::transaction::SharedTransaction;
 pub mod diagram;
 pub mod entity;
 pub mod person;
+pub mod relationship;
 pub mod transaction;
+pub mod tree_path;
 pub mod user;
 
 macro_rules! impl_minimal_cake_bindings {

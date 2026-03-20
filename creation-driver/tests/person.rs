@@ -254,7 +254,7 @@ async fn update_person_returns_ok(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "diagram_id": 2,
+                        "diagram_id": 1,
                         "name": "Updated Person",
                         "description": "updated from API",
                         "gender": "unknown",
@@ -286,13 +286,42 @@ async fn update_person_returns_ok(db: PgPool) {
     .await
     .unwrap();
 
-    assert_eq!(row.get::<i64, _>("diagram_id"), 2);
+    assert_eq!(row.get::<i64, _>("diagram_id"), 1);
     assert_eq!(row.get::<String, _>("name"), "Updated Person");
     assert_eq!(row.get::<GenderKind, _>("gender"), GenderKind::Unknown);
     assert_eq!(
         row.get::<Option<chrono::NaiveDate>, _>("death_date"),
         Some("2024-04-01".parse().unwrap())
     );
+}
+
+#[sqlx::test(fixtures("person"))]
+async fn update_person_returns_not_found_for_diagram_mismatch(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri("/api/persons/update/1")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "diagram_id": 2,
+                        "name": "Moved Person"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(fixtures("person"))]
@@ -393,6 +422,34 @@ async fn delete_person_returns_ok(db: PgPool) {
     assert!(row
         .get::<Option<chrono::DateTime<chrono::Utc>>, _>("person_deleted_at")
         .is_some());
+
+    let relationship_deleted_at: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
+        r#"
+            SELECT deleted_at
+            FROM relationship
+            WHERE id = $1
+        "#,
+    )
+    .bind(1_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert!(relationship_deleted_at.is_some());
+
+    let tree_path_count: i64 = sqlx::query_scalar(
+        r#"
+            SELECT COUNT(*)
+            FROM tree_path
+            WHERE ancestor_id = $1 OR descendant_id = $1
+        "#,
+    )
+    .bind(2_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(tree_path_count, 0);
 }
 
 #[sqlx::test(fixtures("person"))]

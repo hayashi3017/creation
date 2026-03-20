@@ -1,0 +1,41 @@
+use serde::Serialize;
+
+#[allow(non_snake_case)]
+#[derive(Debug, Clone, Serialize)]
+pub struct TreePath {
+    pub ancestor_id: usize,
+    pub descendant_id: usize,
+    pub depth: usize,
+}
+
+// stale な tree_path row を seed と同じ diagram に振り分けるための内部表現。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreePathConnection {
+    pub ancestor_id: usize,
+    pub descendant_id: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct SyncTreePathsByEntityIdsSchema {
+    pub entity_ids: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoadStaleRelatedEntityIdsSchema {
+    pub entity_ids: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DeleteTreePathsByEntityIdsSchema {
+    pub entity_ids: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateTreePathsSchema {
+    pub tree_paths: Vec<TreePath>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoadStaleRelatedConnectionsSchema {
+    pub entity_ids: Vec<usize>,
+}

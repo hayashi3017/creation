@@ -586,6 +586,7 @@ dependencies = [
  "async-trait",
  "creation-service",
  "futures",
+ "sqlx",
  "thiserror 1.0.69",
 ]
 

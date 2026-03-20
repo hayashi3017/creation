@@ -56,7 +56,7 @@ async fn update_entity_updates_active_row(db: PgPool) {
     let repo = RepositoryImpl::<EntityTable>::new_test(db.clone()).await;
     let body = UpdateEntitySchema {
         id: 1,
-        diagram_id: 2,
+        diagram_id: 1,
         kind: EntityKind::Person,
         name: "Updated Entity".to_string(),
         description: Some("updated from repository test".to_string()),
@@ -78,7 +78,7 @@ async fn update_entity_updates_active_row(db: PgPool) {
 
     let kind = row.get::<EntityKind, _>("kind");
 
-    assert_eq!(row.get::<i64, _>("diagram_id"), 2);
+    assert_eq!(row.get::<i64, _>("diagram_id"), 1);
     assert!(matches!(kind, EntityKind::Person));
     assert_eq!(row.get::<String, _>("name"), "Updated Entity");
     assert_eq!(
@@ -88,6 +88,22 @@ async fn update_entity_updates_active_row(db: PgPool) {
     assert!(row
         .get::<Option<chrono::DateTime<chrono::Utc>>, _>("deleted_at")
         .is_none());
+}
+
+#[sqlx::test(fixtures("entity_repository"))]
+async fn update_entity_returns_not_found_for_diagram_mismatch(db: PgPool) {
+    let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
+    let body = UpdateEntitySchema {
+        id: 1,
+        diagram_id: 2,
+        kind: EntityKind::Person,
+        name: "Moved Entity".to_string(),
+        description: Some("should be rejected".to_string()),
+    };
+
+    let err = repo.update_entity(body).await.unwrap_err();
+
+    assert!(matches!(err, UpdateEntityRepositoryError::NotFound));
 }
 
 #[sqlx::test(fixtures("entity_repository"))]

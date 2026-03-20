@@ -1,6 +1,6 @@
 # API Overview
 
-Last updated: 2026-03-15
+Last updated: 2026-03-20
 
 ## Scope
 
@@ -33,6 +33,10 @@ Protected endpoints:
 - `POST /api/persons/create`
 - `PATCH /api/persons/update/{entity_id}`
 - `DELETE /api/persons/delete/{entity_id}`
+- `GET /api/relationships`
+- `POST /api/relationships/create`
+- `PATCH /api/relationships/update/{id}`
+- `DELETE /api/relationships/delete/{id}`
 
 ## Endpoints
 
@@ -51,6 +55,10 @@ Protected endpoints:
 | POST | `/api/persons/create` | Yes | create entity + person |
 | PATCH | `/api/persons/update/{entity_id}` | Yes | update entity + person |
 | DELETE | `/api/persons/delete/{entity_id}` | Yes | soft delete entity + person |
+| GET | `/api/relationships` | Yes | list relationships in a diagram |
+| POST | `/api/relationships/create` | Yes | create relationship + rebuild tree paths |
+| PATCH | `/api/relationships/update/{id}` | Yes | update relationship + rebuild tree paths |
+| DELETE | `/api/relationships/delete/{id}` | Yes | soft delete relationship + rebuild tree paths |
 
 ## Request and response details
 
@@ -380,6 +388,115 @@ or
 - `404 NOT_FOUND`:
   - target person aggregate does not exist
   - target entity or person row is already soft-deleted
+- `500 INTERNAL_SERVER_ERROR`:
+  - DB failures
+
+### GET `/api/relationships`
+
+- Auth required
+- Request JSON:
+
+```json
+{
+  "diagram_id": 1
+}
+```
+
+- `200 OK`:
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 1,
+      "diagram_id": 1,
+      "source_entity_id": 1,
+      "target_entity_id": 2,
+      "kind": "parent",
+      "start_date": null,
+      "end_date": null,
+      "notes": "optional"
+    }
+  ]
+}
+```
+
+- `400 BAD_REQUEST`: invalid `diagram_id`
+- `500 INTERNAL_SERVER_ERROR`: DB failure
+
+### POST `/api/relationships/create`
+
+- Auth required
+- Request JSON:
+
+```json
+{
+  "diagram_id": 1,
+  "source_entity_id": 1,
+  "target_entity_id": 2,
+  "kind": "parent",
+  "notes": "created from API"
+}
+```
+
+- current implementation only accepts lineage kinds:
+  - `parent`
+  - `child`
+- `notes` is trimmed and stored as `NULL` when omitted, `null`, or blank
+- if both dates are provided, `start_date` must be earlier than or equal to `end_date`
+- success also rebuilds `tree_path` for the target diagram
+
+- `200 OK`:
+  - current handler returns empty body on success
+- `400 BAD_REQUEST`:
+  - invalid params (`diagram_id` / entity ids are `0`, self edge, non-lineage kind, invalid date range, or cycle detected)
+- `404 NOT_FOUND`:
+  - target diagram does not exist
+  - source/target entity does not exist, is soft-deleted, or belongs to another diagram
+- `500 INTERNAL_SERVER_ERROR`:
+  - DB failures
+
+### PATCH `/api/relationships/update/{id}`
+
+- Auth required
+- Request JSON:
+
+```json
+{
+  "source_entity_id": 2,
+  "target_entity_id": 3,
+  "kind": "parent",
+  "notes": "updated from API"
+}
+```
+
+- current implementation keeps `diagram_id` fixed to the existing relationship row
+- success also rebuilds `tree_path` for that diagram
+
+- `200 OK`:
+  - current handler returns empty body on success
+- `400 BAD_REQUEST`:
+  - invalid params (`id` is `0`, self edge, non-lineage kind, invalid date range, or cycle detected)
+- `404 NOT_FOUND`:
+  - target relationship does not exist or is already soft-deleted
+  - source/target entity does not exist, is soft-deleted, or belongs to another diagram
+- `500 INTERNAL_SERVER_ERROR`:
+  - DB failures
+
+### DELETE `/api/relationships/delete/{id}`
+
+- Auth required
+- Request body: none
+- success also rebuilds `tree_path` for the relationship's diagram
+
+- `200 OK`:
+  - current handler returns empty body on success
+- `400 BAD_REQUEST`:
+  - invalid params (`id` is `0`)
+- `404 NOT_FOUND`:
+  - target relationship does not exist
+  - target relationship is already soft-deleted
 - `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 

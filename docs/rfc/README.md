@@ -13,3 +13,4 @@
 - `docs/rfc/0003-validation-and-normalization.md`: Input validation and normalization policy
 - `docs/rfc/0004-sqlx-workflow-and-test-environment.md`: SQLx offline workflow and DB-backed test setup
 - `docs/rfc/0005-entity-person-soft-delete-consistency.md`: Soft-delete propagation policy between `entity` and `person`
+- `docs/rfc/0006-relationship-soft-delete-and-tree-path-consistency.md`: Soft-delete propagation policy for `relationship` and `tree_path`

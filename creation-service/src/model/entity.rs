@@ -15,6 +15,12 @@ pub struct Entity {
     pub description: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeedEntity {
+    pub id: usize,
+    pub diagram_id: usize,
+}
+
 #[derive(Deserialize, Serialize, Type)]
 #[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "entity_kind")]
@@ -72,4 +78,19 @@ pub struct UpdateEntitySchema {
 #[derive(Debug, Deserialize)]
 pub struct DeleteEntitySchema {
     pub id: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoadSeedEntitiesSchema {
+    pub entity_ids: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoadActiveEntityIdsSchema {
+    pub diagram_id: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoadActiveEntitiesByDiagramIdsSchema {
+    pub diagram_ids: Vec<usize>,
 }

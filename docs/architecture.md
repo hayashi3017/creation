@@ -1,6 +1,6 @@
 # Workspace Architecture
 
-Last updated: 2026-03-15
+Last updated: 2026-03-20
 
 ## Goal
 
@@ -53,7 +53,7 @@ Startup flow:
 
 1. Load environment variables (`dotenv` + `Config::init`).
 2. Initialize tracing subscriber (JSON logs).
-3. Build `AppModule` (`RepositoryImpl<UserTable>`, `RepositoryImpl<DiagramTable>`, `RepositoryImpl<EntityTable>`, `RepositoryImpl<PersonTable>`).
+3. Build `AppModule` (`RepositoryImpl<UserTable>`, `RepositoryImpl<DiagramTable>`, `RepositoryImpl<EntityTable>`, `RepositoryImpl<PersonTable>`, `RepositoryImpl<RelationshipTable>`, `RepositoryImpl<TreePathTable>`).
 4. Build Axum router with shared `AppState`.
 5. Attach CORS middleware and auth middleware per protected route.
 6. Bind listener (`listenfd` if supplied, fallback to manual bind).
@@ -87,6 +87,10 @@ Protected routes (JWT auth middleware):
 - `POST /api/persons/create`
 - `PATCH /api/persons/update/{entity_id}`
 - `DELETE /api/persons/delete/{entity_id}`
+- `GET /api/relationships`
+- `POST /api/relationships/create`
+- `PATCH /api/relationships/update/{id}`
+- `DELETE /api/relationships/delete/{id}`
 
 Request processing pattern (current):
 
@@ -120,6 +124,8 @@ Persistence implementation:
 - Diagram repository: `creation-adapter/src/repository/diagram.rs`
 - Entity repository: `creation-adapter/src/repository/entity.rs`
 - Person repository: `creation-adapter/src/repository/person.rs`
+- Relationship repository: `creation-adapter/src/repository/relationship.rs`
+- Tree path repository: `creation-adapter/src/repository/tree_path.rs`
 - Transaction port: `creation-adapter/src/repository/transaction.rs`
   This provides the shared SQLx transaction state used by transaction-aware repositories. `begin_transaction()` returns a service container whose repositories switch between pool and transaction internally.
 
