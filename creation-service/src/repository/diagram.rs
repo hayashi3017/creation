@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::model::diagram::{
-    CreateDiagramSchema, DeleteDiagramSchema, Diagram, GetDiagramsSchema, UpdateDiagramSchema,
+    CreateDiagramSchema, DeleteDiagramSchema, Diagram, ExistsActiveDiagramSchema,
+    GetDiagramsSchema, UpdateDiagramSchema,
 };
 
 pub trait DiagramRepository: Send + Sync + 'static {}
@@ -11,6 +12,8 @@ pub trait DiagramRepository: Send + Sync + 'static {}
 pub enum DiagramRepositoryError {
     #[error(transparent)]
     GetDiagramsRepositoryError(#[from] GetDiagramsRepositoryError),
+    #[error(transparent)]
+    ExistsActiveDiagramRepositoryError(#[from] ExistsActiveDiagramRepositoryError),
     #[error(transparent)]
     CreateDiagramRepositoryError(#[from] CreateDiagramRepositoryError),
     #[error(transparent)]
@@ -21,6 +24,12 @@ pub enum DiagramRepositoryError {
 
 #[derive(Debug, Error)]
 pub enum GetDiagramsRepositoryError {
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum ExistsActiveDiagramRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
 }
@@ -53,6 +62,10 @@ pub trait UsesDiagramRepository: Send + Sync + 'static {
         &self,
         body: GetDiagramsSchema,
     ) -> Result<Vec<Diagram>, GetDiagramsRepositoryError>;
+    async fn exists_active_diagram(
+        &self,
+        body: ExistsActiveDiagramSchema,
+    ) -> Result<bool, ExistsActiveDiagramRepositoryError>;
     async fn create_diagram(
         &self,
         body: CreateDiagramSchema,

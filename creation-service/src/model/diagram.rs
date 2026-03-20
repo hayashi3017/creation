@@ -105,3 +105,8 @@ pub struct UpdateDiagramSchema {
 pub struct DeleteDiagramSchema {
     pub id: usize,
 }
+
+#[derive(Debug, Clone)]
+pub struct ExistsActiveDiagramSchema {
+    pub id: usize,
+}

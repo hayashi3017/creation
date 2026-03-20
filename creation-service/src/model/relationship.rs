@@ -116,3 +116,8 @@ pub struct LoadRelationshipEdgesSchema {
 pub struct LoadRelationshipEdgesByDiagramIdsSchema {
     pub diagram_ids: Vec<usize>,
 }
+
+#[derive(Debug, Clone)]
+pub struct LoadRelationshipDiagramIdSchema {
+    pub id: usize,
+}

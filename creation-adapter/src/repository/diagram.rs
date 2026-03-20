@@ -1,18 +1,19 @@
 use async_trait::async_trait;
 use creation_service::{
     model::diagram::{
-        CreateDiagramSchema, DeleteDiagramSchema, Diagram, DiagramKind, GetDiagramsSchema,
-        UpdateDiagramSchema,
+        CreateDiagramSchema, DeleteDiagramSchema, Diagram, DiagramKind, ExistsActiveDiagramSchema,
+        GetDiagramsSchema, UpdateDiagramSchema,
     },
     repository::diagram::{
         CreateDiagramRepositoryError, DeleteDiagramRepositoryError, DiagramRepository,
-        GetDiagramsRepositoryError, ProvidesDiagramRepository, UpdateDiagramRepositoryError,
-        UsesDiagramRepository,
+        ExistsActiveDiagramRepositoryError, GetDiagramsRepositoryError, ProvidesDiagramRepository,
+        UpdateDiagramRepositoryError, UsesDiagramRepository,
     },
     service::diagram::{DiagramService, ProvidesDiagramService},
 };
 use creation_usecase::usecase::diagram::{DiagramUsecase, ProvidesDiagramUsecase};
 
+use crate::repository::transaction::closed_transaction_error;
 use crate::{model::diagram::DiagramTable, repository::RepositoryImpl};
 
 use super::impl_minimal_cake_bindings;
@@ -57,6 +58,31 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
             .collect();
 
         Ok(ret)
+    }
+
+    async fn exists_active_diagram(
+        &self,
+        body: ExistsActiveDiagramSchema,
+    ) -> Result<bool, ExistsActiveDiagramRepositoryError> {
+        let exists = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                exists_active_diagram_with(tx.as_mut(), body)
+                    .await
+                    .map_err(ExistsActiveDiagramRepositoryError::Db)?
+            } else {
+                return Err(ExistsActiveDiagramRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            exists_active_diagram_with(&self.pool.0, body)
+                .await
+                .map_err(ExistsActiveDiagramRepositoryError::Db)?
+        };
+
+        Ok(exists)
     }
 
     async fn create_diagram(
@@ -138,6 +164,29 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
 
         Ok(())
     }
+}
+
+async fn exists_active_diagram_with<'e, E>(
+    executor: E,
+    body: ExistsActiveDiagramSchema,
+) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+{
+    sqlx::query_scalar::<_, bool>(
+        r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM diagram
+                WHERE
+                    id = $1
+                    AND deleted_at IS NULL
+            )
+        "#,
+    )
+    .bind(body.id as i64)
+    .fetch_one(executor)
+    .await
 }
 
 impl_minimal_cake_bindings!(

@@ -6,8 +6,8 @@ use creation_service::{
     model::{
         relationship::{
             CreateRelationshipSchema, DeleteRelationshipSchema, GetRelationshipsSchema,
-            RelationshipEndpoints, RelationshipKind, UpdateRelationshipSchema,
-            UpdatedRelationshipEndpoints,
+            LoadRelationshipDiagramIdSchema, RelationshipEndpoints, RelationshipKind,
+            UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
         },
         tree_path::SyncTreePathsByEntityIdsSchema,
     },
@@ -94,6 +94,18 @@ async fn get_relationships_filters_by_diagram_and_excludes_deleted(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
+async fn get_relationships_excludes_rows_for_soft_deleted_diagram(db: PgPool) {
+    let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
+
+    let ret = repo
+        .get_relationships(GetRelationshipsSchema { diagram_id: 3 })
+        .await
+        .unwrap();
+
+    assert!(ret.is_empty());
+}
+
+#[sqlx::test(fixtures("relationship_repository"))]
 async fn create_relationship_inserts_row(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db.clone()).await;
 
@@ -145,6 +157,26 @@ async fn create_relationship_returns_not_found_for_missing_entity(db: PgPool) {
             diagram_id: 1,
             source_entity_id: 3,
             target_entity_id: 99,
+            kind: RelationshipKind::Parent,
+            start_date: None,
+            end_date: None,
+            notes: None,
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, CreateRelationshipRepositoryError::NotFound));
+}
+
+#[sqlx::test(fixtures("relationship_repository"))]
+async fn create_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+    let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
+
+    let err = repo
+        .create_relationship(CreateRelationshipSchema {
+            diagram_id: 3,
+            source_entity_id: 8,
+            target_entity_id: 9,
             kind: RelationshipKind::Parent,
             start_date: None,
             end_date: None,
@@ -258,6 +290,26 @@ async fn update_relationship_returns_not_found_for_deleted_row(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
+async fn update_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+    let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
+
+    let err = repo
+        .update_relationship(UpdateRelationshipSchema {
+            id: 5,
+            source_entity_id: 8,
+            target_entity_id: 9,
+            kind: RelationshipKind::Parent,
+            start_date: None,
+            end_date: None,
+            notes: None,
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, UpdateRelationshipRepositoryError::NotFound));
+}
+
+#[sqlx::test(fixtures("relationship_repository"))]
 async fn delete_relationship_returns_not_found_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
@@ -267,6 +319,54 @@ async fn delete_relationship_returns_not_found_for_deleted_row(db: PgPool) {
         .unwrap_err();
 
     assert!(matches!(err, DeleteRelationshipRepositoryError::NotFound));
+}
+
+#[sqlx::test(fixtures("relationship_repository"))]
+async fn delete_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+    let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
+
+    let err = repo
+        .delete_relationship(DeleteRelationshipSchema { id: 5 })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, DeleteRelationshipRepositoryError::NotFound));
+}
+
+#[sqlx::test(fixtures("relationship_repository"))]
+async fn load_relationship_diagram_id_returns_diagram_id_for_active_row(db: PgPool) {
+    let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
+
+    let diagram_id = repo
+        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { id: 2 })
+        .await
+        .unwrap();
+
+    assert_eq!(diagram_id, Some(1));
+}
+
+#[sqlx::test(fixtures("relationship_repository"))]
+async fn load_relationship_diagram_id_returns_diagram_id_for_soft_deleted_diagram_row(db: PgPool) {
+    let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
+
+    let diagram_id = repo
+        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { id: 5 })
+        .await
+        .unwrap();
+
+    assert_eq!(diagram_id, Some(3));
+}
+
+#[sqlx::test(fixtures("relationship_repository"))]
+async fn load_relationship_diagram_id_returns_none_for_deleted_row(db: PgPool) {
+    let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
+
+    let diagram_id = repo
+        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { id: 4 })
+        .await
+        .unwrap();
+
+    assert_eq!(diagram_id, None);
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]

@@ -43,6 +43,7 @@ pub async fn get_relationships_by_diagram(
             "data": ret
         }))),
         Err(GetRelationshipsUsecaseError::InvalidParams) => Err(invalid_parameter_error()),
+        Err(GetRelationshipsUsecaseError::NotFound) => Err(not_found_error()),
         Err(err) => Err(internal_server_error(err)),
     }
 }

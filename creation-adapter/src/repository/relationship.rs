@@ -2,16 +2,17 @@ use async_trait::async_trait;
 use creation_service::{
     model::relationship::{
         CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForEntitySchema,
-        DiagramRelationshipEdge, GetRelationshipsSchema, LoadRelationshipEdgesByDiagramIdsSchema,
-        LoadRelationshipEdgesSchema, Relationship, RelationshipEdge, RelationshipEndpoints,
-        RelationshipKind, UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
+        DiagramRelationshipEdge, GetRelationshipsSchema, LoadRelationshipDiagramIdSchema,
+        LoadRelationshipEdgesByDiagramIdsSchema, LoadRelationshipEdgesSchema, Relationship,
+        RelationshipEdge, RelationshipEndpoints, RelationshipKind, UpdateRelationshipSchema,
+        UpdatedRelationshipEndpoints,
     },
     repository::relationship::{
         CreateRelationshipRepositoryError, DeleteRelationshipRepositoryError,
         DeleteRelationshipsForEntityRepositoryError, GetRelationshipsRepositoryError,
-        LoadRelationshipEdgesByDiagramIdsRepositoryError, LoadRelationshipEdgesRepositoryError,
-        ProvidesRelationshipRepository, RelationshipRepository, UpdateRelationshipRepositoryError,
-        UsesRelationshipRepository,
+        LoadRelationshipDiagramIdRepositoryError, LoadRelationshipEdgesByDiagramIdsRepositoryError,
+        LoadRelationshipEdgesRepositoryError, ProvidesRelationshipRepository,
+        RelationshipRepository, UpdateRelationshipRepositoryError, UsesRelationshipRepository,
     },
 };
 use sqlx::{Executor, Postgres};
@@ -30,22 +31,25 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
         let relationships = sqlx::query_as::<_, RelationshipTable>(
             r#"
                 SELECT
-                    id,
-                    diagram_id,
-                    source_entity_id,
-                    target_entity_id,
-                    kind,
-                    start_date,
-                    end_date,
-                    notes,
-                    created_at,
-                    updated_at,
-                    deleted_at
-                FROM relationship
+                    r.id,
+                    r.diagram_id,
+                    r.source_entity_id,
+                    r.target_entity_id,
+                    r.kind,
+                    r.start_date,
+                    r.end_date,
+                    r.notes,
+                    r.created_at,
+                    r.updated_at,
+                    r.deleted_at
+                FROM relationship AS r
+                INNER JOIN diagram AS d
+                    ON d.id = r.diagram_id
+                    AND d.deleted_at IS NULL
                 WHERE
-                    diagram_id = $1
-                    AND deleted_at IS NULL
-                ORDER BY id
+                    r.diagram_id = $1
+                    AND r.deleted_at IS NULL
+                ORDER BY r.id
             "#,
         )
         .bind(body.diagram_id as i64)
@@ -178,6 +182,31 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
         Ok(entity_ids)
     }
 
+    async fn load_relationship_diagram_id(
+        &self,
+        body: LoadRelationshipDiagramIdSchema,
+    ) -> Result<Option<usize>, LoadRelationshipDiagramIdRepositoryError> {
+        let diagram_id = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                load_relationship_diagram_id_with(tx.as_mut(), body)
+                    .await
+                    .map_err(LoadRelationshipDiagramIdRepositoryError::Db)?
+            } else {
+                return Err(LoadRelationshipDiagramIdRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            load_relationship_diagram_id_with(&self.pool.0, body)
+                .await
+                .map_err(LoadRelationshipDiagramIdRepositoryError::Db)?
+        };
+
+        Ok(diagram_id)
+    }
+
     async fn load_relationship_edges(
         &self,
         body: LoadRelationshipEdgesSchema,
@@ -242,15 +271,13 @@ where
             INSERT INTO relationship
                 (diagram_id, source_entity_id, target_entity_id, kind, start_date, end_date, notes)
             SELECT
-                $1, $2, $3, $4, $5, $6, $7
+                d.id, $2, $3, $4, $5, $6, $7
+            FROM diagram AS d
             WHERE
+                d.id = $1
+                AND d.deleted_at IS NULL
+                AND
                 EXISTS (
-                    SELECT 1
-                    FROM diagram
-                    WHERE id = $1
-                        AND deleted_at IS NULL
-                )
-                AND EXISTS (
                     SELECT 1
                     FROM entity AS source
                     WHERE
@@ -293,14 +320,17 @@ where
         r#"
             WITH previous AS (
                 SELECT
-                    id,
-                    diagram_id,
-                    source_entity_id,
-                    target_entity_id
-                FROM relationship
+                    r.id,
+                    r.diagram_id,
+                    r.source_entity_id,
+                    r.target_entity_id
+                FROM relationship AS r
+                INNER JOIN diagram AS d
+                    ON d.id = r.diagram_id
+                    AND d.deleted_at IS NULL
                 WHERE
-                    id = $7
-                    AND deleted_at IS NULL
+                    r.id = $7
+                    AND r.deleted_at IS NULL
             )
             UPDATE relationship AS r
             SET
@@ -361,14 +391,28 @@ where
 {
     sqlx::query_as::<_, (i64, i64)>(
         r#"
-            UPDATE relationship
+            WITH active_relationship AS (
+                SELECT
+                    r.id,
+                    r.source_entity_id,
+                    r.target_entity_id
+                FROM relationship AS r
+                INNER JOIN diagram AS d
+                    ON d.id = r.diagram_id
+                    AND d.deleted_at IS NULL
+                WHERE
+                    r.id = $1
+                    AND r.deleted_at IS NULL
+            )
+            UPDATE relationship AS r
             SET
                 deleted_at = now(),
                 updated_at = now()
-            WHERE
-                id = $1
-                AND deleted_at IS NULL
-            RETURNING source_entity_id, target_entity_id
+            FROM active_relationship
+            WHERE r.id = active_relationship.id
+            RETURNING
+                active_relationship.source_entity_id,
+                active_relationship.target_entity_id
         "#,
     )
     .bind(body.id as i64)
@@ -418,6 +462,28 @@ where
         .collect())
 }
 
+async fn load_relationship_diagram_id_with<'e, E>(
+    executor: E,
+    body: LoadRelationshipDiagramIdSchema,
+) -> Result<Option<usize>, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    sqlx::query_scalar::<_, i64>(
+        r#"
+            SELECT diagram_id
+            FROM relationship
+            WHERE
+                id = $1
+                AND deleted_at IS NULL
+        "#,
+    )
+    .bind(body.id as i64)
+    .fetch_optional(executor)
+    .await
+    .map(|diagram_id| diagram_id.map(|diagram_id| diagram_id as usize))
+}
+
 async fn load_relationship_edges_with<'e, E>(
     executor: E,
     body: LoadRelationshipEdgesSchema,
@@ -432,6 +498,9 @@ where
                 r.target_entity_id,
                 r.kind
             FROM relationship AS r
+            INNER JOIN diagram AS d
+                ON d.id = r.diagram_id
+                AND d.deleted_at IS NULL
             INNER JOIN entity AS source
                 ON source.id = r.source_entity_id
                 AND source.diagram_id = r.diagram_id
@@ -491,6 +560,9 @@ where
                 r.target_entity_id,
                 r.kind
             FROM relationship AS r
+            INNER JOIN diagram AS d
+                ON d.id = r.diagram_id
+                AND d.deleted_at IS NULL
             INNER JOIN entity AS source
                 ON source.id = r.source_entity_id
                 AND source.diagram_id = r.diagram_id

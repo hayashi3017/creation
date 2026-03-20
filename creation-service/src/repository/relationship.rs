@@ -3,9 +3,10 @@ use thiserror::Error;
 
 use crate::model::relationship::{
     CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForEntitySchema,
-    DiagramRelationshipEdge, GetRelationshipsSchema, LoadRelationshipEdgesByDiagramIdsSchema,
-    LoadRelationshipEdgesSchema, Relationship, RelationshipEdge, RelationshipEndpoints,
-    UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
+    DiagramRelationshipEdge, GetRelationshipsSchema, LoadRelationshipDiagramIdSchema,
+    LoadRelationshipEdgesByDiagramIdsSchema, LoadRelationshipEdgesSchema, Relationship,
+    RelationshipEdge, RelationshipEndpoints, UpdateRelationshipSchema,
+    UpdatedRelationshipEndpoints,
 };
 
 pub trait RelationshipRepository: Send + Sync + 'static {}
@@ -58,6 +59,12 @@ pub enum LoadRelationshipEdgesByDiagramIdsRepositoryError {
     Db(#[from] sqlx::Error),
 }
 
+#[derive(Debug, Error)]
+pub enum LoadRelationshipDiagramIdRepositoryError {
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+}
+
 #[async_trait]
 pub trait UsesRelationshipRepository: Send + Sync + 'static {
     async fn get_relationships(
@@ -80,6 +87,10 @@ pub trait UsesRelationshipRepository: Send + Sync + 'static {
         &self,
         body: DeleteRelationshipsForEntitySchema,
     ) -> Result<Vec<usize>, DeleteRelationshipsForEntityRepositoryError>;
+    async fn load_relationship_diagram_id(
+        &self,
+        body: LoadRelationshipDiagramIdSchema,
+    ) -> Result<Option<usize>, LoadRelationshipDiagramIdRepositoryError>;
     async fn load_relationship_edges(
         &self,
         body: LoadRelationshipEdgesSchema,

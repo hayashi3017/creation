@@ -74,12 +74,13 @@ VALUES
   ('00000000-0000-0000-0000-000000000001', 'relationship-test@example.com', 'relationship_test', 'test_password', 'default.png', 'user');
 
 INSERT INTO diagram
-  (id, name, kind, description)
+  (id, name, kind, description, deleted_at)
 VALUES
-  (1, 'Relationship Diagram 1', 'family_tree', 'first diagram'),
-  (2, 'Relationship Diagram 2', 'family_tree', 'second diagram');
+  (1, 'Relationship Diagram 1', 'family_tree', 'first diagram', NULL),
+  (2, 'Relationship Diagram 2', 'family_tree', 'second diagram', NULL),
+  (3, 'Deleted Relationship Diagram', 'family_tree', 'soft deleted diagram', now());
 
-SELECT setval(pg_get_serial_sequence('diagram', 'id'), 2, true);
+SELECT setval(pg_get_serial_sequence('diagram', 'id'), 3, true);
 
 INSERT INTO entity
   (id, diagram_id, kind, name, description, deleted_at)
@@ -90,9 +91,11 @@ VALUES
   (4, 2, 'person', 'Other Diagram Parent', NULL, NULL),
   (5, 2, 'person', 'Other Diagram Child', NULL, NULL),
   (6, 1, 'person', 'Extra Child', NULL, NULL),
-  (7, 1, 'person', 'Deleted Entity', NULL, now());
+  (7, 1, 'person', 'Deleted Entity', NULL, now()),
+  (8, 3, 'person', 'Deleted Diagram Parent', NULL, NULL),
+  (9, 3, 'person', 'Deleted Diagram Child', NULL, NULL);
 
-SELECT setval(pg_get_serial_sequence('entity', 'id'), 7, true);
+SELECT setval(pg_get_serial_sequence('entity', 'id'), 9, true);
 
 INSERT INTO relationship
   (id, diagram_id, source_entity_id, target_entity_id, kind, notes, deleted_at)
@@ -100,6 +103,7 @@ VALUES
   (1, 1, 1, 2, 'parent', 'ancestor to parent', NULL),
   (2, 1, 2, 3, 'parent', 'parent to child', NULL),
   (3, 2, 4, 5, 'parent', 'other diagram', NULL),
-  (4, 1, 1, 6, 'parent', 'deleted edge', now());
+  (4, 1, 1, 6, 'parent', 'deleted edge', now()),
+  (5, 3, 8, 9, 'parent', 'soft deleted diagram edge', NULL);
 
-SELECT setval(pg_get_serial_sequence('relationship', 'id'), 4, true);
+SELECT setval(pg_get_serial_sequence('relationship', 'id'), 5, true);

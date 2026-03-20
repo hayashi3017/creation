@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
-use super::{map_service_result, normalize_optional_text};
+use super::normalize_optional_text;
 
 use crate::{
     model::relationship::{
@@ -87,10 +87,10 @@ impl<T: RelationshipService> UsesRelationshipService for T {
             return Err(GetRelationshipsServiceError::InvalidParams);
         }
 
-        map_service_result!(
-            self.relationship_repository().get_relationships(body),
-            GetRelationshipsServiceError::GetRelationshipsRepositoryError
-        )
+        self.relationship_repository()
+            .get_relationships(body)
+            .await
+            .map_err(GetRelationshipsServiceError::GetRelationshipsRepositoryError)
     }
 
     async fn create_relationship(

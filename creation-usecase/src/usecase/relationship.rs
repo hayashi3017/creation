@@ -1,13 +1,18 @@
 use async_trait::async_trait;
 use creation_service::{
+    model::diagram::ExistsActiveDiagramSchema,
     model::relationship::{
-        CreateRelationshipSchema, DeleteRelationshipSchema, GetRelationshipsSchema, Relationship,
-        UpdateRelationshipSchema,
+        CreateRelationshipSchema, DeleteRelationshipSchema, GetRelationshipsSchema,
+        LoadRelationshipDiagramIdSchema, Relationship, UpdateRelationshipSchema,
     },
     model::tree_path::SyncTreePathsByEntityIdsSchema,
+    repository::diagram::{
+        ExistsActiveDiagramRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
+    },
     repository::relationship::{
         CreateRelationshipRepositoryError, DeleteRelationshipRepositoryError,
-        UpdateRelationshipRepositoryError,
+        LoadRelationshipDiagramIdRepositoryError, ProvidesRelationshipRepository,
+        UpdateRelationshipRepositoryError, UsesRelationshipRepository,
     },
     service::{
         relationship::{
@@ -25,10 +30,16 @@ use thiserror::Error;
 
 #[async_trait]
 pub trait RelationshipUsecase:
-    ProvidesRelationshipService + ProvidesTreePathService + ProvidesTransactionManager
+    ProvidesDiagramRepository
+    + ProvidesRelationshipService
+    + ProvidesTreePathService
+    + ProvidesTransactionManager
 where
     <Self as ProvidesTransactionManager>::T: TransactionContext,
-    <Self as ProvidesTransactionManager>::T: ProvidesRelationshipService + ProvidesTreePathService,
+    <Self as ProvidesTransactionManager>::T: ProvidesDiagramRepository
+        + ProvidesRelationshipRepository
+        + ProvidesRelationshipService
+        + ProvidesTreePathService,
 {
 }
 
@@ -38,6 +49,10 @@ pub enum GetRelationshipsUsecaseError {
     InvalidParams,
     #[error(transparent)]
     GetRelationshipsServiceError(#[from] GetRelationshipsServiceError),
+    #[error(transparent)]
+    ExistsActiveDiagramRepositoryError(#[from] ExistsActiveDiagramRepositoryError),
+    #[error("not found")]
+    NotFound,
 }
 
 #[derive(Debug, Error)]
@@ -89,12 +104,29 @@ impl<T> UsesGetRelationshipsUsecase for T
 where
     T: RelationshipUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesRelationshipService + ProvidesTreePathService,
+    <T as ProvidesTransactionManager>::T: ProvidesDiagramRepository
+        + ProvidesRelationshipRepository
+        + ProvidesRelationshipService
+        + ProvidesTreePathService,
 {
     async fn get_relationships(
         &self,
         body: GetRelationshipsSchema,
     ) -> Result<Vec<Relationship>, GetRelationshipsUsecaseError> {
+        if body.diagram_id == 0 {
+            return Err(GetRelationshipsUsecaseError::InvalidParams);
+        }
+
+        if !self
+            .diagram_repository()
+            .exists_active_diagram(ExistsActiveDiagramSchema {
+                id: body.diagram_id,
+            })
+            .await?
+        {
+            return Err(GetRelationshipsUsecaseError::NotFound);
+        }
+
         match self.relationship_service().get_relationships(body).await {
             Ok(relationships) => Ok(relationships),
             Err(GetRelationshipsServiceError::InvalidParams) => {
@@ -120,15 +152,33 @@ impl<T> UsesCreateRelationshipUsecase for T
 where
     T: RelationshipUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesRelationshipService + ProvidesTreePathService,
+    <T as ProvidesTransactionManager>::T: ProvidesDiagramRepository
+        + ProvidesRelationshipRepository
+        + ProvidesRelationshipService
+        + ProvidesTreePathService,
 {
     async fn create_relationship(
         &self,
         body: CreateRelationshipSchema,
     ) -> Result<(), CreateRelationshipUsecaseError> {
+        if body.diagram_id == 0 {
+            return Err(CreateRelationshipUsecaseError::InvalidParams);
+        }
+
         let affected_entity_ids =
             normalize_entity_ids(vec![body.source_entity_id, body.target_entity_id]);
         let tx = self.begin_transaction().await?;
+
+        if !tx
+            .diagram_repository()
+            .exists_active_diagram(ExistsActiveDiagramSchema {
+                id: body.diagram_id,
+            })
+            .await
+            .map_err(map_create_relationship_diagram_error)?
+        {
+            return Err(CreateRelationshipUsecaseError::NotFound);
+        }
 
         tx.relationship_service()
             .create_relationship(body)
@@ -163,14 +213,39 @@ impl<T> UsesUpdateRelationshipUsecase for T
 where
     T: RelationshipUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesRelationshipService + ProvidesTreePathService,
+    <T as ProvidesTransactionManager>::T: ProvidesDiagramRepository
+        + ProvidesRelationshipRepository
+        + ProvidesRelationshipService
+        + ProvidesTreePathService,
 {
     async fn update_relationship(
         &self,
         body: UpdateRelationshipSchema,
     ) -> Result<(), UpdateRelationshipUsecaseError> {
+        if body.id == 0 {
+            return Err(UpdateRelationshipUsecaseError::InvalidParams);
+        }
+
         let next_entity_ids = vec![body.source_entity_id, body.target_entity_id];
         let tx = self.begin_transaction().await?;
+
+        let Some(diagram_id) = tx
+            .relationship_repository()
+            .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { id: body.id })
+            .await
+            .map_err(map_update_relationship_load_diagram_id_error)?
+        else {
+            return Err(UpdateRelationshipUsecaseError::NotFound);
+        };
+
+        if !tx
+            .diagram_repository()
+            .exists_active_diagram(ExistsActiveDiagramSchema { id: diagram_id })
+            .await
+            .map_err(map_update_relationship_diagram_error)?
+        {
+            return Err(UpdateRelationshipUsecaseError::NotFound);
+        }
 
         let previous_endpoints = tx
             .relationship_service()
@@ -210,13 +285,38 @@ impl<T> UsesDeleteRelationshipUsecase for T
 where
     T: RelationshipUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesRelationshipService + ProvidesTreePathService,
+    <T as ProvidesTransactionManager>::T: ProvidesDiagramRepository
+        + ProvidesRelationshipRepository
+        + ProvidesRelationshipService
+        + ProvidesTreePathService,
 {
     async fn delete_relationship(
         &self,
         body: DeleteRelationshipSchema,
     ) -> Result<(), DeleteRelationshipUsecaseError> {
+        if body.id == 0 {
+            return Err(DeleteRelationshipUsecaseError::InvalidParams);
+        }
+
         let tx = self.begin_transaction().await?;
+
+        let Some(diagram_id) = tx
+            .relationship_repository()
+            .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { id: body.id })
+            .await
+            .map_err(map_delete_relationship_load_diagram_id_error)?
+        else {
+            return Err(DeleteRelationshipUsecaseError::NotFound);
+        };
+
+        if !tx
+            .diagram_repository()
+            .exists_active_diagram(ExistsActiveDiagramSchema { id: diagram_id })
+            .await
+            .map_err(map_delete_relationship_diagram_error)?
+        {
+            return Err(DeleteRelationshipUsecaseError::NotFound);
+        }
 
         let endpoints = tx
             .relationship_service()
@@ -259,6 +359,14 @@ fn map_create_relationship_service_error(
     }
 }
 
+fn map_create_relationship_diagram_error(
+    err: ExistsActiveDiagramRepositoryError,
+) -> CreateRelationshipUsecaseError {
+    CreateRelationshipUsecaseError::TransactionError(match err {
+        ExistsActiveDiagramRepositoryError::Db(err) => TransactionError::Db(err),
+    })
+}
+
 fn map_update_relationship_service_error(
     err: UpdateRelationshipServiceError,
 ) -> UpdateRelationshipUsecaseError {
@@ -276,6 +384,22 @@ fn map_update_relationship_service_error(
     }
 }
 
+fn map_update_relationship_load_diagram_id_error(
+    err: LoadRelationshipDiagramIdRepositoryError,
+) -> UpdateRelationshipUsecaseError {
+    UpdateRelationshipUsecaseError::TransactionError(match err {
+        LoadRelationshipDiagramIdRepositoryError::Db(err) => TransactionError::Db(err),
+    })
+}
+
+fn map_update_relationship_diagram_error(
+    err: ExistsActiveDiagramRepositoryError,
+) -> UpdateRelationshipUsecaseError {
+    UpdateRelationshipUsecaseError::TransactionError(match err {
+        ExistsActiveDiagramRepositoryError::Db(err) => TransactionError::Db(err),
+    })
+}
+
 fn map_delete_relationship_service_error(
     err: DeleteRelationshipServiceError,
 ) -> DeleteRelationshipUsecaseError {
@@ -291,6 +415,22 @@ fn map_delete_relationship_service_error(
             })
         }
     }
+}
+
+fn map_delete_relationship_load_diagram_id_error(
+    err: LoadRelationshipDiagramIdRepositoryError,
+) -> DeleteRelationshipUsecaseError {
+    DeleteRelationshipUsecaseError::TransactionError(match err {
+        LoadRelationshipDiagramIdRepositoryError::Db(err) => TransactionError::Db(err),
+    })
+}
+
+fn map_delete_relationship_diagram_error(
+    err: ExistsActiveDiagramRepositoryError,
+) -> DeleteRelationshipUsecaseError {
+    DeleteRelationshipUsecaseError::TransactionError(match err {
+        ExistsActiveDiagramRepositoryError::Db(err) => TransactionError::Db(err),
+    })
 }
 
 fn map_create_relationship_tree_path_error(

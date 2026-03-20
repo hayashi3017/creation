@@ -43,6 +43,29 @@ async fn get_relationships_returns_list(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship"))]
+async fn get_relationships_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/relationships")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(r#"{"diagram_id":3}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(fixtures("relationship"))]
 async fn create_relationship_rebuilds_tree_path(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -108,6 +131,37 @@ async fn create_relationship_rebuilds_tree_path(db: PgPool) {
     .unwrap();
 
     assert_eq!(depth, 3);
+}
+
+#[sqlx::test(fixtures("relationship"))]
+async fn create_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/relationships/create")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "diagram_id": 3,
+                        "source_entity_id": 8,
+                        "target_entity_id": 9,
+                        "kind": "parent"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(fixtures("relationship"))]
@@ -306,6 +360,36 @@ async fn update_relationship_returns_not_found_for_deleted_row(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship"))]
+async fn update_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri("/api/relationships/update/5")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "source_entity_id": 8,
+                        "target_entity_id": 9,
+                        "kind": "parent"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(fixtures("relationship"))]
 async fn delete_relationship_rebuilds_tree_path(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -367,6 +451,28 @@ async fn delete_relationship_returns_not_found_for_deleted_row(db: PgPool) {
             Request::builder()
                 .method(Method::DELETE)
                 .uri("/api/relationships/delete/4")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(fixtures("relationship"))]
+async fn delete_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri("/api/relationships/delete/5")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
