@@ -15,12 +15,16 @@ use creation_usecase::usecase::relationship::{
 };
 use http::StatusCode;
 use serde::Deserialize;
+use utoipa::ToSchema;
 
-use crate::AppState;
+use crate::{
+    response::{ErrorResponse, RelationshipListResponse},
+    AppState,
+};
 
-type JsonError = (StatusCode, Json<serde_json::Value>);
+type JsonError = (StatusCode, Json<ErrorResponse>);
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateRelationshipRequest {
     pub source_entity_id: usize,
     pub target_entity_id: usize,
@@ -33,21 +37,51 @@ pub struct UpdateRelationshipRequest {
     pub notes: Option<String>,
 }
 
+#[doc = include_str!("../openapi_docs/en/operations/get_relationships_by_diagram.md")]
+#[utoipa::path(
+    get,
+    path = "/api/relationships",
+    tag = "Relationships",
+    security(("cookie_auth" = []), ("bearer_auth" = [])),
+    request_body = GetRelationshipsSchema,
+    responses(
+        (status = 200, description = "All relationships in the requested diagram.", body = RelationshipListResponse),
+        (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
+        (status = 401, description = "Authentication is required.", body = ErrorResponse),
+        (status = 404, description = "The diagram was not found.", body = ErrorResponse),
+        (status = 500, description = "The relationships could not be loaded.", body = ErrorResponse)
+    )
+)]
 pub async fn get_relationships_by_diagram(
     State(data): State<Arc<AppState>>,
     Json(body): Json<GetRelationshipsSchema>,
 ) -> Result<impl IntoResponse, JsonError> {
     match data.driver.get_relationships(body).await {
-        Ok(ret) => Ok(Json(serde_json::json!({
-            "status": "success",
-            "data": ret
-        }))),
+        Ok(ret) => Ok(Json(RelationshipListResponse {
+            status: "success".to_string(),
+            data: ret,
+        })),
         Err(GetRelationshipsUsecaseError::InvalidParams) => Err(invalid_parameter_error()),
         Err(GetRelationshipsUsecaseError::NotFound) => Err(not_found_error()),
         Err(err) => Err(internal_server_error(err)),
     }
 }
 
+#[doc = include_str!("../openapi_docs/en/operations/create_relationship.md")]
+#[utoipa::path(
+    post,
+    path = "/api/relationships/create",
+    tag = "Relationships",
+    security(("cookie_auth" = []), ("bearer_auth" = [])),
+    request_body = CreateRelationshipSchema,
+    responses(
+        (status = 200, description = "The relationship was created successfully."),
+        (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
+        (status = 401, description = "Authentication is required.", body = ErrorResponse),
+        (status = 404, description = "The diagram was not found.", body = ErrorResponse),
+        (status = 500, description = "The create operation failed.", body = ErrorResponse)
+    )
+)]
 pub async fn create_relationship(
     State(data): State<Arc<AppState>>,
     Json(body): Json<CreateRelationshipSchema>,
@@ -60,6 +94,22 @@ pub async fn create_relationship(
     }
 }
 
+#[doc = include_str!("../openapi_docs/en/operations/update_relationship_by_id.md")]
+#[utoipa::path(
+    patch,
+    path = "/api/relationships/update/{id}",
+    tag = "Relationships",
+    security(("cookie_auth" = []), ("bearer_auth" = [])),
+    params(("id" = usize, Path, description = "Relationship identifier.")),
+    request_body = UpdateRelationshipRequest,
+    responses(
+        (status = 200, description = "The relationship was updated successfully."),
+        (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
+        (status = 401, description = "Authentication is required.", body = ErrorResponse),
+        (status = 404, description = "The relationship or diagram was not found.", body = ErrorResponse),
+        (status = 500, description = "The update operation failed.", body = ErrorResponse)
+    )
+)]
 pub async fn update_relationship_by_id(
     Path(id): Path<usize>,
     State(data): State<Arc<AppState>>,
@@ -85,6 +135,21 @@ pub async fn update_relationship_by_id(
     }
 }
 
+#[doc = include_str!("../openapi_docs/en/operations/delete_relationship_by_id.md")]
+#[utoipa::path(
+    delete,
+    path = "/api/relationships/delete/{id}",
+    tag = "Relationships",
+    security(("cookie_auth" = []), ("bearer_auth" = [])),
+    params(("id" = usize, Path, description = "Relationship identifier.")),
+    responses(
+        (status = 200, description = "The relationship was deleted successfully."),
+        (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
+        (status = 401, description = "Authentication is required.", body = ErrorResponse),
+        (status = 404, description = "The relationship or diagram was not found.", body = ErrorResponse),
+        (status = 500, description = "The delete operation failed.", body = ErrorResponse)
+    )
+)]
 pub async fn delete_relationship_by_id(
     Path(id): Path<usize>,
     State(data): State<Arc<AppState>>,
@@ -104,29 +169,29 @@ pub async fn delete_relationship_by_id(
 fn invalid_parameter_error() -> JsonError {
     (
         StatusCode::BAD_REQUEST,
-        Json(serde_json::json!({
-            "status": "fail",
-            "message": "Invalid Parameter"
-        })),
+        Json(ErrorResponse {
+            status: "fail".to_string(),
+            message: "Invalid Parameter".to_string(),
+        }),
     )
 }
 
 fn not_found_error() -> JsonError {
     (
         StatusCode::NOT_FOUND,
-        Json(serde_json::json!({
-            "status": "fail",
-            "message": "Not Found"
-        })),
+        Json(ErrorResponse {
+            status: "fail".to_string(),
+            message: "Not Found".to_string(),
+        }),
     )
 }
 
 fn internal_server_error(err: impl std::fmt::Display) -> JsonError {
     (
         StatusCode::INTERNAL_SERVER_ERROR,
-        Json(serde_json::json!({
-            "status": "fail",
-            "message": format!("Internal error: {}", err)
-        })),
+        Json(ErrorResponse {
+            status: "fail".to_string(),
+            message: format!("Internal error: {}", err),
+        }),
     )
 }

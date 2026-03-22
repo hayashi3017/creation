@@ -29,6 +29,10 @@ Detailed proposals and decisions:
 - 公開 `person` API は entity/person を同時に論理削除するが、内部の `entity_repository.delete_entity(...)` は依然として親 `entity` だけを論理削除する。specialization row の削除伝播方針は内部 API も含めて明文化した方がよい。See `docs/rfc/0005-entity-person-soft-delete-consistency.md`.
 - User API にも Diagram / Person と同じ status mapping policy を適用するかは未整理。`register/login/me/logout` を同じ観点で揃えるか、User API だけ別ポリシーにするかを決めた方がエラー契約の見通しが良くなる。See `docs/rfc/0002-mutation-result-and-error-mapping.md`.
 
+## API Documentation
+
+- OpenAPI text is currently authored in English under `creation-driver/src/openapi_docs/en/`. If Japanese or other locales are needed, decide whether to publish multiple localized specs such as `/api-docs/openapi.en.json` and `/api-docs/openapi.ja.json`, or to rewrite summaries and descriptions at render time with a locale-aware `Modify` step. Until that policy is chosen, the generated spec is English-only.
+
 ## Tooling And Tests
 
 - `xtask` は依然として外部の `sqlx-cli` バイナリに依存している。初回セットアップでの詰まりを減らすなら、前提ツールの検査や bootstrap コマンドを追加してもよい。 See `docs/rfc/0004-sqlx-workflow-and-test-environment.md`.

@@ -35,6 +35,59 @@ async fn health_checker_returns_ok(db: PgPool) {
     assert_eq!(json["status"], "success");
 }
 
+#[sqlx::test]
+async fn openapi_json_returns_document(db: PgPool) {
+    set_test_env();
+
+    let resp = setup_router(db)
+        .await
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api-docs/openapi.json")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("application/json")
+    );
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["info"]["title"], "Creation API");
+}
+
+#[sqlx::test]
+async fn swagger_ui_returns_html(db: PgPool) {
+    set_test_env();
+
+    let resp = setup_router(db)
+        .await
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/swagger-ui")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let html = String::from_utf8(body.to_vec()).unwrap();
+    assert!(html.contains("SwaggerUIBundle"));
+    assert!(html.contains("/api-docs/openapi.json"));
+}
+
 #[sqlx::test(fixtures("auth"))]
 async fn login_user_returns_token_and_cookie(db: PgPool) {
     set_test_env();

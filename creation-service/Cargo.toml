@@ -13,6 +13,7 @@ thiserror.workspace = true
 sqlx.workspace = true
 async-trait.workspace = true
 argon2.workspace = true
+utoipa.workspace = true
 
 [dev-dependencies]
 futures = "0.3"

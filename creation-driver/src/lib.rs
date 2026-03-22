@@ -42,6 +42,7 @@ pub mod config;
 mod handler;
 mod jwt_auth;
 pub mod middleware;
+mod openapi;
 mod response;
 pub mod route;
 pub mod utils;

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::State,
-    http::{header, Response, StatusCode},
+    http::{header, StatusCode},
     response::IntoResponse,
     Extension, Json,
 };
@@ -19,68 +19,86 @@ use creation_usecase::usecase::user::{
     UserLoginUsecaseError, UserRegistUsecaseError, UsesUserUsecase,
 };
 use jsonwebtoken::{encode, EncodingKey, Header};
-use serde_json::json;
 
-use crate::AppState;
+use crate::{
+    response::{
+        ErrorResponse, LoginUserResponse, OperationResultData, RegisterUserResponse,
+        StatusResponse, UserData, UserResponse,
+    },
+    AppState,
+};
 
+type JsonError = (StatusCode, Json<ErrorResponse>);
+
+#[doc = include_str!("../openapi_docs/en/operations/register_user_handler.md")]
+#[utoipa::path(
+    post,
+    path = "/api/auth/register",
+    tag = "Auth",
+    request_body = RegisterUserSchema,
+    responses(
+        (status = 200, description = "User registration succeeded.", body = RegisterUserResponse),
+        (status = 409, description = "A user with the same email already exists.", body = ErrorResponse),
+        (status = 500, description = "The registration request failed.", body = ErrorResponse)
+    )
+)]
 pub async fn register_user_handler(
     State(data): State<Arc<AppState>>,
     Json(body): Json<RegisterUserSchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<impl IntoResponse, JsonError> {
     let query_result = data.driver.regist_user(body).await;
 
     match query_result {
-        Ok(()) => {
-            let user_response = serde_json::json!({
-                "status": "success",
-                "data": serde_json::json!({"response": "ok"})
-            });
-
-            Ok(Json(user_response))
-        }
+        Ok(()) => Ok(Json(RegisterUserResponse {
+            status: "success".to_string(),
+            data: OperationResultData {
+                response: "ok".to_string(),
+            },
+        })),
         Err(err) => match err {
             UserRegistUsecaseError::UserRegistServiceError(err) => match err {
                 UserRegistServiceError::UserConfirmRepositoryError(err) => match err {
                     UserConfirmRepositoryError::Db(e) => {
-                        let error_response = serde_json::json!({
-                            "status": "fail",
-                            "message": format!("Database error: {}", e),
-                        });
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
+                        Err(internal_server_error(format!("Database error: {}", e)))
                     }
                 },
-                UserRegistServiceError::DubpicateUser => {
-                    let error_response = serde_json::json!({
-                        "status": "fail",
-                        "message": "User with that email already exists",
-                    });
-                    Err((StatusCode::CONFLICT, Json(error_response)))
-                }
+                UserRegistServiceError::DubpicateUser => Err(conflict_error(
+                    "User with that email already exists".to_string(),
+                )),
                 UserRegistServiceError::UserResistRepositoryError(err) => match err {
                     UserResistRepositoryError::Db(e) => {
-                        let error_response = serde_json::json!({
-                            "status": "fail",
-                            "message": format!("Database error: {}", e),
-                        });
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
+                        Err(internal_server_error(format!("Database error: {}", e)))
                     }
-                    UserResistRepositoryError::HashingPassword(e) => {
-                        let error_response = serde_json::json!({
-                            "status": "fail",
-                            "message": format!("Error while hashing password: {}", e),
-                        });
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
-                    }
+                    UserResistRepositoryError::HashingPassword(e) => Err(internal_server_error(
+                        format!("Error while hashing password: {}", e),
+                    )),
                 },
             },
         },
     }
 }
 
+#[doc = include_str!("../openapi_docs/en/operations/login_user_handler.md")]
+#[utoipa::path(
+    post,
+    path = "/api/auth/login",
+    tag = "Auth",
+    request_body = LoginUserSchema,
+    responses(
+        (
+            status = 200,
+            description = "The user was authenticated successfully.",
+            body = LoginUserResponse,
+            headers(("set-cookie" = String, description = "HttpOnly session cookie named `token`."))
+        ),
+        (status = 400, description = "The email or password is invalid.", body = ErrorResponse),
+        (status = 500, description = "The authentication request failed.", body = ErrorResponse)
+    )
+)]
 pub async fn login_user_handler(
     State(data): State<Arc<AppState>>,
     Json(body): Json<LoginUserSchema>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+) -> Result<impl IntoResponse, JsonError> {
     let query_result = data.driver.login_user(body).await;
 
     match query_result {
@@ -107,8 +125,11 @@ pub async fn login_user_handler(
                 .same_site(SameSite::Lax)
                 .http_only(true);
 
-            let mut response =
-                Response::new(json!({"status": "success", "token": token}).to_string());
+            let mut response = Json(LoginUserResponse {
+                status: "success".to_string(),
+                token,
+            })
+            .into_response();
             response
                 .headers_mut()
                 .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
@@ -118,25 +139,13 @@ pub async fn login_user_handler(
             UserLoginUsecaseError::UserLoginServiceError(err) => match err {
                 UserLoginServiceError::UserLoginRepositoryError(err) => match err {
                     UserLoginRepositoryError::Db(e) => {
-                        let error_response = serde_json::json!({
-                            "status": "error",
-                            "message": format!("Database error: {}", e),
-                        });
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)))
+                        Err(internal_server_error(format!("Database error: {}", e)))
                     }
                     UserLoginRepositoryError::WrongUser => {
-                        let error_response = serde_json::json!({
-                            "status": "fail",
-                            "message": "Invalid email or password",
-                        });
-                        Err((StatusCode::BAD_REQUEST, Json(error_response)))
+                        Err(bad_request_error("Invalid email or password".to_string()))
                     }
                     UserLoginRepositoryError::WrongPassword => {
-                        let error_response = serde_json::json!({
-                            "status": "fail",
-                            "message": "Wrong password",
-                        });
-                        Err((StatusCode::BAD_REQUEST, Json(error_response)))
+                        Err(bad_request_error("Wrong password".to_string()))
                     }
                 },
             },
@@ -144,31 +153,61 @@ pub async fn login_user_handler(
     }
 }
 
-pub async fn logout_handler() -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+#[doc = include_str!("../openapi_docs/en/operations/logout_handler.md")]
+#[utoipa::path(
+    get,
+    path = "/api/auth/logout",
+    tag = "Auth",
+    security(("cookie_auth" = []), ("bearer_auth" = [])),
+    responses(
+        (
+            status = 200,
+            description = "The authentication cookie was cleared.",
+            body = StatusResponse,
+            headers(("set-cookie" = String, description = "Expired session cookie named `token`."))
+        ),
+        (status = 401, description = "Authentication is required.", body = ErrorResponse),
+        (status = 500, description = "Authentication middleware failed.", body = ErrorResponse)
+    )
+)]
+pub async fn logout_handler() -> Result<impl IntoResponse, JsonError> {
     let cookie = Cookie::build(("token", ""))
         .path("/")
         .max_age(time::Duration::hours(-1))
         .same_site(SameSite::Lax)
         .http_only(true);
 
-    let mut response = Response::new(json!({"status": "success"}).to_string());
+    let mut response = Json(StatusResponse {
+        status: "success".to_string(),
+    })
+    .into_response();
     response
         .headers_mut()
         .insert(header::SET_COOKIE, cookie.to_string().parse().unwrap());
     Ok(response)
 }
 
+#[doc = include_str!("../openapi_docs/en/operations/get_me_handler.md")]
+#[utoipa::path(
+    get,
+    path = "/api/users/me",
+    tag = "Users",
+    security(("cookie_auth" = []), ("bearer_auth" = [])),
+    responses(
+        (status = 200, description = "The authenticated user profile.", body = UserResponse),
+        (status = 401, description = "Authentication is required.", body = ErrorResponse),
+        (status = 500, description = "Authentication or data loading failed.", body = ErrorResponse)
+    )
+)]
 pub async fn get_me_handler(
     Extension(user): Extension<UserTable>,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let json_response = serde_json::json!({
-        "status":  "success",
-        "data": serde_json::json!({
-            "user": filter_user_record(&user)
-        })
-    });
-
-    Ok(Json(json_response))
+) -> Result<impl IntoResponse, JsonError> {
+    Ok(Json(UserResponse {
+        status: "success".to_string(),
+        data: UserData {
+            user: filter_user_record(&user),
+        },
+    }))
 }
 
 pub fn filter_user_record(user: &UserTable) -> FilteredUser {
@@ -181,4 +220,34 @@ pub fn filter_user_record(user: &UserTable) -> FilteredUser {
         createdAt: user.created_at,
         updatedAt: user.updated_at,
     }
+}
+
+fn bad_request_error(message: String) -> JsonError {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(ErrorResponse {
+            status: "fail".to_string(),
+            message,
+        }),
+    )
+}
+
+fn conflict_error(message: String) -> JsonError {
+    (
+        StatusCode::CONFLICT,
+        Json(ErrorResponse {
+            status: "fail".to_string(),
+            message,
+        }),
+    )
+}
+
+fn internal_server_error(message: String) -> JsonError {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(ErrorResponse {
+            status: "fail".to_string(),
+            message,
+        }),
+    )
 }

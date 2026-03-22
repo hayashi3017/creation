@@ -1,13 +1,14 @@
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::Type;
+use utoipa::ToSchema;
 
 pub const PERSON_BIRTHPLACE_MAX_CHARS: usize = 255;
 pub const PERSON_RESIDENCE_MAX_CHARS: usize = 255;
 pub const PERSON_PHOTO_URL_MAX_CHARS: usize = 512;
 
 #[allow(non_snake_case)]
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct Person {
     pub entity_id: usize,
     pub diagram_id: usize,
@@ -21,7 +22,7 @@ pub struct Person {
     pub photo_url: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Type, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Type, Clone, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "gender_kind")]
 #[sqlx(rename_all = "snake_case")]
@@ -32,7 +33,7 @@ pub enum GenderKind {
     Unknown,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct GetPersonsSchema {
     pub diagram_id: usize,
 }
@@ -53,7 +54,7 @@ pub struct GetPersonRecordsSchema {
     pub entity_ids: Vec<usize>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreatePersonSchema {
     pub diagram_id: usize,
     pub name: String,
@@ -84,7 +85,7 @@ pub struct CreatePersonRecordSchema {
     pub photo_url: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdatePersonSchema {
     pub entity_id: usize,
     pub diagram_id: usize,

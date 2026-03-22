@@ -25,7 +25,8 @@ async fn main() {
         .init();
 
     let module = AppModule::new().await;
-    let addr = format!("{}:{}", "0.0.0.0", get_port(config.runtime_mode));
+    let port = get_port(config.runtime_mode);
+    let addr = format!("{}:{}", "0.0.0.0", port);
     let cors = setup_cors(&addr);
 
     let app = create_router(Arc::new(AppState {
@@ -54,9 +55,11 @@ async fn main() {
     };
     println!("listener local addr: {:?}", listener.local_addr());
     println!("🚀 Server started successfully on {}", addr);
-
-    // let result = axum::serve(listener, app).await;
-    // println!("Server exited with: {:?}", result);
+    println!(
+        "OpenAPI JSON: http://localhost:{}/api-docs/openapi.json",
+        port
+    );
+    println!("Swagger UI: http://localhost:{}/swagger-ui", port);
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async {

@@ -21,11 +21,15 @@ use crate::{
         user::{get_me_handler, login_user_handler, logout_handler, register_user_handler},
     },
     jwt_auth::auth,
+    openapi::{openapi_json, swagger_ui_html},
     AppState,
 };
 
 pub fn create_router(app_state: Arc<AppState>) -> Router {
     Router::new()
+        .route("/swagger-ui", get(swagger_ui_html))
+        .route("/swagger-ui/", get(swagger_ui_html))
+        .route("/api-docs/openapi.json", get(openapi_json))
         .route("/api/healthchecker", get(health_checker_handler))
         .route("/api/auth/register", post(register_user_handler))
         .route("/api/auth/login", post(login_user_handler))

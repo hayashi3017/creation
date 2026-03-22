@@ -1,9 +1,10 @@
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::Type;
+use utoipa::ToSchema;
 
 #[allow(non_snake_case)]
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct Relationship {
     pub id: usize,
     pub diagram_id: usize,
@@ -41,7 +42,7 @@ pub struct DiagramRelationshipEdge {
     pub descendant_id: usize,
 }
 
-#[derive(Debug, Deserialize, Serialize, Type, Clone, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, Type, Clone, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "relationship_kind")]
 #[sqlx(rename_all = "snake_case")]
@@ -64,12 +65,12 @@ impl RelationshipKind {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct GetRelationshipsSchema {
     pub diagram_id: usize,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, ToSchema)]
 pub struct CreateRelationshipSchema {
     pub diagram_id: usize,
     pub source_entity_id: usize,
@@ -83,7 +84,7 @@ pub struct CreateRelationshipSchema {
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, ToSchema)]
 pub struct UpdateRelationshipSchema {
     pub id: usize,
     pub source_entity_id: usize,

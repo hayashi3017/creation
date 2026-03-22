@@ -23,7 +23,7 @@
 - [ ] use redis crate
 - [ ] add refresh token
 - [ ] add 2fa
-- [ ] add utoipa
+- [x] add utoipa
 - [ ] add testing
   - [Rust sqlxでデータベースに依存した部分のテストを書く](https://zenn.dev/htlsne/articles/rust-sqlx-test)
   - 単体テストならば、[tower::util::Oneshot](https://docs.rs/tower/latest/tower/util/struct.Oneshot.html)が利用できる？
@@ -39,3 +39,7 @@
 ## Development
 
 Local bootstrap, test commands, and SQLx workflow are documented in [docs/local-development.md](./docs/local-development.md).
+
+When `creation-driver` is running, the generated OpenAPI JSON is available at `/api-docs/openapi.json` and Swagger UI is available at `/swagger-ui`.
+
+Port note: `RUNTIME_MODE=release` uses `8000`, while `RUNTIME_MODE=debug` uses `8001`.
