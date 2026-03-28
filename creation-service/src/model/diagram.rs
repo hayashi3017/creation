@@ -15,7 +15,7 @@ pub struct Diagram {
     pub description: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Type, ToSchema)]
+#[derive(Deserialize, Serialize, Type, ToSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "diagram_kind")]
 #[sqlx(rename_all = "snake_case")]
@@ -75,5 +75,10 @@ pub struct DeleteDiagramSchema {
 
 #[derive(Debug, Clone)]
 pub struct ExistsActiveDiagramSchema {
+    pub id: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct GetDiagramSchema {
     pub id: usize,
 }

@@ -31,13 +31,13 @@ use creation_service::{
 use creation_usecase::usecase::{
     diagram::{DiagramUsecase, ProvidesDiagramUsecase},
     entity::{EntityUsecase, ProvidesEntityUsecase},
+    family_tree::{FamilyTreeUsecase, ProvidesFamilyTreeUsecase},
     person::{PersonUsecase, ProvidesPersonUsecase},
     relationship::{ProvidesRelationshipUsecase, RelationshipUsecase},
     user::{ProvidesUserUsecase, UserUsecase},
 };
 use sqlx::{Pool, Postgres};
 
-// FIXME: pub?
 pub mod config;
 mod handler;
 mod jwt_auth;
@@ -79,6 +79,7 @@ impl AppModule {
             tree_path_repository: RepositoryImpl::<TreePathTable>::from_db(db),
         }
     }
+
     pub async fn new_test(pool: Pool<Postgres>) -> Self {
         let db = Db::new_test(pool).await;
 
@@ -256,6 +257,7 @@ impl ProvidesTreePathService for AppModule {
 impl UserUsecase for AppModule {}
 impl DiagramUsecase for AppModule {}
 impl EntityUsecase for AppModule {}
+impl FamilyTreeUsecase for AppModule {}
 impl PersonUsecase for AppModule {}
 impl RelationshipUsecase for AppModule {}
 
@@ -279,6 +281,14 @@ impl ProvidesEntityUsecase for AppModule {
     type T = Self;
 
     fn entity_usecase(&self) -> &Self::T {
+        self
+    }
+}
+
+impl ProvidesFamilyTreeUsecase for AppModule {
+    type T = Self;
+
+    fn family_tree_usecase(&self) -> &Self::T {
         self
     }
 }
@@ -315,8 +325,8 @@ mod tests {
         },
     };
     use creation_usecase::usecase::{
-        diagram::UsesDiagramUsecase, entity::UsesEntityUsecase, person::UsesPersonUsecase,
-        relationship::UsesRelationshipUsecase, user::UsesUserUsecase,
+        diagram::UsesDiagramUsecase, entity::UsesEntityUsecase, family_tree::UsesFamilyTreeUsecase,
+        person::UsesPersonUsecase, relationship::UsesRelationshipUsecase, user::UsesUserUsecase,
     };
 
     trait UsesMultipleRepositories:
@@ -360,6 +370,7 @@ mod tests {
             + UsesUserUsecase
             + UsesDiagramUsecase
             + UsesEntityUsecase
+            + UsesFamilyTreeUsecase
             + UsesPersonUsecase
             + UsesRelationshipUsecase,
     {

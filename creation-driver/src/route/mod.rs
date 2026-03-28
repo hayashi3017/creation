@@ -9,6 +9,7 @@ use axum::{
 use crate::{
     handler::{
         diagram::{create_diagram, delete_diagram_by_id, get_diagrams, update_diagram_by_id},
+        family_tree::get_family_tree_by_diagram_id,
         health_check::health_checker_handler,
         person::{
             create_person, delete_person_by_entity_id, get_persons_by_diagram,
@@ -41,6 +42,11 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route(
             "/api/users/me",
             get(get_me_handler)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/family-trees/:diagram_id",
+            get(get_family_tree_by_diagram_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(

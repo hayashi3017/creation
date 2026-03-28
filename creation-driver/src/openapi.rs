@@ -1,6 +1,7 @@
 use axum::{response::Html, Json};
 use creation_service::model::{
     diagram::{CreateDiagramSchema, Diagram, DiagramKind},
+    family_tree::{FamilyTree, FamilyTreeEdge, FamilyTreeNode, FamilyTreeStats},
     person::{CreatePersonSchema, GenderKind, GetPersonsSchema, Person},
     relationship::{
         CreateRelationshipSchema, GetRelationshipsSchema, Relationship, RelationshipKind,
@@ -18,9 +19,9 @@ use crate::{
         relationship::UpdateRelationshipRequest,
     },
     response::{
-        DiagramListResponse, ErrorResponse, HealthCheckResponse, LoginUserResponse,
-        PersonListResponse, RegisterUserResponse, RelationshipListResponse, StatusResponse,
-        UserResponse,
+        DiagramListResponse, ErrorResponse, FamilyTreeResponse, HealthCheckResponse,
+        LoginUserResponse, PersonListResponse, RegisterUserResponse, RelationshipListResponse,
+        StatusResponse, UserResponse,
     },
 };
 
@@ -58,6 +59,7 @@ impl Modify for SecurityAddon {
         crate::handler::user::login_user_handler,
         crate::handler::user::logout_handler,
         crate::handler::user::get_me_handler,
+        crate::handler::family_tree::get_family_tree_by_diagram_id,
         crate::handler::diagram::get_diagrams,
         crate::handler::diagram::create_diagram,
         crate::handler::diagram::update_diagram_by_id,
@@ -79,6 +81,10 @@ impl Modify for SecurityAddon {
         UpdateDiagramRequest,
         Diagram,
         DiagramKind,
+        FamilyTree,
+        FamilyTreeNode,
+        FamilyTreeEdge,
+        FamilyTreeStats,
         GetPersonsSchema,
         CreatePersonSchema,
         UpdatePersonRequest,
@@ -97,7 +103,8 @@ impl Modify for SecurityAddon {
         UserResponse,
         DiagramListResponse,
         PersonListResponse,
-        RelationshipListResponse
+        RelationshipListResponse,
+        FamilyTreeResponse
     )),
     modifiers(&SecurityAddon),
     info(
@@ -109,6 +116,10 @@ impl Modify for SecurityAddon {
         (name = "Health", description = include_str!("openapi_docs/en/tags/health.md")),
         (name = "Auth", description = include_str!("openapi_docs/en/tags/auth.md")),
         (name = "Users", description = include_str!("openapi_docs/en/tags/users.md")),
+        (
+            name = "FamilyTrees",
+            description = include_str!("openapi_docs/en/tags/family_trees.md")
+        ),
         (name = "Diagrams", description = include_str!("openapi_docs/en/tags/diagrams.md")),
         (name = "Persons", description = include_str!("openapi_docs/en/tags/persons.md")),
         (

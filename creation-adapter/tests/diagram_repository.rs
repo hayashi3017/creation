@@ -2,7 +2,7 @@ use creation_adapter::{model::diagram::DiagramTable, repository::RepositoryImpl}
 use creation_service::{
     model::diagram::{
         CreateDiagramSchema, DeleteDiagramSchema, DiagramKind, ExistsActiveDiagramSchema,
-        GetDiagramsSchema, UpdateDiagramSchema,
+        GetDiagramSchema, GetDiagramsSchema, UpdateDiagramSchema,
     },
     repository::diagram::{
         DeleteDiagramRepositoryError, UpdateDiagramRepositoryError, UsesDiagramRepository,
@@ -55,6 +55,40 @@ async fn exists_active_diagram_returns_false_for_missing_row(db: PgPool) {
         .unwrap();
 
     assert!(!exists);
+}
+
+#[sqlx::test(fixtures("diagram_repository"))]
+async fn get_diagram_returns_diagram_for_active_row(db: PgPool) {
+    let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
+
+    let diagram = repo
+        .get_diagram(GetDiagramSchema { id: 2 })
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(diagram.id, 2);
+    assert_eq!(diagram.name, "Active Diagram 2");
+    assert!(matches!(diagram.kind, DiagramKind::Correlation));
+    assert_eq!(diagram.description.as_deref(), Some("second active"));
+}
+
+#[sqlx::test(fixtures("diagram_repository"))]
+async fn get_diagram_returns_none_for_deleted_row(db: PgPool) {
+    let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
+
+    let diagram = repo.get_diagram(GetDiagramSchema { id: 3 }).await.unwrap();
+
+    assert!(diagram.is_none());
+}
+
+#[sqlx::test(fixtures("diagram_repository"))]
+async fn get_diagram_returns_none_for_missing_row(db: PgPool) {
+    let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
+
+    let diagram = repo.get_diagram(GetDiagramSchema { id: 99 }).await.unwrap();
+
+    assert!(diagram.is_none());
 }
 
 #[sqlx::test(fixtures("diagram_repository"))]

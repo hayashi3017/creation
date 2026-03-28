@@ -2,12 +2,12 @@ use async_trait::async_trait;
 use creation_service::{
     model::diagram::{
         CreateDiagramSchema, DeleteDiagramSchema, Diagram, DiagramKind, ExistsActiveDiagramSchema,
-        GetDiagramsSchema, UpdateDiagramSchema,
+        GetDiagramSchema, GetDiagramsSchema, UpdateDiagramSchema,
     },
     repository::diagram::{
         CreateDiagramRepositoryError, DeleteDiagramRepositoryError, DiagramRepository,
-        ExistsActiveDiagramRepositoryError, GetDiagramsRepositoryError, ProvidesDiagramRepository,
-        UpdateDiagramRepositoryError, UsesDiagramRepository,
+        ExistsActiveDiagramRepositoryError, GetDiagramRepositoryError, GetDiagramsRepositoryError,
+        ProvidesDiagramRepository, UpdateDiagramRepositoryError, UsesDiagramRepository,
     },
     service::diagram::{DiagramService, ProvidesDiagramService},
 };
@@ -42,22 +42,9 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         )
         .fetch_all(&self.pool.0)
         .await
-        .map_err(|e| GetDiagramsRepositoryError::Db(e))?;
+        .map_err(GetDiagramsRepositoryError::Db)?;
 
-        // convert
-        let ret: Vec<Diagram> = diagrams
-            .iter()
-            .map(|d| {
-                return Diagram {
-                    id: d.id as usize,
-                    name: d.name.clone(),
-                    kind: d.kind.clone(),
-                    description: d.description.clone(),
-                };
-            })
-            .collect();
-
-        Ok(ret)
+        Ok(diagrams.into_iter().map(map_diagram_table).collect())
     }
 
     async fn exists_active_diagram(
@@ -85,6 +72,29 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         Ok(exists)
     }
 
+    async fn get_diagram(
+        &self,
+        body: GetDiagramSchema,
+    ) -> Result<Option<Diagram>, GetDiagramRepositoryError> {
+        let diagram = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                get_diagram_with(tx.as_mut(), body)
+                    .await
+                    .map_err(GetDiagramRepositoryError::Db)?
+            } else {
+                return Err(GetDiagramRepositoryError::Db(closed_transaction_error()));
+            }
+        } else {
+            get_diagram_with(&self.pool.0, body)
+                .await
+                .map_err(GetDiagramRepositoryError::Db)?
+        };
+
+        Ok(diagram)
+    }
+
     async fn create_diagram(
         &self,
         body: CreateDiagramSchema,
@@ -101,7 +111,7 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         )
         .execute(&self.pool.0)
         .await
-        .map_err(|e| CreateDiagramRepositoryError::Db(e))?;
+        .map_err(CreateDiagramRepositoryError::Db)?;
 
         Ok(())
     }
@@ -187,6 +197,45 @@ where
     .bind(body.id as i64)
     .fetch_one(executor)
     .await
+}
+
+async fn get_diagram_with<'e, E>(
+    executor: E,
+    body: GetDiagramSchema,
+) -> Result<Option<Diagram>, sqlx::Error>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+{
+    let diagram = sqlx::query_as::<_, DiagramTable>(
+        r#"
+            SELECT
+                id,
+                name,
+                kind,
+                description,
+                created_at,
+                updated_at,
+                deleted_at
+            FROM diagram
+            WHERE
+                id = $1
+                AND deleted_at IS NULL
+        "#,
+    )
+    .bind(body.id as i64)
+    .fetch_optional(executor)
+    .await?;
+
+    Ok(diagram.map(map_diagram_table))
+}
+
+fn map_diagram_table(diagram: DiagramTable) -> Diagram {
+    Diagram {
+        id: diagram.id as usize,
+        name: diagram.name,
+        kind: diagram.kind,
+        description: diagram.description,
+    }
 }
 
 impl_minimal_cake_bindings!(

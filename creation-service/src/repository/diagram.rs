@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::model::diagram::{
-    CreateDiagramSchema, DeleteDiagramSchema, Diagram, ExistsActiveDiagramSchema,
+    CreateDiagramSchema, DeleteDiagramSchema, Diagram, ExistsActiveDiagramSchema, GetDiagramSchema,
     GetDiagramsSchema, UpdateDiagramSchema,
 };
 
@@ -14,6 +14,8 @@ pub enum DiagramRepositoryError {
     GetDiagramsRepositoryError(#[from] GetDiagramsRepositoryError),
     #[error(transparent)]
     ExistsActiveDiagramRepositoryError(#[from] ExistsActiveDiagramRepositoryError),
+    #[error(transparent)]
+    GetDiagramRepositoryError(#[from] GetDiagramRepositoryError),
     #[error(transparent)]
     CreateDiagramRepositoryError(#[from] CreateDiagramRepositoryError),
     #[error(transparent)]
@@ -30,6 +32,12 @@ pub enum GetDiagramsRepositoryError {
 
 #[derive(Debug, Error)]
 pub enum ExistsActiveDiagramRepositoryError {
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum GetDiagramRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
 }
@@ -66,6 +74,10 @@ pub trait UsesDiagramRepository: Send + Sync + 'static {
         &self,
         body: ExistsActiveDiagramSchema,
     ) -> Result<bool, ExistsActiveDiagramRepositoryError>;
+    async fn get_diagram(
+        &self,
+        body: GetDiagramSchema,
+    ) -> Result<Option<Diagram>, GetDiagramRepositoryError>;
     async fn create_diagram(
         &self,
         body: CreateDiagramSchema,
