@@ -15,3 +15,4 @@
 - `docs/rfc/0005-entity-person-soft-delete-consistency.md`: Soft-delete propagation policy between `entity` and `person`
 - `docs/rfc/0006-relationship-soft-delete-and-tree-path-consistency.md`: Soft-delete propagation policy for `relationship` and `tree_path`
 - `docs/rfc/0007-family-tree-read-api.md`: Family-tree read projection endpoint and contract
+- `docs/rfc/0008-genealogy-aggregate-and-visibility.md`: Cross-diagram genealogy aggregate, merge semantics, publication scope, and entity visibility

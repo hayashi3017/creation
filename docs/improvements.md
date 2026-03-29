@@ -1,6 +1,6 @@
 # Improvements
 
-Last updated: 2026-03-20
+Last updated: 2026-03-28
 
 Detailed proposals and decisions:
 
@@ -32,6 +32,10 @@ Detailed proposals and decisions:
 ## API Documentation
 
 - OpenAPI text is currently authored in English under `creation-driver/src/openapi_docs/en/`. If Japanese or other locales are needed, decide whether to publish multiple localized specs such as `/api-docs/openapi.en.json` and `/api-docs/openapi.ja.json`, or to rewrite summaries and descriptions at render time with a locale-aware `Modify` step. Until that policy is chosen, the generated spec is English-only.
+
+## Genealogy Merge And Visibility
+
+- Cross-diagram merge, publication scope, entity-level hidden state, and centered merged-family-tree reads are not defined yet. Before implementing merged genealogy views, review the aggregate boundary, naming, and visibility propagation policy in `docs/rfc/0008-genealogy-aggregate-and-visibility.md`.
 
 ## Tooling And Tests
 
