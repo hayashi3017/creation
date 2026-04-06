@@ -1,6 +1,6 @@
 # Improvements
 
-Last updated: 2026-03-28
+Last updated: 2026-04-07
 
 Detailed proposals and decisions:
 
@@ -29,6 +29,11 @@ Detailed proposals and decisions:
 - 公開 `person` API は entity/person を同時に論理削除するが、内部の `entity_repository.delete_entity(...)` は依然として親 `entity` だけを論理削除する。specialization row の削除伝播方針は内部 API も含めて明文化した方がよい。See `docs/rfc/0005-entity-person-soft-delete-consistency.md`.
 - User API にも Diagram / Person と同じ status mapping policy を適用するかは未整理。`register/login/me/logout` を同じ観点で揃えるか、User API だけ別ポリシーにするかを決めた方がエラー契約の見通しが良くなる。See `docs/rfc/0002-mutation-result-and-error-mapping.md`.
 
+## Schema Naming
+
+- Root tables still use generic primary key column names such as `id` while foreign keys already use explicit names such as `diagram_id` and `entity_id`. Before renaming schema columns to `user_id`, `diagram_id`, `entity_id`, and `relationship_id`, review the rollout and compatibility policy in `docs/rfc/0009-explicit-primary-key-column-names.md`.
+- Public API responses, request bodies, and path parameters still expose generic `id` names in several places. Since this API is not released yet, the contract can be cleaned up in one pass without compatibility aliases. See `docs/rfc/0010-explicit-id-fields-in-public-api.md`.
+
 ## API Documentation
 
 - OpenAPI text is currently authored in English under `creation-driver/src/openapi_docs/en/`. If Japanese or other locales are needed, decide whether to publish multiple localized specs such as `/api-docs/openapi.en.json` and `/api-docs/openapi.ja.json`, or to rewrite summaries and descriptions at render time with a locale-aware `Modify` step. Until that policy is chosen, the generated spec is English-only.
@@ -41,3 +46,4 @@ Detailed proposals and decisions:
 
 - `xtask` は依然として外部の `sqlx-cli` バイナリに依存している。初回セットアップでの詰まりを減らすなら、前提ツールの検査や bootstrap コマンドを追加してもよい。 See `docs/rfc/0004-sqlx-workflow-and-test-environment.md`.
 - `.env` と `.env.docker` で host / container 向けの `DATABASE_URL` が混ざりやすい。`localhost` を前提にした `.env.example` や bootstrap 時の設定チェックを追加すると、`cargo run` / `cargo test` の接続失敗を減らせる。 See `docs/rfc/0004-sqlx-workflow-and-test-environment.md`.
+- The workspace does not yet define an explicit local build-time policy around root-level profiles, `release-fast`, optional `sccache`, `default-members`, or future `build.rs` rerun conditions. See `docs/rfc/0011-rust-workspace-build-time.md`.

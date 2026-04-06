@@ -16,3 +16,6 @@
 - `docs/rfc/0006-relationship-soft-delete-and-tree-path-consistency.md`: Soft-delete propagation policy for `relationship` and `tree_path`
 - `docs/rfc/0007-family-tree-read-api.md`: Family-tree read projection endpoint and contract
 - `docs/rfc/0008-genealogy-aggregate-and-visibility.md`: Cross-diagram genealogy aggregate, merge semantics, publication scope, and entity visibility
+- `docs/rfc/0009-explicit-primary-key-column-names.md`: Rename generic root-table `id` columns to explicit resource-scoped primary key names
+- `docs/rfc/0010-explicit-id-fields-in-public-api.md`: Rename public API `id` fields and path parameters to explicit resource-scoped names
+- `docs/rfc/0011-rust-workspace-build-time.md`: Workspace-level policy for faster local Rust build and check loops
