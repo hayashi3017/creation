@@ -27,7 +27,7 @@ async fn main() {
     let module = AppModule::new().await;
     let port = get_port(config.runtime_mode);
     let addr = format!("{}:{}", "0.0.0.0", port);
-    let cors = setup_cors(&addr);
+    let cors = setup_cors(&port);
 
     let app = create_router(Arc::new(AppState {
         driver: module.clone(),

@@ -14,8 +14,8 @@ pub async fn setup_router(pool: Pool<Postgres>) -> Router {
     let config = Config::init();
 
     let module = AppModule::new_test(pool).await;
-    let addr = format!("{}:{}", "0.0.0.0", get_port(config.runtime_mode));
-    let cors = setup_cors(&addr);
+    let port = get_port(config.runtime_mode);
+    let cors = setup_cors(&port);
 
     create_router(Arc::new(AppState {
         driver: module.clone(),
