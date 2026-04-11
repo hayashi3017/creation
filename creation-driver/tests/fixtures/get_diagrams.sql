@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TYPE diagram_kind AS ENUM ('family_tree', 'correlation');
 
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     photo VARCHAR(255) NOT NULL DEFAULT 'default.png',
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS diagram (
-    id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
     description TEXT,
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS diagram (
 );
 
 INSERT INTO users
-  (id, email, name, password, photo, role)
+  (user_id, email, name, password, photo, role)
   VALUES
   ('00000000-0000-0000-0000-000000000001', 'diagram-test@example.com', 'diagram_test', 'test_password', 'default.png', 'user');
 

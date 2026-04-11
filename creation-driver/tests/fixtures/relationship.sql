@@ -16,7 +16,7 @@ CREATE TYPE relationship_kind AS ENUM (
 );
 
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     photo VARCHAR(255) NOT NULL DEFAULT 'default.png',
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS diagram (
-    id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
     description TEXT,
@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS diagram (
 );
 
 CREATE TABLE IF NOT EXISTS entity (
-    id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
+    entity_id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
     kind entity_kind NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -48,10 +48,10 @@ CREATE TABLE IF NOT EXISTS entity (
 );
 
 CREATE TABLE IF NOT EXISTS relationship (
-    id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
-    source_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-    target_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+    relationship_id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    source_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    target_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     kind relationship_kind NOT NULL,
     start_date DATE,
     end_date DATE,
@@ -62,28 +62,28 @@ CREATE TABLE IF NOT EXISTS relationship (
 );
 
 CREATE TABLE IF NOT EXISTS tree_path (
-    ancestor_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-    descendant_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+    ancestor_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    descendant_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     depth INT NOT NULL,
     PRIMARY KEY (ancestor_id, descendant_id)
 );
 
 INSERT INTO users
-  (id, email, name, password, photo, role)
+  (user_id, email, name, password, photo, role)
 VALUES
   ('00000000-0000-0000-0000-000000000001', 'relationship-test@example.com', 'relationship_test', 'test_password', 'default.png', 'user');
 
 INSERT INTO diagram
-  (id, name, kind, description, deleted_at)
+  (diagram_id, name, kind, description, deleted_at)
 VALUES
   (1, 'Relationship Diagram 1', 'family_tree', 'first diagram', NULL),
   (2, 'Relationship Diagram 2', 'family_tree', 'second diagram', NULL),
   (3, 'Deleted Relationship Diagram', 'family_tree', 'soft deleted diagram', now());
 
-SELECT setval(pg_get_serial_sequence('diagram', 'id'), 3, true);
+SELECT setval(pg_get_serial_sequence('diagram', 'diagram_id'), 3, true);
 
 INSERT INTO entity
-  (id, diagram_id, kind, name, description, deleted_at)
+  (entity_id, diagram_id, kind, name, description, deleted_at)
 VALUES
   (1, 1, 'person', 'Ancestor', NULL, NULL),
   (2, 1, 'person', 'Parent', NULL, NULL),
@@ -95,10 +95,10 @@ VALUES
   (8, 3, 'person', 'Deleted Diagram Parent', NULL, NULL),
   (9, 3, 'person', 'Deleted Diagram Child', NULL, NULL);
 
-SELECT setval(pg_get_serial_sequence('entity', 'id'), 9, true);
+SELECT setval(pg_get_serial_sequence('entity', 'entity_id'), 9, true);
 
 INSERT INTO relationship
-  (id, diagram_id, source_entity_id, target_entity_id, kind, notes, deleted_at)
+  (relationship_id, diagram_id, source_entity_id, target_entity_id, kind, notes, deleted_at)
 VALUES
   (1, 1, 1, 2, 'parent', 'ancestor to parent', NULL),
   (2, 1, 2, 3, 'parent', 'parent to child', NULL),
@@ -106,4 +106,4 @@ VALUES
   (4, 1, 1, 6, 'parent', 'deleted edge', now()),
   (5, 3, 8, 9, 'parent', 'soft deleted diagram edge', NULL);
 
-SELECT setval(pg_get_serial_sequence('relationship', 'id'), 5, true);
+SELECT setval(pg_get_serial_sequence('relationship', 'relationship_id'), 5, true);

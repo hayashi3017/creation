@@ -5,7 +5,7 @@ use uuid::Uuid;
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, sqlx::FromRow, Serialize, Clone)]
 pub struct UserTable {
-    pub id: Uuid,
+    pub user_id: Uuid,
     pub name: String,
     pub email: String,
     pub password: String,

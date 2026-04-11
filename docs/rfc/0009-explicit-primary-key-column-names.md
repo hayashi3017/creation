@@ -1,7 +1,7 @@
 # RFC 0009: Explicit Primary Key Column Names
 
-- Status: `Draft`
-- Last updated: `2026-04-07`
+- Status: `Accepted`
+- Last updated: `2026-04-11`
 
 ## Background
 

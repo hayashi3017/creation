@@ -140,7 +140,7 @@ pub async fn update_diagram_by_id(
     update_diagram_inner(
         data,
         UpdateDiagramSchema {
-            id,
+            diagram_id: id,
             name: body.name,
             kind: body.kind,
             description: body.description,
@@ -194,7 +194,7 @@ pub async fn delete_diagram_by_id(
     Path(id): Path<usize>,
     State(data): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, JsonError> {
-    delete_diagram_inner(data, DeleteDiagramSchema { id }).await
+    delete_diagram_inner(data, DeleteDiagramSchema { diagram_id: id }).await
 }
 
 async fn delete_diagram_inner(

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, sqlx::FromRow, Serialize, Clone)]
 pub struct RelationshipTable {
-    pub id: i64,
+    pub relationship_id: i64,
     pub diagram_id: i64,
     pub source_entity_id: i64,
     pub target_entity_id: i64,

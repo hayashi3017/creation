@@ -8,7 +8,7 @@ END
 $$;
 
 CREATE TABLE IF NOT EXISTS diagram (
-    id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
     description TEXT,

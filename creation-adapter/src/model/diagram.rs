@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, sqlx::FromRow, Serialize, Clone)]
 pub struct DiagramTable {
-    pub id: i64,
+    pub diagram_id: i64,
     pub name: String,
     pub kind: DiagramKind,
     pub description: Option<String>,

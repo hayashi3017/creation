@@ -24,13 +24,12 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         &self,
         _body: GetDiagramsSchema,
     ) -> Result<Vec<Diagram>, GetDiagramsRepositoryError> {
-        let diagrams = sqlx::query_as!(
-            DiagramTable,
+        let diagrams = sqlx::query_as::<_, DiagramTable>(
             r#"
                 SELECT
-                    id,
+                    diagram_id,
                     name,
-                    kind as "kind!: DiagramKind",
+                    kind,
                     description,
                     created_at,
                     updated_at,
@@ -99,16 +98,16 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         &self,
         body: CreateDiagramSchema,
     ) -> Result<(), CreateDiagramRepositoryError> {
-        let _ = sqlx::query!(
+        let _ = sqlx::query(
             r#"
                 INSERT INTO diagram
                     (name, kind, description)
                 VALUES ($1, $2, $3)
             "#,
-            body.name,
-            body.kind as DiagramKind,
-            body.description,
         )
+        .bind(body.name)
+        .bind(body.kind as DiagramKind)
+        .bind(body.description)
         .execute(&self.pool.0)
         .await
         .map_err(CreateDiagramRepositoryError::Db)?;
@@ -129,14 +128,14 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
                     description = $3,
                     updated_at = now()
                 WHERE
-                    id = $4
+                    diagram_id = $4
                     AND deleted_at IS NULL
             "#,
         )
         .bind(body.name)
         .bind(body.kind)
         .bind(body.description)
-        .bind(body.id as i64)
+        .bind(body.diagram_id as i64)
         .execute(&self.pool.0)
         .await
         .map_err(UpdateDiagramRepositoryError::Db)?;
@@ -159,11 +158,11 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
                     deleted_at = now(),
                     updated_at = now()
                 WHERE
-                    id = $1
+                    diagram_id = $1
                     AND deleted_at IS NULL
             "#,
         )
-        .bind(body.id as i64)
+        .bind(body.diagram_id as i64)
         .execute(&self.pool.0)
         .await
         .map_err(DeleteDiagramRepositoryError::Db)?;
@@ -189,12 +188,12 @@ where
                 SELECT 1
                 FROM diagram
                 WHERE
-                    id = $1
+                    diagram_id = $1
                     AND deleted_at IS NULL
             )
         "#,
     )
-    .bind(body.id as i64)
+    .bind(body.diagram_id as i64)
     .fetch_one(executor)
     .await
 }
@@ -209,7 +208,7 @@ where
     let diagram = sqlx::query_as::<_, DiagramTable>(
         r#"
             SELECT
-                id,
+                diagram_id,
                 name,
                 kind,
                 description,
@@ -218,11 +217,11 @@ where
                 deleted_at
             FROM diagram
             WHERE
-                id = $1
+                diagram_id = $1
                 AND deleted_at IS NULL
         "#,
     )
-    .bind(body.id as i64)
+    .bind(body.diagram_id as i64)
     .fetch_optional(executor)
     .await?;
 
@@ -231,7 +230,7 @@ where
 
 fn map_diagram_table(diagram: DiagramTable) -> Diagram {
     Diagram {
-        id: diagram.id as usize,
+        diagram_id: diagram.diagram_id as usize,
         name: diagram.name,
         kind: diagram.kind,
         description: diagram.description,

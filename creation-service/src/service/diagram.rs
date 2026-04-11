@@ -121,7 +121,7 @@ impl<T: DiagramService> UsesDiagramService for T {
     ) -> Result<(), UpdateDiagramServiceError> {
         let mut body = body;
 
-        if body.id == 0 {
+        if body.diagram_id == 0 {
             return Err(UpdateDiagramServiceError::InvalidParams);
         }
 
@@ -143,7 +143,7 @@ impl<T: DiagramService> UsesDiagramService for T {
         &self,
         body: DeleteDiagramSchema,
     ) -> Result<(), DeleteDiagramServiceError> {
-        if body.id == 0 {
+        if body.diagram_id == 0 {
             return Err(DeleteDiagramServiceError::InvalidParams);
         }
 

@@ -157,7 +157,7 @@ where
 
         let entity_ids = person_entities
             .iter()
-            .map(|entity| entity.id)
+            .map(|entity| entity.entity_id)
             .collect::<Vec<_>>();
 
         let person_records = match self
@@ -256,7 +256,7 @@ where
 
         tx.entity_service()
             .update_entity(UpdateEntitySchema {
-                id: body.entity_id,
+                entity_id: body.entity_id,
                 diagram_id: body.diagram_id,
                 kind: EntityKind::Person,
                 name: body.name,
@@ -312,7 +312,7 @@ where
         let tx = self.begin_transaction().await?;
 
         tx.entity_service()
-            .delete_entity(DeleteEntitySchema { id: entity_id })
+            .delete_entity(DeleteEntitySchema { entity_id })
             .await
             .map_err(map_delete_person_entity_error)?;
 
@@ -358,9 +358,9 @@ fn merge_persons(
         .into_iter()
         .filter_map(|entity| {
             records_by_entity_id
-                .remove(&entity.id)
+                .remove(&entity.entity_id)
                 .map(|record| Person {
-                    entity_id: entity.id,
+                    entity_id: entity.entity_id,
                     diagram_id: entity.diagram_id,
                     name: entity.name,
                     description: entity.description,

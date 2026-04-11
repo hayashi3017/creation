@@ -160,14 +160,14 @@ pub fn prepare_create_entity(body: CreateEntitySchema) -> Option<CreateEntitySch
 }
 
 pub fn prepare_update_entity(body: UpdateEntitySchema) -> Option<UpdateEntitySchema> {
-    if body.id == 0 || body.diagram_id == 0 {
+    if body.entity_id == 0 || body.diagram_id == 0 {
         return None;
     }
 
     let name = normalize_name(&body.name, ENTITY_NAME_MAX_CHARS)?;
 
     Some(UpdateEntitySchema {
-        id: body.id,
+        entity_id: body.entity_id,
         diagram_id: body.diagram_id,
         kind: body.kind,
         name,
@@ -176,7 +176,7 @@ pub fn prepare_update_entity(body: UpdateEntitySchema) -> Option<UpdateEntitySch
 }
 
 pub fn prepare_delete_entity(body: DeleteEntitySchema) -> Option<DeleteEntitySchema> {
-    if body.id == 0 {
+    if body.entity_id == 0 {
         None
     } else {
         Some(body)

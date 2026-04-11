@@ -215,7 +215,7 @@ async fn update_diagram_returns_ok(db: PgPool) {
 
     let row = sqlx::query(
         r#"
-            SELECT name, description FROM diagram WHERE id = $1
+            SELECT name, description FROM diagram WHERE diagram_id = $1
         "#,
     )
     .bind(1_i64)
@@ -260,7 +260,7 @@ async fn update_diagram_normalizes_name_and_missing_description(db: PgPool) {
 
     let row = sqlx::query(
         r#"
-            SELECT name, description FROM diagram WHERE id = $1
+            SELECT name, description FROM diagram WHERE diagram_id = $1
         "#,
     )
     .bind(1_i64)
@@ -365,7 +365,7 @@ async fn delete_diagram_returns_ok(db: PgPool) {
 
     let deleted_at: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
         r#"
-            SELECT deleted_at FROM diagram WHERE id = $1
+            SELECT deleted_at FROM diagram WHERE diagram_id = $1
         "#,
     )
     .bind(2_i64)

@@ -5,7 +5,7 @@ use utoipa::ToSchema;
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct User {
-    pub id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
     pub name: String,
     pub email: String,
     pub password: String,
@@ -16,7 +16,8 @@ pub struct User {
 #[allow(non_snake_case)]
 #[derive(Debug, Serialize, ToSchema)]
 pub struct FilteredUser {
-    pub id: String,
+    #[serde(rename = "id")]
+    pub user_id: String,
     pub name: String,
     pub email: String,
     pub role: String,

@@ -31,7 +31,7 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
         let relationships = sqlx::query_as::<_, RelationshipTable>(
             r#"
                 SELECT
-                    r.id,
+                    r.relationship_id,
                     r.diagram_id,
                     r.source_entity_id,
                     r.target_entity_id,
@@ -44,12 +44,12 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
                     r.deleted_at
                 FROM relationship AS r
                 INNER JOIN diagram AS d
-                    ON d.id = r.diagram_id
+                    ON d.diagram_id = r.diagram_id
                     AND d.deleted_at IS NULL
                 WHERE
                     r.diagram_id = $1
                     AND r.deleted_at IS NULL
-                ORDER BY r.id
+                ORDER BY r.relationship_id
             "#,
         )
         .bind(body.diagram_id as i64)
@@ -60,7 +60,7 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
         Ok(relationships
             .into_iter()
             .map(|relationship| Relationship {
-                id: relationship.id as usize,
+                relationship_id: relationship.relationship_id as usize,
                 diagram_id: relationship.diagram_id as usize,
                 source_entity_id: relationship.source_entity_id as usize,
                 target_entity_id: relationship.target_entity_id as usize,
@@ -271,17 +271,17 @@ where
             INSERT INTO relationship
                 (diagram_id, source_entity_id, target_entity_id, kind, start_date, end_date, notes)
             SELECT
-                d.id, $2, $3, $4, $5, $6, $7
+                d.diagram_id, $2, $3, $4, $5, $6, $7
             FROM diagram AS d
             WHERE
-                d.id = $1
+                d.diagram_id = $1
                 AND d.deleted_at IS NULL
                 AND
                 EXISTS (
                     SELECT 1
                     FROM entity AS source
                     WHERE
-                        source.id = $2
+                        source.entity_id = $2
                         AND source.diagram_id = $1
                         AND source.deleted_at IS NULL
                 )
@@ -289,11 +289,11 @@ where
                     SELECT 1
                     FROM entity AS target
                     WHERE
-                        target.id = $3
+                        target.entity_id = $3
                         AND target.diagram_id = $1
                         AND target.deleted_at IS NULL
                 )
-            RETURNING id
+            RETURNING relationship_id
         "#,
     )
     .bind(body.diagram_id as i64)
@@ -320,16 +320,16 @@ where
         r#"
             WITH previous AS (
                 SELECT
-                    r.id,
+                    r.relationship_id,
                     r.diagram_id,
                     r.source_entity_id,
                     r.target_entity_id
                 FROM relationship AS r
                 INNER JOIN diagram AS d
-                    ON d.id = r.diagram_id
+                    ON d.diagram_id = r.diagram_id
                     AND d.deleted_at IS NULL
                 WHERE
-                    r.id = $7
+                    r.relationship_id = $7
                     AND r.deleted_at IS NULL
             )
             UPDATE relationship AS r
@@ -343,12 +343,12 @@ where
                 updated_at = now()
             FROM previous
             WHERE
-                r.id = previous.id
+                r.relationship_id = previous.relationship_id
                 AND EXISTS (
                     SELECT 1
                     FROM entity AS source
                     WHERE
-                        source.id = $1
+                        source.entity_id = $1
                         AND source.diagram_id = previous.diagram_id
                         AND source.deleted_at IS NULL
                 )
@@ -356,7 +356,7 @@ where
                     SELECT 1
                     FROM entity AS target
                     WHERE
-                        target.id = $2
+                        target.entity_id = $2
                         AND target.diagram_id = previous.diagram_id
                         AND target.deleted_at IS NULL
                 )
@@ -369,7 +369,7 @@ where
     .bind(body.start_date)
     .bind(body.end_date)
     .bind(body.notes)
-    .bind(body.id as i64)
+    .bind(body.relationship_id as i64)
     .fetch_optional(executor)
     .await
     .map(|endpoints| {
@@ -393,15 +393,15 @@ where
         r#"
             WITH active_relationship AS (
                 SELECT
-                    r.id,
+                    r.relationship_id,
                     r.source_entity_id,
                     r.target_entity_id
                 FROM relationship AS r
                 INNER JOIN diagram AS d
-                    ON d.id = r.diagram_id
+                    ON d.diagram_id = r.diagram_id
                     AND d.deleted_at IS NULL
                 WHERE
-                    r.id = $1
+                    r.relationship_id = $1
                     AND r.deleted_at IS NULL
             )
             UPDATE relationship AS r
@@ -409,13 +409,13 @@ where
                 deleted_at = now(),
                 updated_at = now()
             FROM active_relationship
-            WHERE r.id = active_relationship.id
+            WHERE r.relationship_id = active_relationship.relationship_id
             RETURNING
                 active_relationship.source_entity_id,
                 active_relationship.target_entity_id
         "#,
     )
-    .bind(body.id as i64)
+    .bind(body.relationship_id as i64)
     .fetch_optional(executor)
     .await
     .map(|endpoints| {
@@ -474,11 +474,11 @@ where
             SELECT diagram_id
             FROM relationship
             WHERE
-                id = $1
+                relationship_id = $1
                 AND deleted_at IS NULL
         "#,
     )
-    .bind(body.id as i64)
+    .bind(body.relationship_id as i64)
     .fetch_optional(executor)
     .await
     .map(|diagram_id| diagram_id.map(|diagram_id| diagram_id as usize))
@@ -499,20 +499,20 @@ where
                 r.kind
             FROM relationship AS r
             INNER JOIN diagram AS d
-                ON d.id = r.diagram_id
+                ON d.diagram_id = r.diagram_id
                 AND d.deleted_at IS NULL
             INNER JOIN entity AS source
-                ON source.id = r.source_entity_id
+                ON source.entity_id = r.source_entity_id
                 AND source.diagram_id = r.diagram_id
                 AND source.deleted_at IS NULL
             INNER JOIN entity AS target
-                ON target.id = r.target_entity_id
+                ON target.entity_id = r.target_entity_id
                 AND target.diagram_id = r.diagram_id
                 AND target.deleted_at IS NULL
             WHERE
                 r.diagram_id = $1
                 AND r.deleted_at IS NULL
-            ORDER BY r.id
+            ORDER BY r.relationship_id
         "#,
     )
     .bind(body.diagram_id as i64)
@@ -561,20 +561,20 @@ where
                 r.kind
             FROM relationship AS r
             INNER JOIN diagram AS d
-                ON d.id = r.diagram_id
+                ON d.diagram_id = r.diagram_id
                 AND d.deleted_at IS NULL
             INNER JOIN entity AS source
-                ON source.id = r.source_entity_id
+                ON source.entity_id = r.source_entity_id
                 AND source.diagram_id = r.diagram_id
                 AND source.deleted_at IS NULL
             INNER JOIN entity AS target
-                ON target.id = r.target_entity_id
+                ON target.entity_id = r.target_entity_id
                 AND target.diagram_id = r.diagram_id
                 AND target.deleted_at IS NULL
             WHERE
                 r.diagram_id = ANY($1)
                 AND r.deleted_at IS NULL
-            ORDER BY r.diagram_id, r.id
+            ORDER BY r.diagram_id, r.relationship_id
         "#,
     )
     .bind(diagram_ids)

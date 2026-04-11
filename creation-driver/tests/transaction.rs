@@ -47,8 +47,8 @@ async fn transaction_commit_persists_entity_and_person(db: PgPool) {
         r#"
             SELECT e.name, p.birthplace
             FROM entity AS e
-            INNER JOIN person AS p ON p.entity_id = e.id
-            WHERE e.id = $1
+            INNER JOIN person AS p ON p.entity_id = e.entity_id
+            WHERE e.entity_id = $1
         "#,
     )
     .bind(entity_id as i64)

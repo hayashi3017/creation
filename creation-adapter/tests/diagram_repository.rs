@@ -26,7 +26,7 @@ async fn exists_active_diagram_returns_true_for_active_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
 
     let exists = repo
-        .exists_active_diagram(ExistsActiveDiagramSchema { id: 1 })
+        .exists_active_diagram(ExistsActiveDiagramSchema { diagram_id: 1 })
         .await
         .unwrap();
 
@@ -38,7 +38,7 @@ async fn exists_active_diagram_returns_false_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
 
     let exists = repo
-        .exists_active_diagram(ExistsActiveDiagramSchema { id: 3 })
+        .exists_active_diagram(ExistsActiveDiagramSchema { diagram_id: 3 })
         .await
         .unwrap();
 
@@ -50,7 +50,7 @@ async fn exists_active_diagram_returns_false_for_missing_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
 
     let exists = repo
-        .exists_active_diagram(ExistsActiveDiagramSchema { id: 99 })
+        .exists_active_diagram(ExistsActiveDiagramSchema { diagram_id: 99 })
         .await
         .unwrap();
 
@@ -62,12 +62,12 @@ async fn get_diagram_returns_diagram_for_active_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
 
     let diagram = repo
-        .get_diagram(GetDiagramSchema { id: 2 })
+        .get_diagram(GetDiagramSchema { diagram_id: 2 })
         .await
         .unwrap()
         .unwrap();
 
-    assert_eq!(diagram.id, 2);
+    assert_eq!(diagram.diagram_id, 2);
     assert_eq!(diagram.name, "Active Diagram 2");
     assert!(matches!(diagram.kind, DiagramKind::Correlation));
     assert_eq!(diagram.description.as_deref(), Some("second active"));
@@ -77,7 +77,10 @@ async fn get_diagram_returns_diagram_for_active_row(db: PgPool) {
 async fn get_diagram_returns_none_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
 
-    let diagram = repo.get_diagram(GetDiagramSchema { id: 3 }).await.unwrap();
+    let diagram = repo
+        .get_diagram(GetDiagramSchema { diagram_id: 3 })
+        .await
+        .unwrap();
 
     assert!(diagram.is_none());
 }
@@ -86,7 +89,10 @@ async fn get_diagram_returns_none_for_deleted_row(db: PgPool) {
 async fn get_diagram_returns_none_for_missing_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
 
-    let diagram = repo.get_diagram(GetDiagramSchema { id: 99 }).await.unwrap();
+    let diagram = repo
+        .get_diagram(GetDiagramSchema { diagram_id: 99 })
+        .await
+        .unwrap();
 
     assert!(diagram.is_none());
 }
@@ -119,7 +125,7 @@ async fn create_diagram_inserts_row(db: PgPool) {
 async fn update_diagram_updates_active_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db.clone()).await;
     let body = UpdateDiagramSchema {
-        id: 1,
+        diagram_id: 1,
         name: "Updated Diagram".to_string(),
         kind: DiagramKind::Correlation,
         description: Some("updated from repository test".to_string()),
@@ -135,7 +141,7 @@ async fn update_diagram_updates_active_row(db: PgPool) {
                 description,
                 deleted_at
             FROM diagram
-            WHERE id = $1
+            WHERE diagram_id = $1
         "#,
     )
     .bind(1_i64)
@@ -160,13 +166,13 @@ async fn update_diagram_updates_active_row(db: PgPool) {
 async fn delete_diagram_marks_row_deleted(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db.clone()).await;
 
-    repo.delete_diagram(DeleteDiagramSchema { id: 2 })
+    repo.delete_diagram(DeleteDiagramSchema { diagram_id: 2 })
         .await
         .unwrap();
 
     let deleted_at: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
         r#"
-            SELECT deleted_at FROM diagram WHERE id = $1
+            SELECT deleted_at FROM diagram WHERE diagram_id = $1
         "#,
     )
     .bind(2_i64)
@@ -187,7 +193,7 @@ async fn delete_diagram_marks_row_deleted(db: PgPool) {
 async fn update_diagram_returns_not_found_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
     let body = UpdateDiagramSchema {
-        id: 3,
+        diagram_id: 3,
         name: "Missing Diagram".to_string(),
         kind: DiagramKind::Correlation,
         description: Some("should fail".to_string()),
@@ -203,7 +209,7 @@ async fn delete_diagram_returns_not_found_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
 
     let err = repo
-        .delete_diagram(DeleteDiagramSchema { id: 3 })
+        .delete_diagram(DeleteDiagramSchema { diagram_id: 3 })
         .await
         .unwrap_err();
 

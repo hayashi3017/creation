@@ -8,7 +8,7 @@ pub const ENTITY_NAME_MAX_CHARS: usize = 255;
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Entity {
-    pub id: usize,
+    pub entity_id: usize,
     pub diagram_id: usize,
     pub kind: EntityKind,
     pub name: String,
@@ -17,7 +17,7 @@ pub struct Entity {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeedEntity {
-    pub id: usize,
+    pub entity_id: usize,
     pub diagram_id: usize,
 }
 
@@ -67,7 +67,7 @@ impl Display for CreateEntitySchema {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateEntitySchema {
-    pub id: usize,
+    pub entity_id: usize,
     pub diagram_id: usize,
     pub kind: EntityKind,
     pub name: String,
@@ -77,7 +77,7 @@ pub struct UpdateEntitySchema {
 
 #[derive(Debug, Deserialize)]
 pub struct DeleteEntitySchema {
-    pub id: usize,
+    pub entity_id: usize,
 }
 
 #[derive(Debug, Clone)]

@@ -31,7 +31,7 @@ async fn create_person_record_inserts_person_row_only(db: PgPool) {
     sqlx::query(
         r#"
             INSERT INTO entity
-                (id, diagram_id, kind, name, description)
+                (entity_id, diagram_id, kind, name, description)
             VALUES
                 (6, 1, 'person', 'Created Through Entity Seed', 'seed entity')
         "#,
@@ -110,7 +110,7 @@ async fn update_person_record_updates_person_row_only(db: PgPool) {
         r#"
             SELECT diagram_id, name, description
             FROM entity
-            WHERE id = $1
+            WHERE entity_id = $1
         "#,
     )
     .bind(1_i64)
@@ -140,8 +140,8 @@ async fn delete_person_record_marks_only_person_deleted(db: PgPool) {
         r#"
             SELECT e.deleted_at AS entity_deleted_at, p.deleted_at AS person_deleted_at
             FROM entity AS e
-            INNER JOIN person AS p ON p.entity_id = e.id
-            WHERE e.id = $1
+            INNER JOIN person AS p ON p.entity_id = e.entity_id
+            WHERE e.entity_id = $1
         "#,
     )
     .bind(2_i64)

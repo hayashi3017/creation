@@ -104,7 +104,7 @@ async fn create_person_returns_ok(db: PgPool) {
         r#"
             SELECT e.diagram_id, e.name, e.description, p.gender, p.birthplace
             FROM entity AS e
-            INNER JOIN person AS p ON p.entity_id = e.id
+            INNER JOIN person AS p ON p.entity_id = e.entity_id
             WHERE e.name = $1
         "#,
     )
@@ -161,7 +161,7 @@ async fn create_person_normalizes_name_description_and_blank_optional_fields(db:
         r#"
             SELECT e.name, e.description, p.birthplace, p.residence, p.photo_url
             FROM entity AS e
-            INNER JOIN person AS p ON p.entity_id = e.id
+            INNER JOIN person AS p ON p.entity_id = e.entity_id
             WHERE e.name = $1
         "#,
     )
@@ -277,8 +277,8 @@ async fn update_person_returns_ok(db: PgPool) {
         r#"
             SELECT e.diagram_id, e.name, e.description, p.gender, p.death_date, p.birthplace, p.residence
             FROM entity AS e
-            INNER JOIN person AS p ON p.entity_id = e.id
-            WHERE e.id = $1
+            INNER JOIN person AS p ON p.entity_id = e.entity_id
+            WHERE e.entity_id = $1
         "#,
     )
     .bind(1_i64)
@@ -407,8 +407,8 @@ async fn delete_person_returns_ok(db: PgPool) {
         r#"
             SELECT e.deleted_at AS entity_deleted_at, p.deleted_at AS person_deleted_at
             FROM entity AS e
-            INNER JOIN person AS p ON p.entity_id = e.id
-            WHERE e.id = $1
+            INNER JOIN person AS p ON p.entity_id = e.entity_id
+            WHERE e.entity_id = $1
         "#,
     )
     .bind(2_i64)
@@ -427,7 +427,7 @@ async fn delete_person_returns_ok(db: PgPool) {
         r#"
             SELECT deleted_at
             FROM relationship
-            WHERE id = $1
+            WHERE relationship_id = $1
         "#,
     )
     .bind(1_i64)

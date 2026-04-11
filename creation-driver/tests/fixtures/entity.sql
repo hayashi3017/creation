@@ -4,7 +4,7 @@ CREATE TYPE diagram_kind AS ENUM ('family_tree', 'correlation');
 CREATE TYPE entity_kind AS ENUM ('person');
 
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     photo VARCHAR(255) NOT NULL DEFAULT 'default.png',
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS diagram (
-    id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
     description TEXT,
@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS diagram (
 );
 
 CREATE TABLE IF NOT EXISTS entity (
-    id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
+    entity_id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
     kind entity_kind NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -36,23 +36,23 @@ CREATE TABLE IF NOT EXISTS entity (
 );
 
 INSERT INTO users
-  (id, email, name, password, photo, role)
+  (user_id, email, name, password, photo, role)
   VALUES
   ('00000000-0000-0000-0000-000000000001', 'entity-test@example.com', 'entity_test', 'test_password', 'default.png', 'user');
 
 INSERT INTO diagram
-  (id, name, kind, description)
+  (diagram_id, name, kind, description)
   VALUES
   (1, 'Test Diagram 1', 'family_tree', 'first diagram'),
   (2, 'Test Diagram 2', 'correlation', NULL);
 
-SELECT setval(pg_get_serial_sequence('diagram', 'id'), 2, true);
+SELECT setval(pg_get_serial_sequence('diagram', 'diagram_id'), 2, true);
 
 INSERT INTO entity
-  (id, diagram_id, kind, name, description)
+  (entity_id, diagram_id, kind, name, description)
   VALUES
   (1, 1, 'person', 'Test Entity 1', 'first entity'),
   (2, 1, 'person', 'Test Entity 2', NULL),
   (3, 2, 'person', 'Other Diagram Entity', 'other diagram');
 
-SELECT setval(pg_get_serial_sequence('entity', 'id'), 3, true);
+SELECT setval(pg_get_serial_sequence('entity', 'entity_id'), 3, true);

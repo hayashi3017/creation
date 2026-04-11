@@ -120,7 +120,7 @@ where
         if !self
             .diagram_repository()
             .exists_active_diagram(ExistsActiveDiagramSchema {
-                id: body.diagram_id,
+                diagram_id: body.diagram_id,
             })
             .await?
         {
@@ -172,7 +172,7 @@ where
         if !tx
             .diagram_repository()
             .exists_active_diagram(ExistsActiveDiagramSchema {
-                id: body.diagram_id,
+                diagram_id: body.diagram_id,
             })
             .await
             .map_err(map_create_relationship_diagram_error)?
@@ -222,7 +222,7 @@ where
         &self,
         body: UpdateRelationshipSchema,
     ) -> Result<(), UpdateRelationshipUsecaseError> {
-        if body.id == 0 {
+        if body.relationship_id == 0 {
             return Err(UpdateRelationshipUsecaseError::InvalidParams);
         }
 
@@ -231,7 +231,9 @@ where
 
         let Some(diagram_id) = tx
             .relationship_repository()
-            .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { id: body.id })
+            .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema {
+                relationship_id: body.relationship_id,
+            })
             .await
             .map_err(map_update_relationship_load_diagram_id_error)?
         else {
@@ -240,7 +242,7 @@ where
 
         if !tx
             .diagram_repository()
-            .exists_active_diagram(ExistsActiveDiagramSchema { id: diagram_id })
+            .exists_active_diagram(ExistsActiveDiagramSchema { diagram_id })
             .await
             .map_err(map_update_relationship_diagram_error)?
         {
@@ -294,7 +296,7 @@ where
         &self,
         body: DeleteRelationshipSchema,
     ) -> Result<(), DeleteRelationshipUsecaseError> {
-        if body.id == 0 {
+        if body.relationship_id == 0 {
             return Err(DeleteRelationshipUsecaseError::InvalidParams);
         }
 
@@ -302,7 +304,9 @@ where
 
         let Some(diagram_id) = tx
             .relationship_repository()
-            .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { id: body.id })
+            .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema {
+                relationship_id: body.relationship_id,
+            })
             .await
             .map_err(map_delete_relationship_load_diagram_id_error)?
         else {
@@ -311,7 +315,7 @@ where
 
         if !tx
             .diagram_repository()
-            .exists_active_diagram(ExistsActiveDiagramSchema { id: diagram_id })
+            .exists_active_diagram(ExistsActiveDiagramSchema { diagram_id })
             .await
             .map_err(map_delete_relationship_diagram_error)?
         {

@@ -17,7 +17,7 @@ CREATE TYPE relationship_kind AS ENUM (
 );
 
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     photo VARCHAR(255) NOT NULL DEFAULT 'default.png',
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS diagram (
-    id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
     description TEXT,
@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS diagram (
 );
 
 CREATE TABLE IF NOT EXISTS entity (
-    id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
+    entity_id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
     kind entity_kind NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS entity (
 );
 
 CREATE TABLE IF NOT EXISTS person (
-    entity_id BIGINT PRIMARY KEY REFERENCES entity(id) ON DELETE CASCADE,
+    entity_id BIGINT PRIMARY KEY REFERENCES entity(entity_id) ON DELETE CASCADE,
     gender gender_kind DEFAULT 'unknown',
     birth_date DATE,
     death_date DATE,
@@ -62,10 +62,10 @@ CREATE TABLE IF NOT EXISTS person (
 );
 
 CREATE TABLE IF NOT EXISTS relationship (
-    id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
-    source_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-    target_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+    relationship_id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    source_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    target_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     kind relationship_kind NOT NULL,
     start_date DATE,
     end_date DATE,
@@ -76,28 +76,28 @@ CREATE TABLE IF NOT EXISTS relationship (
 );
 
 CREATE TABLE IF NOT EXISTS tree_path (
-    ancestor_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-    descendant_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+    ancestor_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    descendant_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     depth INT NOT NULL,
     PRIMARY KEY (ancestor_id, descendant_id)
 );
 
 INSERT INTO users
-  (id, email, name, password, photo, role)
+  (user_id, email, name, password, photo, role)
 VALUES
   ('00000000-0000-0000-0000-000000000001', 'family-tree-test@example.com', 'family_tree_test', 'test_password', 'default.png', 'user');
 
 INSERT INTO diagram
-  (id, name, kind, description, deleted_at)
+  (diagram_id, name, kind, description, deleted_at)
 VALUES
   (1, 'Family Tree Diagram', 'family_tree', 'normalized family tree', NULL),
   (2, 'Correlation Diagram', 'correlation', 'non family tree', NULL),
   (3, 'Deleted Family Tree', 'family_tree', 'soft deleted diagram', now());
 
-SELECT setval(pg_get_serial_sequence('diagram', 'id'), 3, true);
+SELECT setval(pg_get_serial_sequence('diagram', 'diagram_id'), 3, true);
 
 INSERT INTO entity
-  (id, diagram_id, kind, name, description, deleted_at)
+  (entity_id, diagram_id, kind, name, description, deleted_at)
 VALUES
   (1, 1, 'person', 'Ancestor', 'root of first branch', NULL),
   (2, 1, 'person', 'Parent', 'middle generation', NULL),
@@ -109,7 +109,7 @@ VALUES
   (8, 3, 'person', 'Deleted Diagram Parent', 'soft deleted diagram', NULL),
   (9, 3, 'person', 'Deleted Diagram Child', 'soft deleted diagram', NULL);
 
-SELECT setval(pg_get_serial_sequence('entity', 'id'), 9, true);
+SELECT setval(pg_get_serial_sequence('entity', 'entity_id'), 9, true);
 
 INSERT INTO person
   (entity_id, gender, birth_date, death_date, birthplace, residence, photo_url, deleted_at)
@@ -125,7 +125,7 @@ VALUES
   (9, 'female', NULL, NULL, 'Okinawa', NULL, NULL, NULL);
 
 INSERT INTO relationship
-  (id, diagram_id, source_entity_id, target_entity_id, kind, notes, deleted_at)
+  (relationship_id, diagram_id, source_entity_id, target_entity_id, kind, notes, deleted_at)
 VALUES
   (1, 1, 1, 2, 'parent', 'ancestor to parent', NULL),
   (2, 1, 3, 2, 'child', 'stored as child kind', NULL),
@@ -134,4 +134,4 @@ VALUES
   (5, 1, 2, 5, 'spouse', 'non lineage edge', NULL),
   (6, 3, 8, 9, 'parent', 'deleted diagram edge', NULL);
 
-SELECT setval(pg_get_serial_sequence('relationship', 'id'), 6, true);
+SELECT setval(pg_get_serial_sequence('relationship', 'relationship_id'), 6, true);

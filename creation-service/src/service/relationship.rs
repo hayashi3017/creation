@@ -194,7 +194,7 @@ pub fn prepare_create_relationship(
 pub fn prepare_update_relationship(
     body: UpdateRelationshipSchema,
 ) -> Option<UpdateRelationshipSchema> {
-    if body.id == 0 {
+    if body.relationship_id == 0 {
         return None;
     }
 
@@ -209,7 +209,7 @@ pub fn prepare_update_relationship(
     .map(
         |(source_entity_id, target_entity_id, kind, start_date, end_date, notes)| {
             UpdateRelationshipSchema {
-                id: body.id,
+                relationship_id: body.relationship_id,
                 source_entity_id,
                 target_entity_id,
                 kind,
@@ -224,7 +224,7 @@ pub fn prepare_update_relationship(
 pub fn prepare_delete_relationship(
     body: DeleteRelationshipSchema,
 ) -> Option<DeleteRelationshipSchema> {
-    if body.id == 0 {
+    if body.relationship_id == 0 {
         None
     } else {
         Some(body)

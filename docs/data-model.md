@@ -1,6 +1,6 @@
 # Data Model
 
-Last updated: 2026-03-20
+Last updated: 2026-04-11
 
 ## Scope
 
@@ -9,6 +9,7 @@ This document summarizes the PostgreSQL schema and Rust-side model mapping used 
 Primary schema source:
 
 - `creation-adapter/migrations/20240330073341_init.up.sql`
+- `creation-adapter/migrations/20260411000000_explicit_primary_key_column_names.up.sql`
 
 ## Database enum types
 
@@ -39,7 +40,7 @@ Purpose:
 
 Columns:
 
-- `id UUID PRIMARY KEY DEFAULT uuid_generate_v4()`
+- `user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4()`
 - `name VARCHAR(100) NOT NULL`
 - `email VARCHAR(255) NOT NULL UNIQUE`
 - `photo VARCHAR(255) NOT NULL DEFAULT 'default.png'`
@@ -65,7 +66,7 @@ Purpose:
 
 Columns:
 
-- `id BIGSERIAL PRIMARY KEY`
+- `diagram_id BIGSERIAL PRIMARY KEY`
 - `name VARCHAR(255) NOT NULL`
 - `kind diagram_kind NOT NULL`
 - `description TEXT`
@@ -87,8 +88,8 @@ Purpose:
 
 Columns:
 
-- `id BIGSERIAL PRIMARY KEY`
-- `diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE`
+- `entity_id BIGSERIAL PRIMARY KEY`
+- `diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE`
 - `kind entity_kind NOT NULL`
 - `name VARCHAR(255) NOT NULL`
 - `description TEXT`
@@ -109,7 +110,7 @@ Purpose:
 
 Columns:
 
-- `entity_id BIGINT PRIMARY KEY REFERENCES entity(id) ON DELETE CASCADE`
+- `entity_id BIGINT PRIMARY KEY REFERENCES entity(entity_id) ON DELETE CASCADE`
 - `gender gender_kind DEFAULT 'unknown'`
 - `birth_date DATE`
 - `death_date DATE`
@@ -134,10 +135,10 @@ Purpose:
 
 Columns:
 
-- `id BIGSERIAL PRIMARY KEY`
-- `diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE`
-- `source_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE`
-- `target_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE`
+- `relationship_id BIGSERIAL PRIMARY KEY`
+- `diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE`
+- `source_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE`
+- `target_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE`
 - `kind relationship_kind NOT NULL`
 - `start_date DATE`
 - `end_date DATE`
@@ -161,8 +162,8 @@ Purpose:
 
 Columns:
 
-- `ancestor_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE`
-- `descendant_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE`
+- `ancestor_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE`
+- `descendant_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE`
 - `depth INT NOT NULL`
 - `PRIMARY KEY (ancestor_id, descendant_id)`
 

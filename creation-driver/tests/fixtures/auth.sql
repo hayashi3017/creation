@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY,
+    user_id UUID PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     photo VARCHAR(255) NOT NULL DEFAULT 'default.png',
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 INSERT INTO users
-  (id, email, name, password, photo, role)
+  (user_id, email, name, password, photo, role)
   VALUES
   (
     '00000000-0000-0000-0000-000000000010',

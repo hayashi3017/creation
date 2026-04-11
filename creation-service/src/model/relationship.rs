@@ -6,7 +6,8 @@ use utoipa::ToSchema;
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct Relationship {
-    pub id: usize,
+    #[serde(rename = "id")]
+    pub relationship_id: usize,
     pub diagram_id: usize,
     pub source_entity_id: usize,
     pub target_entity_id: usize,
@@ -86,7 +87,7 @@ pub struct CreateRelationshipSchema {
 
 #[derive(Debug, Deserialize, Clone, ToSchema)]
 pub struct UpdateRelationshipSchema {
-    pub id: usize,
+    pub relationship_id: usize,
     pub source_entity_id: usize,
     pub target_entity_id: usize,
     pub kind: RelationshipKind,
@@ -100,7 +101,7 @@ pub struct UpdateRelationshipSchema {
 
 #[derive(Debug, Deserialize)]
 pub struct DeleteRelationshipSchema {
-    pub id: usize,
+    pub relationship_id: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -120,5 +121,5 @@ pub struct LoadRelationshipEdgesByDiagramIdsSchema {
 
 #[derive(Debug, Clone)]
 pub struct LoadRelationshipDiagramIdSchema {
-    pub id: usize,
+    pub relationship_id: usize,
 }

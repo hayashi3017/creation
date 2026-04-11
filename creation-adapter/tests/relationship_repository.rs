@@ -88,7 +88,7 @@ async fn get_relationships_filters_by_diagram_and_excludes_deleted(db: PgPool) {
 
     let ids: Vec<usize> = ret
         .into_iter()
-        .map(|relationship| relationship.id)
+        .map(|relationship| relationship.relationship_id)
         .collect();
     assert_eq!(ids, vec![1, 2]);
 }
@@ -194,7 +194,7 @@ async fn update_relationship_updates_active_row(db: PgPool) {
 
     let endpoints = repo
         .update_relationship(UpdateRelationshipSchema {
-            id: 2,
+            relationship_id: 2,
             source_entity_id: 7,
             target_entity_id: 3,
             kind: RelationshipKind::Parent,
@@ -217,7 +217,7 @@ async fn update_relationship_updates_active_row(db: PgPool) {
         r#"
             SELECT source_entity_id, target_entity_id, kind, notes
             FROM relationship
-            WHERE id = $1
+            WHERE relationship_id = $1
         "#,
     )
     .bind(2_i64)
@@ -242,7 +242,7 @@ async fn delete_relationship_marks_row_deleted(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db.clone()).await;
 
     let endpoints = repo
-        .delete_relationship(DeleteRelationshipSchema { id: 2 })
+        .delete_relationship(DeleteRelationshipSchema { relationship_id: 2 })
         .await
         .unwrap();
 
@@ -258,7 +258,7 @@ async fn delete_relationship_marks_row_deleted(db: PgPool) {
         r#"
             SELECT deleted_at
             FROM relationship
-            WHERE id = $1
+            WHERE relationship_id = $1
         "#,
     )
     .bind(2_i64)
@@ -275,7 +275,7 @@ async fn update_relationship_returns_not_found_for_deleted_row(db: PgPool) {
 
     let err = repo
         .update_relationship(UpdateRelationshipSchema {
-            id: 4,
+            relationship_id: 4,
             source_entity_id: 1,
             target_entity_id: 7,
             kind: RelationshipKind::Parent,
@@ -295,7 +295,7 @@ async fn update_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPo
 
     let err = repo
         .update_relationship(UpdateRelationshipSchema {
-            id: 5,
+            relationship_id: 5,
             source_entity_id: 8,
             target_entity_id: 9,
             kind: RelationshipKind::Parent,
@@ -314,7 +314,7 @@ async fn delete_relationship_returns_not_found_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
     let err = repo
-        .delete_relationship(DeleteRelationshipSchema { id: 4 })
+        .delete_relationship(DeleteRelationshipSchema { relationship_id: 4 })
         .await
         .unwrap_err();
 
@@ -326,7 +326,7 @@ async fn delete_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPo
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
     let err = repo
-        .delete_relationship(DeleteRelationshipSchema { id: 5 })
+        .delete_relationship(DeleteRelationshipSchema { relationship_id: 5 })
         .await
         .unwrap_err();
 
@@ -338,7 +338,7 @@ async fn load_relationship_diagram_id_returns_diagram_id_for_active_row(db: PgPo
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
     let diagram_id = repo
-        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { id: 2 })
+        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { relationship_id: 2 })
         .await
         .unwrap();
 
@@ -350,7 +350,7 @@ async fn load_relationship_diagram_id_returns_diagram_id_for_soft_deleted_diagra
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
     let diagram_id = repo
-        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { id: 5 })
+        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { relationship_id: 5 })
         .await
         .unwrap();
 
@@ -362,7 +362,7 @@ async fn load_relationship_diagram_id_returns_none_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
     let diagram_id = repo
-        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { id: 4 })
+        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { relationship_id: 4 })
         .await
         .unwrap();
 

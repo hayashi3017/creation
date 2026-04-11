@@ -9,7 +9,8 @@ pub const DIAGRAM_NAME_MAX_CHARS: usize = 255;
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct Diagram {
-    pub id: usize,
+    #[serde(rename = "id")]
+    pub diagram_id: usize,
     pub name: String,
     pub kind: DiagramKind,
     pub description: Option<String>,
@@ -61,7 +62,7 @@ impl Display for CreateDiagramSchema {
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateDiagramSchema {
-    pub id: usize,
+    pub diagram_id: usize,
     pub name: String,
     pub kind: DiagramKind,
     #[serde(default)]
@@ -70,15 +71,15 @@ pub struct UpdateDiagramSchema {
 
 #[derive(Debug, Deserialize)]
 pub struct DeleteDiagramSchema {
-    pub id: usize,
+    pub diagram_id: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct ExistsActiveDiagramSchema {
-    pub id: usize,
+    pub diagram_id: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct GetDiagramSchema {
-    pub id: usize,
+    pub diagram_id: usize,
 }

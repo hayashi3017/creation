@@ -1,6 +1,6 @@
 # Improvements
 
-Last updated: 2026-04-07
+Last updated: 2026-04-11
 
 Detailed proposals and decisions:
 
@@ -31,7 +31,6 @@ Detailed proposals and decisions:
 
 ## Schema Naming
 
-- Root tables still use generic primary key column names such as `id` while foreign keys already use explicit names such as `diagram_id` and `entity_id`. Before renaming schema columns to `user_id`, `diagram_id`, `entity_id`, and `relationship_id`, review the rollout and compatibility policy in `docs/rfc/0009-explicit-primary-key-column-names.md`.
 - Public API responses, request bodies, and path parameters still expose generic `id` names in several places. Since this API is not released yet, the contract can be cleaned up in one pass without compatibility aliases. See `docs/rfc/0010-explicit-id-fields-in-public-api.md`.
 
 ## API Documentation

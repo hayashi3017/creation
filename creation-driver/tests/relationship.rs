@@ -280,7 +280,7 @@ async fn update_relationship_rebuilds_tree_path(db: PgPool) {
         r#"
             SELECT target_entity_id, kind, notes
             FROM relationship
-            WHERE id = $1
+            WHERE relationship_id = $1
         "#,
     )
     .bind(2_i64)
@@ -414,7 +414,7 @@ async fn delete_relationship_rebuilds_tree_path(db: PgPool) {
         r#"
             SELECT deleted_at
             FROM relationship
-            WHERE id = $1
+            WHERE relationship_id = $1
         "#,
     )
     .bind(2_i64)

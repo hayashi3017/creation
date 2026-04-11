@@ -11,7 +11,7 @@ END
 $$;
 
 CREATE TABLE IF NOT EXISTS diagram (
-    id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
     description TEXT,
@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS diagram (
 );
 
 CREATE TABLE IF NOT EXISTS entity (
-    id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
+    entity_id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
     kind entity_kind NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -32,23 +32,23 @@ CREATE TABLE IF NOT EXISTS entity (
 );
 
 INSERT INTO diagram
-  (id, name, kind, description)
+  (diagram_id, name, kind, description)
   VALUES
   (1, 'Repository Diagram 1', 'family_tree', 'first diagram'),
   (2, 'Repository Diagram 2', 'correlation', 'second diagram');
 
-SELECT setval(pg_get_serial_sequence('diagram', 'id'), 2, true);
+SELECT setval(pg_get_serial_sequence('diagram', 'diagram_id'), 2, true);
 
 INSERT INTO entity
-  (id, diagram_id, kind, name, description)
+  (entity_id, diagram_id, kind, name, description)
   VALUES
   (1, 1, 'person', 'Active Entity 1', 'first active'),
   (2, 1, 'person', 'Active Entity 2', 'second active'),
   (4, 2, 'person', 'Other Diagram Entity', 'belongs to another diagram');
 
 INSERT INTO entity
-  (id, diagram_id, kind, name, description, deleted_at)
+  (entity_id, diagram_id, kind, name, description, deleted_at)
   VALUES
   (3, 1, 'person', 'Deleted Entity', 'should be filtered', now());
 
-SELECT setval(pg_get_serial_sequence('entity', 'id'), 4, true);
+SELECT setval(pg_get_serial_sequence('entity', 'entity_id'), 4, true);

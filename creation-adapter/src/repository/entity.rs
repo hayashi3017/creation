@@ -32,7 +32,7 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         let entities = sqlx::query_as::<_, EntityTable>(
             r#"
                 SELECT
-                    id,
+                    entity_id,
                     diagram_id,
                     kind,
                     name,
@@ -44,7 +44,7 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
                 WHERE
                     deleted_at IS NULL
                     AND diagram_id = $1
-                ORDER BY id
+                ORDER BY entity_id
             "#,
         )
         .bind(body.diagram_id as i64)
@@ -55,7 +55,7 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         let ret: Vec<Entity> = entities
             .iter()
             .map(|entity| Entity {
-                id: entity.id as usize,
+                entity_id: entity.entity_id as usize,
                 diagram_id: entity.diagram_id as usize,
                 kind: entity.kind.clone(),
                 name: entity.name.clone(),
@@ -228,7 +228,7 @@ where
             INSERT INTO entity
                 (diagram_id, kind, name, description)
             VALUES ($1, $2, $3, $4)
-            RETURNING id
+            RETURNING entity_id
         "#,
     )
     .bind(body.diagram_id as i64)
@@ -257,7 +257,7 @@ where
                 description = $3,
                 updated_at = now()
             WHERE
-                id = $4
+                entity_id = $4
                 AND diagram_id = $5
                 AND deleted_at IS NULL
         "#,
@@ -265,7 +265,7 @@ where
     .bind(body.kind)
     .bind(body.name)
     .bind(body.description)
-    .bind(body.id as i64)
+    .bind(body.entity_id as i64)
     .bind(body.diagram_id as i64)
     .execute(executor)
     .await?;
@@ -287,12 +287,12 @@ where
                 deleted_at = now(),
                 updated_at = now()
             WHERE
-                id = $1
+                entity_id = $1
                 AND deleted_at IS NULL
             RETURNING diagram_id
         "#,
     )
-    .bind(body.id as i64)
+    .bind(body.entity_id as i64)
     .fetch_optional(executor)
     .await?;
 
@@ -318,10 +318,10 @@ where
 
     let rows = sqlx::query_as::<_, (i64, i64)>(
         r#"
-            SELECT id, diagram_id
+            SELECT entity_id, diagram_id
             FROM entity
-            WHERE id = ANY($1)
-            ORDER BY id
+            WHERE entity_id = ANY($1)
+            ORDER BY entity_id
         "#,
     )
     .bind(entity_ids)
@@ -330,8 +330,8 @@ where
 
     Ok(rows
         .into_iter()
-        .map(|(id, diagram_id)| SeedEntity {
-            id: id as usize,
+        .map(|(entity_id, diagram_id)| SeedEntity {
+            entity_id: entity_id as usize,
             diagram_id: diagram_id as usize,
         })
         .collect())
@@ -346,12 +346,12 @@ where
 {
     let entity_ids = sqlx::query_scalar::<_, i64>(
         r#"
-            SELECT id
+            SELECT entity_id
             FROM entity
             WHERE
                 diagram_id = $1
                 AND deleted_at IS NULL
-            ORDER BY id
+            ORDER BY entity_id
         "#,
     )
     .bind(body.diagram_id as i64)
@@ -380,12 +380,12 @@ where
 
     let rows = sqlx::query_as::<_, (i64, i64)>(
         r#"
-            SELECT id, diagram_id
+            SELECT entity_id, diagram_id
             FROM entity
             WHERE
                 diagram_id = ANY($1)
                 AND deleted_at IS NULL
-            ORDER BY diagram_id, id
+            ORDER BY diagram_id, entity_id
         "#,
     )
     .bind(diagram_ids)
@@ -394,8 +394,8 @@ where
 
     Ok(rows
         .into_iter()
-        .map(|(id, diagram_id)| SeedEntity {
-            id: id as usize,
+        .map(|(entity_id, diagram_id)| SeedEntity {
+            entity_id: entity_id as usize,
             diagram_id: diagram_id as usize,
         })
         .collect())

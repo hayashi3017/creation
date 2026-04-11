@@ -72,7 +72,7 @@ impl<T: FamilyTreeUsecase> UsesGetFamilyTreeUsecase for T {
         let Some(diagram) = self
             .diagram_repository()
             .get_diagram(GetDiagramSchema {
-                id: body.diagram_id,
+                diagram_id: body.diagram_id,
             })
             .await?
         else {
@@ -190,7 +190,7 @@ where
 
     let entity_ids = person_entities
         .iter()
-        .map(|entity| entity.id)
+        .map(|entity| entity.entity_id)
         .collect::<Vec<_>>();
     let person_records = driver
         .person_service()
@@ -214,9 +214,9 @@ fn merge_persons(
         .into_iter()
         .filter_map(|entity| {
             records_by_entity_id
-                .remove(&entity.id)
+                .remove(&entity.entity_id)
                 .map(|record| Person {
-                    entity_id: entity.id,
+                    entity_id: entity.entity_id,
                     diagram_id: entity.diagram_id,
                     name: entity.name,
                     description: entity.description,
@@ -258,7 +258,7 @@ fn build_family_tree_edges(
             }
 
             Some(FamilyTreeEdge {
-                relationship_id: relationship.id,
+                relationship_id: relationship.relationship_id,
                 parent_entity_id,
                 child_entity_id,
                 kind: relationship.kind,

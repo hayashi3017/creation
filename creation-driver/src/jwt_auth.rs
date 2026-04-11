@@ -76,20 +76,19 @@ pub async fn auth(
         (StatusCode::UNAUTHORIZED, Json(json_error))
     })?;
 
-    let user = sqlx::query_as!(
-        UserTable,
+    let user = sqlx::query_as::<_, UserTable>(
         r#"
             SELECT 
-                id,
+                user_id,
                 name, email, photo,
                 password,
                 role,
                 created_at,
                 updated_at
-            FROM users WHERE id = $1
+            FROM users WHERE user_id = $1
         "#,
-        user_id
     )
+    .bind(user_id)
     .fetch_optional(&data.driver.user_repository.pool.0)
     .await
     .map_err(|e| {

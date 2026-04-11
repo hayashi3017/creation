@@ -118,7 +118,7 @@ pub async fn update_relationship_by_id(
     match data
         .driver
         .update_relationship(UpdateRelationshipSchema {
-            id,
+            relationship_id: id,
             source_entity_id: body.source_entity_id,
             target_entity_id: body.target_entity_id,
             kind: body.kind,
@@ -156,7 +156,9 @@ pub async fn delete_relationship_by_id(
 ) -> Result<impl IntoResponse, JsonError> {
     match data
         .driver
-        .delete_relationship(DeleteRelationshipSchema { id })
+        .delete_relationship(DeleteRelationshipSchema {
+            relationship_id: id,
+        })
         .await
     {
         Ok(()) => Ok(()),

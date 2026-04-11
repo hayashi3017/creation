@@ -166,7 +166,10 @@ fn group_seed_entity_ids(seed_entities: Vec<SeedEntity>) -> HashMap<usize, Vec<u
     let mut groups = HashMap::<usize, Vec<usize>>::new();
 
     for seed in seed_entities {
-        groups.entry(seed.diagram_id).or_default().push(seed.id);
+        groups
+            .entry(seed.diagram_id)
+            .or_default()
+            .push(seed.entity_id);
     }
 
     for entity_ids in groups.values_mut() {

@@ -13,7 +13,7 @@ END
 $$;
 
 CREATE TABLE IF NOT EXISTS diagram (
-    id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
     description TEXT,
@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS diagram (
 );
 
 CREATE TABLE IF NOT EXISTS entity (
-    id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
+    entity_id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
     kind entity_kind NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS entity (
 );
 
 CREATE TABLE IF NOT EXISTS person (
-    entity_id BIGINT PRIMARY KEY REFERENCES entity(id) ON DELETE CASCADE,
+    entity_id BIGINT PRIMARY KEY REFERENCES entity(entity_id) ON DELETE CASCADE,
     gender gender_kind DEFAULT 'unknown',
     birth_date DATE,
     death_date DATE,
@@ -47,15 +47,15 @@ CREATE TABLE IF NOT EXISTS person (
 );
 
 INSERT INTO diagram
-  (id, name, kind, description)
+  (diagram_id, name, kind, description)
   VALUES
   (1, 'Repository Diagram 1', 'family_tree', 'first diagram'),
   (2, 'Repository Diagram 2', 'correlation', 'second diagram');
 
-SELECT setval(pg_get_serial_sequence('diagram', 'id'), 2, true);
+SELECT setval(pg_get_serial_sequence('diagram', 'diagram_id'), 2, true);
 
 INSERT INTO entity
-  (id, diagram_id, kind, name, description, deleted_at)
+  (entity_id, diagram_id, kind, name, description, deleted_at)
   VALUES
   (1, 1, 'person', 'Active Person 1', 'first active', NULL),
   (2, 1, 'person', 'Active Person 2', NULL, NULL),
@@ -63,7 +63,7 @@ INSERT INTO entity
   (4, 1, 'person', 'Deleted Entity Person', 'deleted entity', now()),
   (5, 1, 'person', 'Deleted Person Row', 'deleted person', NULL);
 
-SELECT setval(pg_get_serial_sequence('entity', 'id'), 5, true);
+SELECT setval(pg_get_serial_sequence('entity', 'entity_id'), 5, true);
 
 INSERT INTO person
   (entity_id, gender, birth_date, death_date, birthplace, residence, photo_url, deleted_at)

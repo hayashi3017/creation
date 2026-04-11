@@ -17,7 +17,7 @@ use super::{impl_minimal_cake_bindings, RepositoryImpl};
 
 fn filter_user_record(user: &UserTable) -> FilteredUser {
     FilteredUser {
-        id: user.id.to_string(),
+        user_id: user.user_id.to_string(),
         email: user.email.to_owned(),
         name: user.name.to_owned(),
         photo: user.photo.to_owned(),
@@ -54,16 +54,16 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
             .await
             .map_err(|e| UserResistRepositoryError::Db(e))?;
 
-        let _user = sqlx::query!(
+        let _user = sqlx::query(
             r#"
                 INSERT INTO users
                     (name,email,password)
                     VALUES ($1, $2, $3)
             "#,
-            body.name.to_string(),
-            body.email.to_string().to_ascii_lowercase(),
-            hashed_password
         )
+        .bind(body.name.to_string())
+        .bind(body.email.to_string().to_ascii_lowercase())
+        .bind(hashed_password)
         .execute(&mut *tx)
         .await
         .map_err(|e| UserResistRepositoryError::Db(e))?;
@@ -79,11 +79,10 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
         &self,
         body: LoginUserSchema,
     ) -> Result<FilteredUser, UserLoginRepositoryError> {
-        let user = sqlx::query_as!(
-            UserTable,
+        let user = sqlx::query_as::<_, UserTable>(
             r#"
                 SELECT
-                    id,
+                    user_id,
                     name, email, photo,
                     password,
                     role,
@@ -91,8 +90,8 @@ impl UsesUserRepository for RepositoryImpl<UserTable> {
                     updated_at
                 FROM users WHERE email = $1
             "#,
-            body.email.to_ascii_lowercase()
         )
+        .bind(body.email.to_ascii_lowercase())
         .fetch_optional(&self.pool.0)
         .await
         .map_err(|e| UserLoginRepositoryError::Db(e))?

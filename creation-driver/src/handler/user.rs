@@ -107,7 +107,7 @@ pub async fn login_user_handler(
             let iat = now.timestamp() as usize;
             let exp = (now + chrono::Duration::try_minutes(60).unwrap()).timestamp() as usize;
             let claims: TokenClaims = TokenClaims {
-                sub: user.id.to_string(),
+                sub: user.user_id.to_string(),
                 exp,
                 iat,
             };
@@ -212,7 +212,7 @@ pub async fn get_me_handler(
 
 pub fn filter_user_record(user: &UserTable) -> FilteredUser {
     FilteredUser {
-        id: user.id.to_string(),
+        user_id: user.user_id.to_string(),
         email: user.email.to_owned(),
         name: user.name.to_owned(),
         photo: user.photo.to_owned(),
