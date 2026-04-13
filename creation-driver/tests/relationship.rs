@@ -39,6 +39,8 @@ async fn get_relationships_returns_list(db: PgPool) {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["status"], "success");
     assert_eq!(json["data"].as_array().unwrap().len(), 2);
+    assert_eq!(json["data"][0]["relationship_id"], 1);
+    assert!(json["data"][0]["id"].is_null());
     assert_eq!(json["data"][0]["kind"], "parent");
 }
 

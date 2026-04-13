@@ -1,6 +1,6 @@
 # Request Flow
 
-Last updated: 2026-03-20
+Last updated: 2026-04-11
 
 ## Overview
 
@@ -130,14 +130,14 @@ Handler: `creation-driver/src/handler/diagram.rs::create_diagram`
    - `200` on success (empty body in current handler)
    - `400` invalid params / DB error mapping
 
-### `PATCH /api/diagrams/update/{id}` (protected)
+### `PATCH /api/diagrams/update/{diagram_id}` (protected)
 
-Handler: `creation-driver/src/handler/diagram.rs::update_diagram_by_id`
+Handler: `creation-driver/src/handler/diagram.rs::update_diagram_by_diagram_id`
 
 1. Auth middleware validates token.
-2. Read `id` from path and JSON body into the update request payload.
+2. Read `diagram_id` from path and JSON body into the update request payload.
 3. Service-level validation checks:
-   - `id != 0`
+   - `diagram_id != 0`
    - trimmed `name` is not empty
    - trimmed `name` fits `VARCHAR(255)`
    - blank or missing `description` is normalized to `NULL`
@@ -148,13 +148,13 @@ Handler: `creation-driver/src/handler/diagram.rs::update_diagram_by_id`
    - `404` target missing or already soft-deleted
    - `500` DB failure
 
-### `DELETE /api/diagrams/delete/{id}` (protected)
+### `DELETE /api/diagrams/delete/{diagram_id}` (protected)
 
-Handler: `creation-driver/src/handler/diagram.rs::delete_diagram_by_id`
+Handler: `creation-driver/src/handler/diagram.rs::delete_diagram_by_diagram_id`
 
 1. Auth middleware validates token.
-2. Read `id` from path.
-3. Service-level validation checks `id != 0`.
+2. Read `diagram_id` from path.
+3. Service-level validation checks `diagram_id != 0`.
 4. Repository soft-deletes the active `diagram` row by setting `deleted_at`.
 5. Return:
    - `200` on success (empty body in current handler)
@@ -279,14 +279,14 @@ Handler: `creation-driver/src/handler/relationship.rs::create_relationship`
    - `404` missing / soft-deleted diagram or entity
    - `500` DB failure
 
-### `PATCH /api/relationships/update/{id}` (protected)
+### `PATCH /api/relationships/update/{relationship_id}` (protected)
 
-Handler: `creation-driver/src/handler/relationship.rs::update_relationship_by_id`
+Handler: `creation-driver/src/handler/relationship.rs::update_relationship_by_relationship_id`
 
 1. Auth middleware validates token.
-2. Read `id` from path and parse JSON body into the update request payload.
+2. Read `relationship_id` from path and parse JSON body into the update request payload.
 3. Service-level validation checks:
-   - `id != 0`
+   - `relationship_id != 0`
    - `source_entity_id != 0`
    - `target_entity_id != 0`
    - `source_entity_id != target_entity_id`
@@ -304,13 +304,13 @@ Handler: `creation-driver/src/handler/relationship.rs::update_relationship_by_id
    - `404` missing / soft-deleted relationship or entity
    - `500` DB failure
 
-### `DELETE /api/relationships/delete/{id}` (protected)
+### `DELETE /api/relationships/delete/{relationship_id}` (protected)
 
-Handler: `creation-driver/src/handler/relationship.rs::delete_relationship_by_id`
+Handler: `creation-driver/src/handler/relationship.rs::delete_relationship_by_relationship_id`
 
 1. Auth middleware validates token.
-2. Read `id` from path.
-3. Service-level validation checks `id != 0`.
+2. Read `relationship_id` from path.
+3. Service-level validation checks `relationship_id != 0`.
 4. Usecase begins the service-side transaction port and gets a transaction-aware service container.
 5. Transactional repository soft-deletes the active `relationship` row.
 6. Transactional `tree_path` repository rebuilds the closure table for that relationship's diagram.
@@ -335,14 +335,14 @@ Client -> GET /api/users/me (with token)
 ## Known behavior notes
 
 - `POST /api/diagrams/create` returns `200` with empty body in success path.
-- `PATCH /api/diagrams/update/{id}` returns `200` with empty body in success path.
-- `DELETE /api/diagrams/delete/{id}` returns `200` with empty body in success path.
+- `PATCH /api/diagrams/update/{diagram_id}` returns `200` with empty body in success path.
+- `DELETE /api/diagrams/delete/{diagram_id}` returns `200` with empty body in success path.
 - `GET /api/persons` expects a JSON body because the handler uses `Json<GetPersonsSchema>`.
 - `GET /api/relationships` also expects a JSON body because the handler uses `Json<GetRelationshipsSchema>`.
 - `POST /api/persons/create` returns `200` with empty body in success path.
 - `PATCH /api/persons/update/{entity_id}` returns `200` with empty body in success path.
 - `DELETE /api/persons/delete/{entity_id}` returns `200` with empty body in success path.
 - `POST /api/relationships/create` returns `200` with empty body in success path.
-- `PATCH /api/relationships/update/{id}` returns `200` with empty body in success path.
-- `DELETE /api/relationships/delete/{id}` returns `200` with empty body in success path.
+- `PATCH /api/relationships/update/{relationship_id}` returns `200` with empty body in success path.
+- `DELETE /api/relationships/delete/{relationship_id}` returns `200` with empty body in success path.
 - Diagram / Person の update/delete は `404` / `500` を返し分けるが、create や User API を含めた全体の status mapping はまだ完全には統一されていない。

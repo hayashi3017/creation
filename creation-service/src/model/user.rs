@@ -16,7 +16,6 @@ pub struct User {
 #[allow(non_snake_case)]
 #[derive(Debug, Serialize, ToSchema)]
 pub struct FilteredUser {
-    #[serde(rename = "id")]
     pub user_id: String,
     pub name: String,
     pub email: String,

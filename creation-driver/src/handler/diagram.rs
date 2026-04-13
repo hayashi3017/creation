@@ -119,10 +119,10 @@ pub async fn create_diagram(
 #[doc = include_str!("../openapi_docs/en/operations/update_diagram_by_id.md")]
 #[utoipa::path(
     patch,
-    path = "/api/diagrams/update/{id}",
+    path = "/api/diagrams/update/{diagram_id}",
     tag = "Diagrams",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
-    params(("id" = usize, Path, description = "Diagram identifier.")),
+    params(("diagram_id" = usize, Path, description = "Diagram identifier.")),
     request_body = UpdateDiagramRequest,
     responses(
         (status = 200, description = "The diagram was updated successfully."),
@@ -132,15 +132,15 @@ pub async fn create_diagram(
         (status = 500, description = "The update failed due to a server-side error.", body = ErrorResponse)
     )
 )]
-pub async fn update_diagram_by_id(
-    Path(id): Path<usize>,
+pub async fn update_diagram_by_diagram_id(
+    Path(diagram_id): Path<usize>,
     State(data): State<Arc<AppState>>,
     Json(body): Json<UpdateDiagramRequest>,
 ) -> Result<impl IntoResponse, JsonError> {
     update_diagram_inner(
         data,
         UpdateDiagramSchema {
-            diagram_id: id,
+            diagram_id,
             name: body.name,
             kind: body.kind,
             description: body.description,
@@ -178,10 +178,10 @@ async fn update_diagram_inner(
 #[doc = include_str!("../openapi_docs/en/operations/delete_diagram_by_id.md")]
 #[utoipa::path(
     delete,
-    path = "/api/diagrams/delete/{id}",
+    path = "/api/diagrams/delete/{diagram_id}",
     tag = "Diagrams",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
-    params(("id" = usize, Path, description = "Diagram identifier.")),
+    params(("diagram_id" = usize, Path, description = "Diagram identifier.")),
     responses(
         (status = 200, description = "The diagram was deleted successfully."),
         (status = 400, description = "The request was invalid.", body = ErrorResponse),
@@ -190,11 +190,11 @@ async fn update_diagram_inner(
         (status = 500, description = "The delete operation failed.", body = ErrorResponse)
     )
 )]
-pub async fn delete_diagram_by_id(
-    Path(id): Path<usize>,
+pub async fn delete_diagram_by_diagram_id(
+    Path(diagram_id): Path<usize>,
     State(data): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, JsonError> {
-    delete_diagram_inner(data, DeleteDiagramSchema { diagram_id: id }).await
+    delete_diagram_inner(data, DeleteDiagramSchema { diagram_id }).await
 }
 
 async fn delete_diagram_inner(

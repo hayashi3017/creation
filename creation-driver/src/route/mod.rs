@@ -8,7 +8,10 @@ use axum::{
 
 use crate::{
     handler::{
-        diagram::{create_diagram, delete_diagram_by_id, get_diagrams, update_diagram_by_id},
+        diagram::{
+            create_diagram, delete_diagram_by_diagram_id, get_diagrams,
+            update_diagram_by_diagram_id,
+        },
         family_tree::get_family_tree_by_diagram_id,
         health_check::health_checker_handler,
         person::{
@@ -16,8 +19,8 @@ use crate::{
             update_person_by_entity_id,
         },
         relationship::{
-            create_relationship, delete_relationship_by_id, get_relationships_by_diagram,
-            update_relationship_by_id,
+            create_relationship, delete_relationship_by_relationship_id,
+            get_relationships_by_diagram, update_relationship_by_relationship_id,
         },
         user::{get_me_handler, login_user_handler, logout_handler, register_user_handler},
     },
@@ -59,13 +62,13 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/diagrams/update/:id",
-            patch(update_diagram_by_id)
+            "/api/diagrams/update/:diagram_id",
+            patch(update_diagram_by_diagram_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/diagrams/delete/:id",
-            axum::routing::delete(delete_diagram_by_id)
+            "/api/diagrams/delete/:diagram_id",
+            axum::routing::delete(delete_diagram_by_diagram_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
@@ -99,13 +102,13 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/relationships/update/:id",
-            patch(update_relationship_by_id)
+            "/api/relationships/update/:relationship_id",
+            patch(update_relationship_by_relationship_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
-            "/api/relationships/delete/:id",
-            axum::routing::delete(delete_relationship_by_id)
+            "/api/relationships/delete/:relationship_id",
+            axum::routing::delete(delete_relationship_by_relationship_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .with_state(app_state)

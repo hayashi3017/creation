@@ -62,16 +62,16 @@ impl Modify for SecurityAddon {
         crate::handler::family_tree::get_family_tree_by_diagram_id,
         crate::handler::diagram::get_diagrams,
         crate::handler::diagram::create_diagram,
-        crate::handler::diagram::update_diagram_by_id,
-        crate::handler::diagram::delete_diagram_by_id,
+        crate::handler::diagram::update_diagram_by_diagram_id,
+        crate::handler::diagram::delete_diagram_by_diagram_id,
         crate::handler::person::get_persons_by_diagram,
         crate::handler::person::create_person,
         crate::handler::person::update_person_by_entity_id,
         crate::handler::person::delete_person_by_entity_id,
         crate::handler::relationship::get_relationships_by_diagram,
         crate::handler::relationship::create_relationship,
-        crate::handler::relationship::update_relationship_by_id,
-        crate::handler::relationship::delete_relationship_by_id
+        crate::handler::relationship::update_relationship_by_relationship_id,
+        crate::handler::relationship::delete_relationship_by_relationship_id
     ),
     components(schemas(
         RegisterUserSchema,

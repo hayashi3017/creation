@@ -1,6 +1,6 @@
 # API Overview
 
-Last updated: 2026-03-20
+Last updated: 2026-04-11
 
 ## Scope
 
@@ -27,16 +27,16 @@ Protected endpoints:
 - `GET /api/users/me`
 - `GET /api/diagrams`
 - `POST /api/diagrams/create`
-- `PATCH /api/diagrams/update/{id}`
-- `DELETE /api/diagrams/delete/{id}`
+- `PATCH /api/diagrams/update/{diagram_id}`
+- `DELETE /api/diagrams/delete/{diagram_id}`
 - `GET /api/persons`
 - `POST /api/persons/create`
 - `PATCH /api/persons/update/{entity_id}`
 - `DELETE /api/persons/delete/{entity_id}`
 - `GET /api/relationships`
 - `POST /api/relationships/create`
-- `PATCH /api/relationships/update/{id}`
-- `DELETE /api/relationships/delete/{id}`
+- `PATCH /api/relationships/update/{relationship_id}`
+- `DELETE /api/relationships/delete/{relationship_id}`
 
 ## Endpoints
 
@@ -49,16 +49,16 @@ Protected endpoints:
 | GET | `/api/users/me` | Yes | current user profile |
 | GET | `/api/diagrams` | Yes | list diagrams |
 | POST | `/api/diagrams/create` | Yes | create diagram |
-| PATCH | `/api/diagrams/update/{id}` | Yes | update diagram |
-| DELETE | `/api/diagrams/delete/{id}` | Yes | soft delete diagram |
+| PATCH | `/api/diagrams/update/{diagram_id}` | Yes | update diagram |
+| DELETE | `/api/diagrams/delete/{diagram_id}` | Yes | soft delete diagram |
 | GET | `/api/persons` | Yes | list persons in a diagram |
 | POST | `/api/persons/create` | Yes | create entity + person |
 | PATCH | `/api/persons/update/{entity_id}` | Yes | update entity + person |
 | DELETE | `/api/persons/delete/{entity_id}` | Yes | soft delete entity + person |
 | GET | `/api/relationships` | Yes | list relationships in a diagram |
 | POST | `/api/relationships/create` | Yes | create relationship + rebuild tree paths |
-| PATCH | `/api/relationships/update/{id}` | Yes | update relationship + rebuild tree paths |
-| DELETE | `/api/relationships/delete/{id}` | Yes | soft delete relationship + rebuild tree paths |
+| PATCH | `/api/relationships/update/{relationship_id}` | Yes | update relationship + rebuild tree paths |
+| DELETE | `/api/relationships/delete/{relationship_id}` | Yes | soft delete relationship + rebuild tree paths |
 
 ## Request and response details
 
@@ -169,7 +169,7 @@ or
   "status": "success",
   "data": {
     "user": {
-      "id": "uuid-string",
+      "user_id": "uuid-string",
       "name": "alice",
       "email": "alice@example.com",
       "role": "user",
@@ -193,7 +193,7 @@ or
   "status": "success",
   "data": [
     {
-      "id": 1,
+      "diagram_id": 1,
       "name": "sample",
       "kind": "family_tree",
       "description": "optional"
@@ -231,7 +231,7 @@ or
   - invalid params (`name` empty)
   - duplicate/DB validation failures
 
-### PATCH `/api/diagrams/update/{id}`
+### PATCH `/api/diagrams/update/{diagram_id}`
 
 - Auth required
 - Request JSON:
@@ -251,14 +251,14 @@ or
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`id` is `0` or `name` empty)
+  - invalid params (`diagram_id` is `0` or `name` empty)
 - `404 NOT_FOUND`:
   - target diagram does not exist
   - target diagram is already soft-deleted
 - `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 
-### DELETE `/api/diagrams/delete/{id}`
+### DELETE `/api/diagrams/delete/{diagram_id}`
 
 - Auth required
 - Request body: none
@@ -266,7 +266,7 @@ or
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`id` is `0`)
+  - invalid params (`diagram_id` is `0`)
 - `404 NOT_FOUND`:
   - target diagram does not exist
   - target diagram is already soft-deleted
@@ -409,7 +409,7 @@ or
   "status": "success",
   "data": [
     {
-      "id": 1,
+      "relationship_id": 1,
       "diagram_id": 1,
       "source_entity_id": 1,
       "target_entity_id": 2,
@@ -457,7 +457,7 @@ or
 - `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 
-### PATCH `/api/relationships/update/{id}`
+### PATCH `/api/relationships/update/{relationship_id}`
 
 - Auth required
 - Request JSON:
@@ -477,14 +477,14 @@ or
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`id` is `0`, self edge, non-lineage kind, invalid date range, or cycle detected)
+  - invalid params (`relationship_id` is `0`, self edge, non-lineage kind, invalid date range, or cycle detected)
 - `404 NOT_FOUND`:
   - target relationship does not exist or is already soft-deleted
   - source/target entity does not exist, is soft-deleted, or belongs to another diagram
 - `500 INTERNAL_SERVER_ERROR`:
   - DB failures
 
-### DELETE `/api/relationships/delete/{id}`
+### DELETE `/api/relationships/delete/{relationship_id}`
 
 - Auth required
 - Request body: none
@@ -493,7 +493,7 @@ or
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`id` is `0`)
+  - invalid params (`relationship_id` is `0`)
 - `404 NOT_FOUND`:
   - target relationship does not exist
   - target relationship is already soft-deleted

@@ -41,6 +41,8 @@ async fn get_diagrams_returns_list(db: PgPool) {
     assert_eq!(json["status"], "success");
     assert!(json["data"].is_array());
     assert_eq!(json["data"].as_array().unwrap().len(), 2);
+    assert_eq!(json["data"][0]["diagram_id"], 1);
+    assert!(json["data"][0]["id"].is_null());
 }
 
 #[sqlx::test(fixtures("get_diagrams"))]

@@ -97,10 +97,10 @@ pub async fn create_relationship(
 #[doc = include_str!("../openapi_docs/en/operations/update_relationship_by_id.md")]
 #[utoipa::path(
     patch,
-    path = "/api/relationships/update/{id}",
+    path = "/api/relationships/update/{relationship_id}",
     tag = "Relationships",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
-    params(("id" = usize, Path, description = "Relationship identifier.")),
+    params(("relationship_id" = usize, Path, description = "Relationship identifier.")),
     request_body = UpdateRelationshipRequest,
     responses(
         (status = 200, description = "The relationship was updated successfully."),
@@ -110,15 +110,15 @@ pub async fn create_relationship(
         (status = 500, description = "The update operation failed.", body = ErrorResponse)
     )
 )]
-pub async fn update_relationship_by_id(
-    Path(id): Path<usize>,
+pub async fn update_relationship_by_relationship_id(
+    Path(relationship_id): Path<usize>,
     State(data): State<Arc<AppState>>,
     Json(body): Json<UpdateRelationshipRequest>,
 ) -> Result<impl IntoResponse, JsonError> {
     match data
         .driver
         .update_relationship(UpdateRelationshipSchema {
-            relationship_id: id,
+            relationship_id,
             source_entity_id: body.source_entity_id,
             target_entity_id: body.target_entity_id,
             kind: body.kind,
@@ -138,10 +138,10 @@ pub async fn update_relationship_by_id(
 #[doc = include_str!("../openapi_docs/en/operations/delete_relationship_by_id.md")]
 #[utoipa::path(
     delete,
-    path = "/api/relationships/delete/{id}",
+    path = "/api/relationships/delete/{relationship_id}",
     tag = "Relationships",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
-    params(("id" = usize, Path, description = "Relationship identifier.")),
+    params(("relationship_id" = usize, Path, description = "Relationship identifier.")),
     responses(
         (status = 200, description = "The relationship was deleted successfully."),
         (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
@@ -150,15 +150,13 @@ pub async fn update_relationship_by_id(
         (status = 500, description = "The delete operation failed.", body = ErrorResponse)
     )
 )]
-pub async fn delete_relationship_by_id(
-    Path(id): Path<usize>,
+pub async fn delete_relationship_by_relationship_id(
+    Path(relationship_id): Path<usize>,
     State(data): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, JsonError> {
     match data
         .driver
-        .delete_relationship(DeleteRelationshipSchema {
-            relationship_id: id,
-        })
+        .delete_relationship(DeleteRelationshipSchema { relationship_id })
         .await
     {
         Ok(()) => Ok(()),

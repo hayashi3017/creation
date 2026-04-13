@@ -6,7 +6,6 @@ use utoipa::ToSchema;
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct Relationship {
-    #[serde(rename = "id")]
     pub relationship_id: usize,
     pub diagram_id: usize,
     pub source_entity_id: usize,

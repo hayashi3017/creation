@@ -62,6 +62,22 @@ async fn openapi_json_returns_document(db: PgPool) {
     let body = resp.into_body().collect().await.unwrap().to_bytes();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["info"]["title"], "Creation API");
+    assert!(json["paths"]["/api/diagrams/update/{diagram_id}"].is_object());
+    assert!(json["paths"]["/api/diagrams/delete/{diagram_id}"].is_object());
+    assert!(json["paths"]["/api/relationships/update/{relationship_id}"].is_object());
+    assert!(json["paths"]["/api/relationships/delete/{relationship_id}"].is_object());
+    assert!(json["paths"]["/api/diagrams/update/{id}"].is_null());
+    assert!(json["paths"]["/api/diagrams/delete/{id}"].is_null());
+    assert!(json["paths"]["/api/relationships/update/{id}"].is_null());
+    assert!(json["paths"]["/api/relationships/delete/{id}"].is_null());
+    assert!(json["components"]["schemas"]["FilteredUser"]["properties"]["user_id"].is_object());
+    assert!(json["components"]["schemas"]["FilteredUser"]["properties"]["id"].is_null());
+    assert!(json["components"]["schemas"]["Diagram"]["properties"]["diagram_id"].is_object());
+    assert!(json["components"]["schemas"]["Diagram"]["properties"]["id"].is_null());
+    assert!(
+        json["components"]["schemas"]["Relationship"]["properties"]["relationship_id"].is_object()
+    );
+    assert!(json["components"]["schemas"]["Relationship"]["properties"]["id"].is_null());
 }
 
 #[sqlx::test]
@@ -181,6 +197,8 @@ async fn get_me_returns_user(db: PgPool) {
     let body = resp.into_body().collect().await.unwrap().to_bytes();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["status"], "success");
+    assert_eq!(json["data"]["user"]["user_id"], user_id.to_string());
+    assert!(json["data"]["user"]["id"].is_null());
     assert_eq!(json["data"]["user"]["email"], "me@example.com");
 }
 

@@ -9,7 +9,6 @@ pub const DIAGRAM_NAME_MAX_CHARS: usize = 255;
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct Diagram {
-    #[serde(rename = "id")]
     pub diagram_id: usize,
     pub name: String,
     pub kind: DiagramKind,

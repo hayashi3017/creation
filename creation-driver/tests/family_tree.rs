@@ -37,7 +37,8 @@ async fn get_family_tree_returns_normalized_projection(db: PgPool) {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["status"], "success");
-    assert_eq!(json["data"]["diagram"]["id"], 1);
+    assert_eq!(json["data"]["diagram"]["diagram_id"], 1);
+    assert!(json["data"]["diagram"]["id"].is_null());
     assert_eq!(json["data"]["diagram"]["kind"], "family_tree");
     assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1, 4]));
     assert_eq!(json["data"]["stats"]["person_count"], 5);
