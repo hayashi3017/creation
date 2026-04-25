@@ -1,6 +1,6 @@
 # Improvements
 
-Last updated: 2026-04-11
+Last updated: 2026-04-25
 
 Detailed proposals and decisions:
 
@@ -41,6 +41,10 @@ Detailed proposals and decisions:
 ## Genealogy Merge And Visibility
 
 - Cross-diagram merge, publication scope, entity-level hidden state, and centered merged-family-tree reads are not defined yet. Before implementing merged genealogy views, review the aggregate boundary, naming, and visibility propagation policy in `docs/rfc/0008-genealogy-aggregate-and-visibility.md`.
+
+## Family Tree Derivation
+
+- 家系図の派生続柄は今後 `sibling` / `ancestor` / `cousin` / `in-law` まで広がる可能性があるが、その導出責務を `FamilyTreeUsecase` に載せ続けると orchestration と graph rule が混ざりやすい。`RelationshipService` は stored relationship row の lifecycle に限定し、read-only の kinship 導出は `KinshipDerivationService` のような別 service に分けた方が境界が明確になる。See `docs/rfc/0012-kinship-derivation-service.md`.
 
 ## Tooling And Tests
 
