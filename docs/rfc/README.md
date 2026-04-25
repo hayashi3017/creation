@@ -21,3 +21,4 @@
 - `docs/rfc/0011-rust-workspace-build-time.md`: Workspace-level policy for faster local Rust build and check loops
 - `docs/rfc/0012-kinship-derivation-service.md`: MECE service boundary for stored relationships and read-side kinship derivation
 - `docs/rfc/0013-canonical-relationship-kinds-and-tree-path.md`: Canonical stored relationship kinds and tree-path maintenance policy
+- `docs/rfc/0014-as-of-family-tree-projection.md`: As-of-date family-tree and kinship projection policy
