@@ -1,7 +1,7 @@
 # RFC 0013: Canonical Relationship Kinds And Tree Path Policy
 
-- Status: `Draft`
-- Last updated: `2026-04-25`
+- Status: `Accepted`
+- Last updated: `2026-04-26`
 
 ## Background
 
@@ -386,9 +386,14 @@ Minimum coverage for implementation:
 - `tree_path` rebuild ignores `step_parent`, `spouse`, `partner`, and `cohabitant`
 - public relationship writes reject or normalize non-canonical legacy kinds according to the rollout option
 
+## Resolved Decisions
+
+- stored enum uses `adoptive_parent`
+- public API rejects legacy inverse/derived kinds by removing them from the storage-facing enum
+- migration normalizes existing inverse rows before replacing the PostgreSQL enum
+- `end_reason` is stored as `VARCHAR(32)` for the initial implementation
+
 ## Open Questions
 
-- Should the stored enum use `adoptive_parent` or preserve the existing `adopted_parent` spelling for migration simplicity?
 - Should `step_parent` become a tree-edge kind in a later opt-in projection, or should it stay outside ancestor / descendant closure permanently?
-- Should `end_reason` be a string, a PostgreSQL enum, or a separate event/history table?
-- During rollout, should the API normalize legacy inverse inputs or reject them immediately?
+- Should `end_reason` eventually become a PostgreSQL enum or a separate event/history table?

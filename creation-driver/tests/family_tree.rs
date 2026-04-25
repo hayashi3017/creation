@@ -68,7 +68,7 @@ async fn get_family_tree_returns_normalized_projection(db: PgPool) {
     assert_eq!(edges[1]["relationship_id"], 2);
     assert_eq!(edges[1]["parent_entity_id"], 2);
     assert_eq!(edges[1]["child_entity_id"], 3);
-    assert_eq!(edges[1]["kind"], "child");
+    assert_eq!(edges[1]["kind"], "parent");
     assert_eq!(edges[2]["relationship_id"], 3);
     assert_eq!(edges[2]["parent_entity_id"], 4);
     assert_eq!(edges[2]["child_entity_id"], 5);

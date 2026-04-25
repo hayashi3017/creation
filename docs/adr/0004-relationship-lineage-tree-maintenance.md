@@ -1,7 +1,8 @@
 # ADR 0004: Relationship Lineage Tree Maintenance
 
-- Status: `Accepted`
-- Last updated: `2026-03-20`
+- Status: `Superseded`
+- Last updated: `2026-04-26`
+- Superseded by: `docs/rfc/0013-canonical-relationship-kinds-and-tree-path.md`
 
 ## Context
 
@@ -19,7 +20,7 @@ However, the `relationship_kind` enum contains both lineage and non-lineage kind
 
 ## Decision
 
-For the current implementation:
+For the implementation at the time this ADR was accepted:
 
 - public `relationship` write APIs only accept `parent` and `child`
 - `tree_path` is rebuilt only from active lineage edges

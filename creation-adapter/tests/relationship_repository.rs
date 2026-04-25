@@ -116,6 +116,7 @@ async fn create_relationship_inserts_row(db: PgPool) {
         kind: RelationshipKind::Parent,
         start_date: Some("2020-01-01".parse().unwrap()),
         end_date: None,
+        end_reason: None,
         notes: Some("created from repository test".to_string()),
     })
     .await
@@ -160,6 +161,7 @@ async fn create_relationship_returns_not_found_for_missing_entity(db: PgPool) {
             kind: RelationshipKind::Parent,
             start_date: None,
             end_date: None,
+            end_reason: None,
             notes: None,
         })
         .await
@@ -180,6 +182,7 @@ async fn create_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPo
             kind: RelationshipKind::Parent,
             start_date: None,
             end_date: None,
+            end_reason: None,
             notes: None,
         })
         .await
@@ -200,6 +203,7 @@ async fn update_relationship_updates_active_row(db: PgPool) {
             kind: RelationshipKind::Parent,
             start_date: Some("2010-01-01".parse().unwrap()),
             end_date: None,
+            end_reason: None,
             notes: Some("updated edge".to_string()),
         })
         .await
@@ -281,6 +285,7 @@ async fn update_relationship_returns_not_found_for_deleted_row(db: PgPool) {
             kind: RelationshipKind::Parent,
             start_date: None,
             end_date: None,
+            end_reason: None,
             notes: None,
         })
         .await
@@ -301,6 +306,7 @@ async fn update_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPo
             kind: RelationshipKind::Parent,
             start_date: None,
             end_date: None,
+            end_reason: None,
             notes: None,
         })
         .await
@@ -411,6 +417,88 @@ async fn sync_tree_paths_by_entity_ids_creates_closure_rows(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
+async fn sync_tree_paths_by_entity_ids_uses_only_tree_edge_kinds(db: PgPool) {
+    let module = TestModule::new(db.clone()).await;
+
+    module
+        .relationship_repository()
+        .create_relationship(CreateRelationshipSchema {
+            diagram_id: 1,
+            source_entity_id: 3,
+            target_entity_id: 7,
+            kind: RelationshipKind::AdoptiveParent,
+            start_date: None,
+            end_date: None,
+            end_reason: None,
+            notes: Some("adoptive lineage".to_string()),
+        })
+        .await
+        .unwrap();
+    module
+        .relationship_repository()
+        .create_relationship(CreateRelationshipSchema {
+            diagram_id: 1,
+            source_entity_id: 7,
+            target_entity_id: 1,
+            kind: RelationshipKind::StepParent,
+            start_date: None,
+            end_date: None,
+            end_reason: None,
+            notes: Some("ignored step relation".to_string()),
+        })
+        .await
+        .unwrap();
+    module
+        .relationship_repository()
+        .create_relationship(CreateRelationshipSchema {
+            diagram_id: 1,
+            source_entity_id: 7,
+            target_entity_id: 2,
+            kind: RelationshipKind::Spouse,
+            start_date: None,
+            end_date: None,
+            end_reason: None,
+            notes: Some("ignored spouse relation".to_string()),
+        })
+        .await
+        .unwrap();
+
+    module
+        .sync_tree_paths_by_entity_ids(SyncTreePathsByEntityIdsSchema {
+            entity_ids: vec![3, 7],
+        })
+        .await
+        .unwrap();
+
+    let rows = sqlx::query(
+        r#"
+            SELECT ancestor_id, descendant_id, depth
+            FROM tree_path
+            ORDER BY ancestor_id, descendant_id
+        "#,
+    )
+    .fetch_all(&db)
+    .await
+    .unwrap();
+
+    let tuples: Vec<(i64, i64, i32)> = rows
+        .into_iter()
+        .map(|row| {
+            (
+                row.get::<i64, _>("ancestor_id"),
+                row.get::<i64, _>("descendant_id"),
+                row.get::<i32, _>("depth"),
+            )
+        })
+        .collect();
+
+    assert!(tuples.contains(&(3, 7, 1)));
+    assert!(tuples.contains(&(1, 7, 3)));
+    assert!(!tuples.contains(&(7, 1, 1)));
+    assert!(!tuples.contains(&(7, 2, 1)));
+}
+
+#[sqlx::test(fixtures("relationship_repository"))]
 async fn sync_tree_paths_by_entity_ids_detects_cycle(db: PgPool) {
     let module = TestModule::new(db.clone()).await;
 
@@ -423,6 +511,7 @@ async fn sync_tree_paths_by_entity_ids_detects_cycle(db: PgPool) {
             kind: RelationshipKind::Parent,
             start_date: None,
             end_date: None,
+            end_reason: None,
             notes: Some("cycle".to_string()),
         })
         .await

@@ -20,7 +20,7 @@ Detailed proposals and decisions:
 ## Relationship API
 
 - Relationship API も `GET /api/relationships` の body 依存と `POST /api/relationships/create`, `PATCH /api/relationships/update/{relationship_id}`, `DELETE /api/relationships/delete/{relationship_id}` の action-style な path を採用している。Diagram / Person と同じ観点なので、resource-oriented に寄せるか現行形を正式化するかを RFC 0001 でまとめて整理した方がよい。See `docs/rfc/0001-resource-oriented-api-shape.md`.
-- 現在の公開 API と `tree_path` 再構築は lineage 用に限定し、`parent` / `child` だけを受け付けている。`sibling` / `spouse` / `adopted_*` / `step_*` をいつ公開 API に出すか、そのとき `tree_path` に影響させるかを別途決めた方がよい。See `docs/adr/0004-relationship-lineage-tree-maintenance.md`.
+- `relationship` は canonical stored kind へ寄せたが、`spouse` / `partner` / `cohabitant` の UI 表示、重複エラーの public status mapping、`end_reason` の enum 化はまだ別途整理が必要。See `docs/rfc/0013-canonical-relationship-kinds-and-tree-path.md`.
 
 ## Validation And Error Handling
 

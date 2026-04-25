@@ -242,11 +242,8 @@ fn build_family_tree_edges(
         .into_iter()
         .filter_map(|relationship| {
             let (parent_entity_id, child_entity_id) = match relationship.kind {
-                RelationshipKind::Parent => {
+                RelationshipKind::Parent | RelationshipKind::AdoptiveParent => {
                     (relationship.source_entity_id, relationship.target_entity_id)
-                }
-                RelationshipKind::Child => {
-                    (relationship.target_entity_id, relationship.source_entity_id)
                 }
                 _ => return None,
             };
@@ -264,6 +261,7 @@ fn build_family_tree_edges(
                 kind: relationship.kind,
                 start_date: relationship.start_date,
                 end_date: relationship.end_date,
+                end_reason: relationship.end_reason,
                 notes: relationship.notes,
             })
         })

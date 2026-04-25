@@ -265,12 +265,14 @@ Handler: `creation-driver/src/handler/relationship.rs::create_relationship`
    - `source_entity_id != 0`
    - `target_entity_id != 0`
    - `source_entity_id != target_entity_id`
-   - only `parent` / `child` are accepted
+   - only canonical stored relationship kinds are accepted
+   - symmetric kinds normalize endpoints so `source_entity_id < target_entity_id`
    - if both dates are present, `start_date <= end_date`
+   - blank or missing `end_reason` is normalized to `NULL`
    - blank or missing `notes` is normalized to `NULL`
 4. Usecase begins the service-side transaction port and gets a transaction-aware service container.
 5. Transactional repository inserts the active `relationship` row only if the diagram and both entities exist, are active, and belong to the same diagram.
-6. Transactional `tree_path` repository rebuilds the closure table for that diagram from active lineage edges.
+6. Transactional `tree_path` repository rebuilds the closure table for that diagram from active `parent` and `adoptive_parent` edges.
 7. If cycle detection fails, the transaction is rolled back.
 8. The transaction context commits.
 9. Return:
@@ -290,8 +292,10 @@ Handler: `creation-driver/src/handler/relationship.rs::update_relationship_by_re
    - `source_entity_id != 0`
    - `target_entity_id != 0`
    - `source_entity_id != target_entity_id`
-   - only `parent` / `child` are accepted
+   - only canonical stored relationship kinds are accepted
+   - symmetric kinds normalize endpoints so `source_entity_id < target_entity_id`
    - if both dates are present, `start_date <= end_date`
+   - blank or missing `end_reason` is normalized to `NULL`
    - blank or missing `notes` is normalized to `NULL`
 4. Usecase begins the service-side transaction port and gets a transaction-aware service container.
 5. Transactional repository updates the active `relationship` row while keeping its `diagram_id` unchanged.

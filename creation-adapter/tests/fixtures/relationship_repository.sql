@@ -9,15 +9,11 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'relationship_kind') THEN
         CREATE TYPE relationship_kind AS ENUM (
             'parent',
-            'child',
-            'sibling',
-            'spouse',
-            'adopted_parent',
-            'adopted_child',
-            'divorced_spouse',
-            'cohabitant',
+            'adoptive_parent',
             'step_parent',
-            'step_child'
+            'spouse',
+            'partner',
+            'cohabitant'
         );
     END IF;
 END
@@ -52,6 +48,7 @@ CREATE TABLE IF NOT EXISTS relationship (
     kind relationship_kind NOT NULL,
     start_date DATE,
     end_date DATE,
+    end_reason VARCHAR(32),
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -64,6 +61,25 @@ CREATE TABLE IF NOT EXISTS tree_path (
     depth INT NOT NULL,
     PRIMARY KEY (ancestor_id, descendant_id)
 );
+
+ALTER TABLE relationship
+    ADD CONSTRAINT chk_relationship_no_active_self_relation
+    CHECK (deleted_at IS NOT NULL OR source_entity_id <> target_entity_id);
+
+CREATE UNIQUE INDEX uq_relationship_directed_active
+ON relationship (diagram_id, source_entity_id, target_entity_id, kind)
+WHERE deleted_at IS NULL
+    AND kind IN ('parent', 'adoptive_parent', 'step_parent');
+
+CREATE UNIQUE INDEX uq_relationship_symmetric_active
+ON relationship (
+    diagram_id,
+    LEAST(source_entity_id, target_entity_id),
+    GREATEST(source_entity_id, target_entity_id),
+    kind
+)
+WHERE deleted_at IS NULL
+    AND kind IN ('spouse', 'partner', 'cohabitant');
 
 INSERT INTO diagram
   (diagram_id, name, kind, description, deleted_at)

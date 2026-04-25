@@ -34,6 +34,8 @@ pub struct UpdateRelationshipRequest {
     #[serde(default)]
     pub end_date: Option<chrono::NaiveDate>,
     #[serde(default)]
+    pub end_reason: Option<String>,
+    #[serde(default)]
     pub notes: Option<String>,
 }
 
@@ -124,6 +126,7 @@ pub async fn update_relationship_by_relationship_id(
             kind: body.kind,
             start_date: body.start_date,
             end_date: body.end_date,
+            end_reason: body.end_reason,
             notes: body.notes,
         })
         .await

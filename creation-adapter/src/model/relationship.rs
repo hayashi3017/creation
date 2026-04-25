@@ -12,6 +12,7 @@ pub struct RelationshipTable {
     pub kind: RelationshipKind,
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
+    pub end_reason: Option<String>,
     pub notes: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: DateTime<Utc>,

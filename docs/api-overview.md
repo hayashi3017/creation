@@ -436,21 +436,28 @@ or
   "source_entity_id": 1,
   "target_entity_id": 2,
   "kind": "parent",
+  "end_reason": null,
   "notes": "created from API"
 }
 ```
 
-- current implementation only accepts lineage kinds:
+- current implementation accepts canonical stored relationship kinds:
   - `parent`
-  - `child`
+  - `adoptive_parent`
+  - `step_parent`
+  - `spouse`
+  - `partner`
+  - `cohabitant`
+- symmetric kinds normalize endpoints so `source_entity_id < target_entity_id`
 - `notes` is trimmed and stored as `NULL` when omitted, `null`, or blank
+- `end_reason` is trimmed and stored as `NULL` when omitted, `null`, or blank
 - if both dates are provided, `start_date` must be earlier than or equal to `end_date`
-- success also rebuilds `tree_path` for the target diagram
+- success also rebuilds `tree_path` for the target diagram from active `parent` and `adoptive_parent` edges
 
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`diagram_id` / entity ids are `0`, self edge, non-lineage kind, invalid date range, or cycle detected)
+  - invalid params (`diagram_id` / entity ids are `0`, self edge, invalid date range, or cycle detected)
 - `404 NOT_FOUND`:
   - target diagram does not exist
   - source/target entity does not exist, is soft-deleted, or belongs to another diagram
@@ -467,17 +474,19 @@ or
   "source_entity_id": 2,
   "target_entity_id": 3,
   "kind": "parent",
+  "end_reason": null,
   "notes": "updated from API"
 }
 ```
 
 - current implementation keeps `diagram_id` fixed to the existing relationship row
-- success also rebuilds `tree_path` for that diagram
+- symmetric kinds normalize endpoints so `source_entity_id < target_entity_id`
+- success also rebuilds `tree_path` for that diagram from active `parent` and `adoptive_parent` edges
 
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`relationship_id` is `0`, self edge, non-lineage kind, invalid date range, or cycle detected)
+  - invalid params (`relationship_id` is `0`, self edge, invalid date range, or cycle detected)
 - `404 NOT_FOUND`:
   - target relationship does not exist or is already soft-deleted
   - source/target entity does not exist, is soft-deleted, or belongs to another diagram

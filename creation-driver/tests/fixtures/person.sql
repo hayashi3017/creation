@@ -5,15 +5,11 @@ CREATE TYPE entity_kind AS ENUM ('person');
 CREATE TYPE gender_kind AS ENUM ('male', 'female', 'other', 'unknown');
 CREATE TYPE relationship_kind AS ENUM (
     'parent',
-    'child',
-    'sibling',
-    'spouse',
-    'adopted_parent',
-    'adopted_child',
-    'divorced_spouse',
-    'cohabitant',
+    'adoptive_parent',
     'step_parent',
-    'step_child'
+    'spouse',
+    'partner',
+    'cohabitant'
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -69,6 +65,7 @@ CREATE TABLE IF NOT EXISTS relationship (
     kind relationship_kind NOT NULL,
     start_date DATE,
     end_date DATE,
+    end_reason VARCHAR(32),
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

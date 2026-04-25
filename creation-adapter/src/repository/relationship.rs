@@ -38,6 +38,7 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
                     r.kind,
                     r.start_date,
                     r.end_date,
+                    r.end_reason,
                     r.notes,
                     r.created_at,
                     r.updated_at,
@@ -67,6 +68,7 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
                 kind: relationship.kind,
                 start_date: relationship.start_date,
                 end_date: relationship.end_date,
+                end_reason: relationship.end_reason,
                 notes: relationship.notes,
             })
             .collect())
@@ -269,9 +271,9 @@ where
     let relationship_id = sqlx::query_scalar::<_, i64>(
         r#"
             INSERT INTO relationship
-                (diagram_id, source_entity_id, target_entity_id, kind, start_date, end_date, notes)
+                (diagram_id, source_entity_id, target_entity_id, kind, start_date, end_date, end_reason, notes)
             SELECT
-                d.diagram_id, $2, $3, $4, $5, $6, $7
+                d.diagram_id, $2, $3, $4, $5, $6, $7, $8
             FROM diagram AS d
             WHERE
                 d.diagram_id = $1
@@ -302,6 +304,7 @@ where
     .bind(body.kind)
     .bind(body.start_date)
     .bind(body.end_date)
+    .bind(body.end_reason)
     .bind(body.notes)
     .fetch_optional(executor)
     .await?;
@@ -329,7 +332,7 @@ where
                     ON d.diagram_id = r.diagram_id
                     AND d.deleted_at IS NULL
                 WHERE
-                    r.relationship_id = $7
+                    r.relationship_id = $8
                     AND r.deleted_at IS NULL
             )
             UPDATE relationship AS r
@@ -339,7 +342,8 @@ where
                 kind = $3,
                 start_date = $4,
                 end_date = $5,
-                notes = $6,
+                end_reason = $6,
+                notes = $7,
                 updated_at = now()
             FROM previous
             WHERE
@@ -368,6 +372,7 @@ where
     .bind(body.kind)
     .bind(body.start_date)
     .bind(body.end_date)
+    .bind(body.end_reason)
     .bind(body.notes)
     .bind(body.relationship_id as i64)
     .fetch_optional(executor)
@@ -521,16 +526,15 @@ where
 
     Ok(rows
         .into_iter()
-        .filter_map(|(source_entity_id, target_entity_id, kind)| match kind {
-            RelationshipKind::Parent => Some(RelationshipEdge {
-                ancestor_id: source_entity_id as usize,
-                descendant_id: target_entity_id as usize,
-            }),
-            RelationshipKind::Child => Some(RelationshipEdge {
-                ancestor_id: target_entity_id as usize,
-                descendant_id: source_entity_id as usize,
-            }),
-            _ => None,
+        .filter_map(|(source_entity_id, target_entity_id, kind)| {
+            if kind.is_tree_edge() {
+                Some(RelationshipEdge {
+                    ancestor_id: source_entity_id as usize,
+                    descendant_id: target_entity_id as usize,
+                })
+            } else {
+                None
+            }
         })
         .collect())
 }
@@ -583,21 +587,17 @@ where
 
     Ok(rows
         .into_iter()
-        .filter_map(
-            |(diagram_id, source_entity_id, target_entity_id, kind)| match kind {
-                RelationshipKind::Parent => Some(DiagramRelationshipEdge {
+        .filter_map(|(diagram_id, source_entity_id, target_entity_id, kind)| {
+            if kind.is_tree_edge() {
+                Some(DiagramRelationshipEdge {
                     diagram_id: diagram_id as usize,
                     ancestor_id: source_entity_id as usize,
                     descendant_id: target_entity_id as usize,
-                }),
-                RelationshipKind::Child => Some(DiagramRelationshipEdge {
-                    diagram_id: diagram_id as usize,
-                    ancestor_id: target_entity_id as usize,
-                    descendant_id: source_entity_id as usize,
-                }),
-                _ => None,
-            },
-        )
+                })
+            } else {
+                None
+            }
+        })
         .collect())
 }
 

@@ -13,6 +13,7 @@ pub struct Relationship {
     pub kind: RelationshipKind,
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
+    pub end_reason: Option<String>,
     pub notes: Option<String>,
 }
 
@@ -42,26 +43,37 @@ pub struct DiagramRelationshipEdge {
     pub descendant_id: usize,
 }
 
-#[derive(Debug, Deserialize, Serialize, Type, Clone, PartialEq, Eq, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, Type, Clone, Copy, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "relationship_kind")]
 #[sqlx(rename_all = "snake_case")]
 pub enum RelationshipKind {
     Parent,
-    Child,
-    Sibling,
-    Spouse,
-    AdoptedParent,
-    AdoptedChild,
-    DivorcedSpouse,
-    Cohabitant,
+    AdoptiveParent,
     StepParent,
-    StepChild,
+    Spouse,
+    Partner,
+    Cohabitant,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RelationshipTopology {
+    Directed,
+    Symmetric,
 }
 
 impl RelationshipKind {
-    pub fn is_lineage(&self) -> bool {
-        matches!(self, Self::Parent | Self::Child)
+    pub fn topology(&self) -> RelationshipTopology {
+        match self {
+            Self::Parent | Self::AdoptiveParent | Self::StepParent => {
+                RelationshipTopology::Directed
+            }
+            Self::Spouse | Self::Partner | Self::Cohabitant => RelationshipTopology::Symmetric,
+        }
+    }
+
+    pub fn is_tree_edge(&self) -> bool {
+        matches!(self, Self::Parent | Self::AdoptiveParent)
     }
 }
 
@@ -81,6 +93,8 @@ pub struct CreateRelationshipSchema {
     #[serde(default)]
     pub end_date: Option<NaiveDate>,
     #[serde(default)]
+    pub end_reason: Option<String>,
+    #[serde(default)]
     pub notes: Option<String>,
 }
 
@@ -94,6 +108,8 @@ pub struct UpdateRelationshipSchema {
     pub start_date: Option<NaiveDate>,
     #[serde(default)]
     pub end_date: Option<NaiveDate>,
+    #[serde(default)]
+    pub end_reason: Option<String>,
     #[serde(default)]
     pub notes: Option<String>,
 }

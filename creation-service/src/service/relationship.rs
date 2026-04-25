@@ -6,7 +6,7 @@ use super::normalize_optional_text;
 use crate::{
     model::relationship::{
         CreateRelationshipSchema, DeleteRelationshipSchema, GetRelationshipsSchema, Relationship,
-        RelationshipEndpoints, RelationshipKind, UpdateRelationshipSchema,
+        RelationshipEndpoints, RelationshipKind, RelationshipTopology, UpdateRelationshipSchema,
         UpdatedRelationshipEndpoints,
     },
     repository::relationship::{
@@ -174,10 +174,11 @@ pub fn prepare_create_relationship(
         body.kind,
         body.start_date,
         body.end_date,
+        body.end_reason,
         body.notes,
     )
     .map(
-        |(source_entity_id, target_entity_id, kind, start_date, end_date, notes)| {
+        |(source_entity_id, target_entity_id, kind, start_date, end_date, end_reason, notes)| {
             CreateRelationshipSchema {
                 diagram_id: body.diagram_id,
                 source_entity_id,
@@ -185,6 +186,7 @@ pub fn prepare_create_relationship(
                 kind,
                 start_date,
                 end_date,
+                end_reason,
                 notes,
             }
         },
@@ -204,10 +206,11 @@ pub fn prepare_update_relationship(
         body.kind,
         body.start_date,
         body.end_date,
+        body.end_reason,
         body.notes,
     )
     .map(
-        |(source_entity_id, target_entity_id, kind, start_date, end_date, notes)| {
+        |(source_entity_id, target_entity_id, kind, start_date, end_date, end_reason, notes)| {
             UpdateRelationshipSchema {
                 relationship_id: body.relationship_id,
                 source_entity_id,
@@ -215,6 +218,7 @@ pub fn prepare_update_relationship(
                 kind,
                 start_date,
                 end_date,
+                end_reason,
                 notes,
             }
         },
@@ -237,6 +241,7 @@ fn normalize_relationship_body(
     kind: RelationshipKind,
     start_date: Option<chrono::NaiveDate>,
     end_date: Option<chrono::NaiveDate>,
+    end_reason: Option<String>,
     notes: Option<String>,
 ) -> Option<(
     usize,
@@ -245,12 +250,9 @@ fn normalize_relationship_body(
     Option<chrono::NaiveDate>,
     Option<chrono::NaiveDate>,
     Option<String>,
+    Option<String>,
 )> {
     if source_entity_id == 0 || target_entity_id == 0 || source_entity_id == target_entity_id {
-        return None;
-    }
-
-    if !kind.is_lineage() {
         return None;
     }
 
@@ -261,12 +263,24 @@ fn normalize_relationship_body(
         return None;
     }
 
+    let (source_entity_id, target_entity_id) = match kind.topology() {
+        RelationshipTopology::Directed => (source_entity_id, target_entity_id),
+        RelationshipTopology::Symmetric => {
+            if source_entity_id < target_entity_id {
+                (source_entity_id, target_entity_id)
+            } else {
+                (target_entity_id, source_entity_id)
+            }
+        }
+    };
+
     Some((
         source_entity_id,
         target_entity_id,
         kind,
         start_date,
         end_date,
+        normalize_optional_text(end_reason),
         normalize_optional_text(notes),
     ))
 }

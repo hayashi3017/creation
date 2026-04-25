@@ -1,6 +1,6 @@
 # Data Model
 
-Last updated: 2026-04-11
+Last updated: 2026-04-26
 
 ## Scope
 
@@ -20,15 +20,11 @@ Defined enum types:
 - `gender_kind`: `male`, `female`, `other`, `unknown`
 - `relationship_kind`:
   - `parent`
-  - `child`
-  - `sibling`
-  - `spouse`
-  - `adopted_parent`
-  - `adopted_child`
-  - `divorced_spouse`
-  - `cohabitant`
+  - `adoptive_parent`
   - `step_parent`
-  - `step_child`
+  - `spouse`
+  - `partner`
+  - `cohabitant`
 
 ## Tables
 
@@ -142,6 +138,7 @@ Columns:
 - `kind relationship_kind NOT NULL`
 - `start_date DATE`
 - `end_date DATE`
+- `end_reason VARCHAR(32)`
 - `notes TEXT`
 - `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`
 - `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`
@@ -189,4 +186,5 @@ Defined in migration but not yet wired in current repositories/handlers:
 - User email is normalized to lowercase at registration and login query paths.
 - Passwords are hashed with Argon2 before insert (`creation-adapter/src/repository/user.rs`).
 - JWT `sub` claim stores user UUID as string.
-- `relationship` write APIs currently accept only `parent` and `child`; `tree_path` is rebuilt from those lineage edges only.
+- `relationship` write APIs accept canonical stored relationship kinds only.
+- `tree_path` is rebuilt from active `parent` and `adoptive_parent` lineage edges only.

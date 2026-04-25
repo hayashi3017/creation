@@ -218,11 +218,11 @@ async fn create_relationship_rejects_cycle_and_rolls_back(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship"))]
-async fn create_relationship_rejects_non_lineage_kind(db: PgPool) {
+async fn create_relationship_normalizes_symmetric_kind(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
-    let mut router = setup_router(db).await;
+    let mut router = setup_router(db.clone()).await;
     let resp = router
         .borrow_mut()
         .oneshot(
@@ -234,8 +234,8 @@ async fn create_relationship_rejects_non_lineage_kind(db: PgPool) {
                 .body(Body::from(
                     serde_json::to_string(&json!({
                         "diagram_id": 1,
-                        "source_entity_id": 1,
-                        "target_entity_id": 2,
+                        "source_entity_id": 6,
+                        "target_entity_id": 1,
                         "kind": "spouse"
                     }))
                     .unwrap(),
@@ -245,7 +245,29 @@ async fn create_relationship_rejects_non_lineage_kind(db: PgPool) {
         .await
         .unwrap();
 
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = sqlx::query(
+        r#"
+            SELECT source_entity_id, target_entity_id, kind
+            FROM relationship
+            WHERE
+                diagram_id = $1
+                AND kind = 'spouse'
+                AND deleted_at IS NULL
+        "#,
+    )
+    .bind(1_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(row.get::<i64, _>("source_entity_id"), 1);
+    assert_eq!(row.get::<i64, _>("target_entity_id"), 6);
+    assert_eq!(
+        row.get::<RelationshipKind, _>("kind"),
+        RelationshipKind::Spouse
+    );
 }
 
 #[sqlx::test(fixtures("relationship"))]
