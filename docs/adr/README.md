@@ -12,3 +12,4 @@
 - `docs/adr/0002-entity-diagram-reassignment-policy.md`: Whether generic entity update may change `diagram_id`
 - `docs/adr/0003-transaction-port-for-aggregate-writes.md`: Where aggregate orchestration and transaction boundaries should live
 - `docs/adr/0004-relationship-lineage-tree-maintenance.md`: Which relationship kinds contribute to `tree_path` and how they are maintained
+- `docs/adr/0005-as-of-projection-tree-path-boundary.md`: Why as-of family-tree reads derive lineage closure request-locally instead of using current `tree_path`
