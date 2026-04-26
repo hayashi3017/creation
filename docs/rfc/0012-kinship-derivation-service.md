@@ -1,7 +1,7 @@
 # RFC 0012: Kinship Derivation Service
 
-- Status: `Draft`
-- Last updated: `2026-04-25`
+- Status: `Accepted`
+- Last updated: `2026-04-26`
 
 ## Background
 
@@ -147,15 +147,15 @@ This RFC recommends a policy rather than an immediate schema rewrite:
 - derived relationships are computed at read time and are never persisted
 - suggested relationships are heuristics that may be returned to clients later, but are not treated as canonical facts
 
-Current read/write baseline:
+Current read/write baseline after RFC 0013:
 
-- explicit lineage: `parent`, `child`
-- future explicit kinds may include `spouse`, `cohabitant`, `adopted_parent`, `adopted_child`, `step_parent`, `step_child`
+- explicit tree-edge lineage: `parent`, `adoptive_parent`
+- explicit non-tree-edge canonical kinds: `step_parent`, `spouse`, `partner`, `cohabitant`
 - derived-only kinds should include `sibling`, `ancestor`, `descendant`, `uncle_aunt`, `nephew_niece`, `cousin`, and `in_law`
 
 Do not store `sibling`, `ancestor`, `cousin`, or similar graph-expanded kinship as independent rows.
 
-The current Rust enum already contains some kinds such as `Sibling`, but this RFC treats that as an implementation detail of the current model, not as approval to persist sibling rows going forward.
+The storage-facing Rust enum should not contain derived-only kinds such as `Sibling`.
 
 ## Relationship Source
 
@@ -230,10 +230,10 @@ This avoids locking the core domain contract to one language or one UI wording p
 Examples:
 
 - `parent(A, B)` implies canonical lineage edge `A -> B`
-- `child(A, B)` implies canonical lineage edge `B -> A`
+- `adoptive_parent(A, B)` implies canonical lineage edge `A -> B`
 - `spouse(A, B)` is symmetric
 - `cohabitant(A, B)` is symmetric
-- `divorced_spouse(A, B)` is symmetric as a historical relationship, not a current spouse guarantee
+- ended spouse state is represented by `spouse + end_date + end_reason`, not by a separate stored kind
 
 ### Tree Path
 
@@ -359,7 +359,7 @@ Keep the public `/api/family-trees/{diagram_id}` response unchanged.
 
 Introduce `KinshipDerivationService` with only the read-side canonicalization needed by the current endpoint:
 
-- `parent` / `child` normalization into canonical lineage edges
+- `parent` / `adoptive_parent` normalization into canonical lineage edges
 - filtering to active visible scope
 
 Keep in `FamilyTreeUsecase` for now:
@@ -373,6 +373,14 @@ This keeps the boundary MECE:
 
 - derivation service derives kinship facts
 - usecase assembles endpoint-specific response shape
+
+Implementation status:
+
+- implemented in `creation-service/src/service/kinship_derivation.rs`
+- `FamilyTreeUsecase` now passes already loaded explicit relationships and active person ids into the service
+- the service returns canonical lineage edges for the current family-tree projection
+- the service also emits explicit parent/adoptive-parent relations and derived inverse child/adoptive-child relations internally
+- the public `/api/family-trees/{diagram_id}` response remains unchanged
 
 ### Phase 2
 

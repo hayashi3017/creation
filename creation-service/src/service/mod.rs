@@ -1,5 +1,6 @@
 pub mod diagram;
 pub mod entity;
+pub mod kinship_derivation;
 pub mod person;
 pub mod relationship;
 pub mod transaction;

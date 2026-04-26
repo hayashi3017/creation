@@ -19,6 +19,7 @@ use creation_service::{
     service::{
         diagram::{DiagramService, ProvidesDiagramService},
         entity::{EntityService, ProvidesEntityService},
+        kinship_derivation::{KinshipDerivationService, ProvidesKinshipDerivationService},
         person::{PersonService, ProvidesPersonService},
         relationship::{ProvidesRelationshipService, RelationshipService},
         transaction::{
@@ -202,6 +203,7 @@ impl TransactionContext for AppModule {
 impl UserService for AppModule {}
 impl DiagramService for AppModule {}
 impl EntityService for AppModule {}
+impl KinshipDerivationService for AppModule {}
 impl PersonService for AppModule {}
 impl RelationshipService for AppModule {}
 impl TreePathService for AppModule {}
@@ -234,6 +236,14 @@ impl ProvidesPersonService for AppModule {
     type T = Self;
 
     fn person_service(&self) -> &Self::T {
+        self
+    }
+}
+
+impl ProvidesKinshipDerivationService for AppModule {
+    type T = Self;
+
+    fn kinship_derivation_service(&self) -> &Self::T {
         self
     }
 }
@@ -320,8 +330,8 @@ mod tests {
         },
         service::{
             diagram::ProvidesDiagramService, entity::ProvidesEntityService,
-            person::ProvidesPersonService, relationship::ProvidesRelationshipService,
-            user::ProvidesUserService,
+            kinship_derivation::ProvidesKinshipDerivationService, person::ProvidesPersonService,
+            relationship::ProvidesRelationshipService, user::ProvidesUserService,
         },
     };
     use creation_usecase::usecase::{
@@ -350,6 +360,7 @@ mod tests {
         ProvidesUserService
         + ProvidesDiagramService
         + ProvidesEntityService
+        + ProvidesKinshipDerivationService
         + ProvidesPersonService
         + ProvidesRelationshipService
     {
@@ -358,6 +369,7 @@ mod tests {
         T: ProvidesUserService
             + ProvidesDiagramService
             + ProvidesEntityService
+            + ProvidesKinshipDerivationService
             + ProvidesPersonService
             + ProvidesRelationshipService
     {

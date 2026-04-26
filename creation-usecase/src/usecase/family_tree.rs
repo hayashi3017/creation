@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use async_trait::async_trait;
 use creation_service::{
@@ -8,14 +8,16 @@ use creation_service::{
         family_tree::{
             FamilyTree, FamilyTreeEdge, FamilyTreeNode, FamilyTreeStats, GetFamilyTreeSchema,
         },
+        kinship_derivation::{CanonicalLineageEdge, DeriveKinshipInput},
         person::{GetPersonRecordsSchema, Person, PersonRecord},
-        relationship::{GetRelationshipsSchema, Relationship, RelationshipKind},
+        relationship::GetRelationshipsSchema,
     },
     repository::diagram::{
         GetDiagramRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
     },
     service::{
         entity::{GetEntitiesServiceError, ProvidesEntityService, UsesEntityService},
+        kinship_derivation::{ProvidesKinshipDerivationService, UsesKinshipDerivationService},
         person::{GetPersonRecordsServiceError, ProvidesPersonService, UsesPersonService},
         relationship::{
             GetRelationshipsServiceError, ProvidesRelationshipService, UsesRelationshipService,
@@ -30,6 +32,7 @@ pub trait FamilyTreeUsecase:
     + ProvidesEntityService
     + ProvidesPersonService
     + ProvidesRelationshipService
+    + ProvidesKinshipDerivationService
 {
 }
 
@@ -87,7 +90,7 @@ impl<T: FamilyTreeUsecase> UsesGetFamilyTreeUsecase for T {
         let active_person_ids = persons
             .iter()
             .map(|person| person.entity_id)
-            .collect::<HashSet<_>>();
+            .collect::<Vec<_>>();
         let relationships = self
             .relationship_service()
             .get_relationships(GetRelationshipsSchema {
@@ -95,7 +98,14 @@ impl<T: FamilyTreeUsecase> UsesGetFamilyTreeUsecase for T {
             })
             .await
             .map_err(map_get_relationships_error)?;
-        let edges = build_family_tree_edges(relationships, &active_person_ids);
+        let kinship_derivation = self
+            .kinship_derivation_service()
+            .derive_kinship(DeriveKinshipInput {
+                active_person_ids,
+                explicit_relationships: relationships,
+            })
+            .await;
+        let edges = build_family_tree_edges(kinship_derivation.lineage_edges);
         let (parent_entity_ids_by_child, child_entity_ids_by_parent) = build_adjacency_maps(&edges);
 
         let mut root_entity_ids = Vec::new();
@@ -234,36 +244,18 @@ fn merge_persons(
     persons
 }
 
-fn build_family_tree_edges(
-    relationships: Vec<Relationship>,
-    active_person_ids: &HashSet<usize>,
-) -> Vec<FamilyTreeEdge> {
-    relationships
+fn build_family_tree_edges(lineage_edges: Vec<CanonicalLineageEdge>) -> Vec<FamilyTreeEdge> {
+    lineage_edges
         .into_iter()
-        .filter_map(|relationship| {
-            let (parent_entity_id, child_entity_id) = match relationship.kind {
-                RelationshipKind::Parent | RelationshipKind::AdoptiveParent => {
-                    (relationship.source_entity_id, relationship.target_entity_id)
-                }
-                _ => return None,
-            };
-
-            if !active_person_ids.contains(&parent_entity_id)
-                || !active_person_ids.contains(&child_entity_id)
-            {
-                return None;
-            }
-
-            Some(FamilyTreeEdge {
-                relationship_id: relationship.relationship_id,
-                parent_entity_id,
-                child_entity_id,
-                kind: relationship.kind,
-                start_date: relationship.start_date,
-                end_date: relationship.end_date,
-                end_reason: relationship.end_reason,
-                notes: relationship.notes,
-            })
+        .map(|lineage_edge| FamilyTreeEdge {
+            relationship_id: lineage_edge.relationship_id,
+            parent_entity_id: lineage_edge.parent_entity_id,
+            child_entity_id: lineage_edge.child_entity_id,
+            kind: lineage_edge.kind,
+            start_date: lineage_edge.start_date,
+            end_date: lineage_edge.end_date,
+            end_reason: lineage_edge.end_reason,
+            notes: lineage_edge.notes,
         })
         .collect()
 }
