@@ -1,7 +1,11 @@
--- Drop tables in reverse order of dependencies
-
-DROP TABLE IF EXISTS person;
+DROP TABLE IF EXISTS tree_path;
 DROP TABLE IF EXISTS relationship;
+DROP TABLE IF EXISTS person;
 DROP TABLE IF EXISTS entity;
 DROP TABLE IF EXISTS diagram;
 DROP TABLE IF EXISTS users;
+
+DROP TYPE IF EXISTS relationship_kind;
+DROP TYPE IF EXISTS gender_kind;
+DROP TYPE IF EXISTS entity_kind;
+DROP TYPE IF EXISTS diagram_kind;

@@ -424,7 +424,23 @@ fn normalize_host_database_url(database_url: &str) -> Option<String> {
         &format!("localhost{host_suffix}"),
     );
 
-    Some(normalized_url)
+    Some(disable_local_postgres_ssl(&normalized_url))
+}
+
+fn disable_local_postgres_ssl(database_url: &str) -> String {
+    if database_url.contains("sslmode=") {
+        return database_url.to_string();
+    }
+
+    let fragment_start = database_url.find('#').unwrap_or(database_url.len());
+    let (without_fragment, fragment) = database_url.split_at(fragment_start);
+    let separator = if without_fragment.contains('?') {
+        "&"
+    } else {
+        "?"
+    };
+
+    format!("{without_fragment}{separator}sslmode=disable{fragment}")
 }
 
 fn test_requires_database(package: Option<&str>) -> bool {
@@ -447,7 +463,33 @@ mod tests {
 
         assert_eq!(
             normalized.as_deref(),
-            Some("postgres://hayashi3017:password@localhost:5432/creation")
+            Some("postgres://hayashi3017:password@localhost:5432/creation?sslmode=disable")
+        );
+    }
+
+    #[test]
+    fn normalize_host_database_url_preserves_existing_query_and_disables_ssl() {
+        let normalized = normalize_host_database_url(
+            "postgres://hayashi3017:password@host.docker.internal:5432/creation?application_name=xtask",
+        );
+
+        assert_eq!(
+            normalized.as_deref(),
+            Some(
+                "postgres://hayashi3017:password@localhost:5432/creation?application_name=xtask&sslmode=disable"
+            )
+        );
+    }
+
+    #[test]
+    fn normalize_host_database_url_keeps_existing_sslmode() {
+        let normalized = normalize_host_database_url(
+            "postgres://hayashi3017:password@host.docker.internal:5432/creation?sslmode=require",
+        );
+
+        assert_eq!(
+            normalized.as_deref(),
+            Some("postgres://hayashi3017:password@localhost:5432/creation?sslmode=require")
         );
     }
 

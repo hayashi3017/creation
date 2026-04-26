@@ -1,28 +1,32 @@
--- type
-CREATE TYPE diagram_kind AS ENUM ('family_tree', 'correlation');
-CREATE TYPE entity_kind AS ENUM ('person');
-CREATE TYPE gender_kind AS ENUM ('male', 'female', 'other', 'unknown');
-CREATE TYPE relationship_kind AS ENUM (
-  'parent',  -- 親
-  'child', -- 子
-  'sibling', -- 兄弟姉妹
-  'spouse', -- 配偶者
-  'adopted_parent', -- 養親
-  'adopted_child', -- 養子
-  'divorced_spouse', -- 離婚した配偶者
-  'cohabitant', -- 同居人
-  'step_parent', -- 継親
-  'step_child' -- 継子
-);
-
-
-
--- 必要な拡張（UUID v4用）
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Users テーブル
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TYPE diagram_kind AS ENUM (
+    'family_tree',
+    'correlation'
+);
+
+CREATE TYPE entity_kind AS ENUM (
+    'person'
+);
+
+CREATE TYPE gender_kind AS ENUM (
+    'male',
+    'female',
+    'other',
+    'unknown'
+);
+
+CREATE TYPE relationship_kind AS ENUM (
+    'parent',
+    'adoptive_parent',
+    'step_parent',
+    'spouse',
+    'partner',
+    'cohabitant'
+);
+
+CREATE TABLE users (
+    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     photo VARCHAR(255) NOT NULL DEFAULT 'default.png',
@@ -32,11 +36,8 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS users_email_idx ON users (email);
-
--- Diagram テーブル
-CREATE TABLE IF NOT EXISTS diagram (
-    id BIGSERIAL PRIMARY KEY,
+CREATE TABLE diagram (
+    diagram_id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
     description TEXT,
@@ -45,10 +46,9 @@ CREATE TABLE IF NOT EXISTS diagram (
     deleted_at TIMESTAMPTZ
 );
 
--- Entity テーブル
-CREATE TABLE IF NOT EXISTS entity (
-    id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
+CREATE TABLE entity (
+    entity_id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
     kind entity_kind NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -57,9 +57,8 @@ CREATE TABLE IF NOT EXISTS entity (
     deleted_at TIMESTAMPTZ
 );
 
--- Person テーブル
-CREATE TABLE IF NOT EXISTS person (
-    entity_id BIGINT PRIMARY KEY REFERENCES entity(id) ON DELETE CASCADE,
+CREATE TABLE person (
+    entity_id BIGINT PRIMARY KEY REFERENCES entity(entity_id) ON DELETE CASCADE,
     gender gender_kind DEFAULT 'unknown',
     birth_date DATE,
     death_date DATE,
@@ -71,35 +70,56 @@ CREATE TABLE IF NOT EXISTS person (
     deleted_at TIMESTAMPTZ
 );
 
--- Relationship テーブル
-CREATE TABLE IF NOT EXISTS relationship (
-    id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE,
-    source_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-    target_entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+CREATE TABLE relationship (
+    relationship_id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    source_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    target_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     kind relationship_kind NOT NULL,
     start_date DATE,
     end_date DATE,
+    end_reason VARCHAR(32),
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at TIMESTAMPTZ
+    deleted_at TIMESTAMPTZ,
+    CONSTRAINT chk_relationship_no_active_self_relation
+        CHECK (deleted_at IS NOT NULL OR source_entity_id <> target_entity_id)
 );
 
--- TreePath テーブル（閉包テーブルパターン用）
-CREATE TABLE IF NOT EXISTS tree_path (
-    ancestor_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
-    descendant_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE,
+CREATE TABLE tree_path (
+    ancestor_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    descendant_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     depth INT NOT NULL,
     PRIMARY KEY (ancestor_id, descendant_id)
 );
 
--- インデックス
-CREATE INDEX IF NOT EXISTS idx_entity_kind ON entity(kind);
-CREATE INDEX IF NOT EXISTS idx_relationship_source_entity ON relationship(source_entity_id);
-CREATE INDEX IF NOT EXISTS idx_relationship_target_entity ON relationship(target_entity_id);
-CREATE INDEX IF NOT EXISTS idx_relationship_kind ON relationship(kind);
-CREATE INDEX IF NOT EXISTS idx_entity_diagram ON entity(diagram_id);
-CREATE INDEX IF NOT EXISTS idx_relationship_diagram ON relationship(diagram_id);
-CREATE INDEX IF NOT EXISTS idx_tree_path_ancestor ON tree_path(ancestor_id);
-CREATE INDEX IF NOT EXISTS idx_tree_path_descendant ON tree_path(descendant_id);
+CREATE INDEX users_email_idx ON users (email);
+CREATE INDEX idx_entity_kind ON entity(kind);
+CREATE INDEX idx_entity_diagram ON entity(diagram_id);
+CREATE INDEX idx_relationship_source_entity ON relationship(source_entity_id);
+CREATE INDEX idx_relationship_target_entity ON relationship(target_entity_id);
+CREATE INDEX idx_relationship_kind ON relationship(kind);
+CREATE INDEX idx_relationship_diagram ON relationship(diagram_id);
+CREATE INDEX idx_tree_path_ancestor ON tree_path(ancestor_id);
+CREATE INDEX idx_tree_path_descendant ON tree_path(descendant_id);
+
+CREATE UNIQUE INDEX uq_relationship_directed_active
+ON relationship (
+    diagram_id,
+    source_entity_id,
+    target_entity_id,
+    kind
+)
+WHERE deleted_at IS NULL
+    AND kind IN ('parent', 'adoptive_parent', 'step_parent');
+
+CREATE UNIQUE INDEX uq_relationship_symmetric_active
+ON relationship (
+    diagram_id,
+    LEAST(source_entity_id, target_entity_id),
+    GREATEST(source_entity_id, target_entity_id),
+    kind
+)
+WHERE deleted_at IS NULL
+    AND kind IN ('spouse', 'partner', 'cohabitant');
