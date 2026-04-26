@@ -1,56 +1,51 @@
-# RFC 0003: Validation And Normalization
+# RFC 0003: Validation と Normalization
 
-- Status: `Accepted`
-- Last updated: `2026-03-14`
+- 状態: `採用`
+- 最終更新: `2026-03-14`
 
-## Background
+## 背景
 
-Diagram / Entity validation is currently minimal:
+Diagram / Entity の validation は現在最小限である。
 
-- `id` / `diagram_id` must be non-zero
-- `name` must not be an empty string
+- `id` / `diagram_id` は 0 以外であること
+- `name` は空文字列でないこと
 
-This leaves whitespace-only names, max length, description normalization, and foreign key checks underspecified.
+whitespace-only name、最大長、description normalization、foreign key check は未定義に近い。
 
-## Proposal
+## 提案
 
-Define shared write-time validation rules.
+write 時の共通 validation rule を定義する。
 
-### Name
+### 名前
 
-- trim leading and trailing whitespace before validation
-- reject empty results after trimming
-- enforce an explicit max length aligned with DB column size
+- validation 前に前後の whitespace を trim する
+- trim 後に空なら reject する
+- DB column size と揃えた明示的な最大長を適用する
 
-### Description
+### 説明
 
-- trim surrounding whitespace
-- convert empty string to `NULL`
-- document whether multi-line text is preserved as-is
+- 前後の whitespace を trim する
+- 空文字列は `NULL` に変換する
+- multi-line text をそのまま保持するかを明文化する
 
-### Diagram
+### Diagram の検証
 
-- apply the shared name / description rules
+- 共通 name / description rule を適用する
 
-### Entity
+### Entity の検証
 
-- apply the shared name / description rules
-- validate that the target `diagram_id` exists and is not soft-deleted before create
-- validate updates according to [ADR 0002](../adr/0002-entity-diagram-reassignment-policy.md)
+- 共通 name / description rule を適用する
+- create 前に target `diagram_id` が存在し、soft-delete されていないことを検証する
+- update は [ADR 0002](../adr/0002-entity-diagram-reassignment-policy.md) に従って検証する
 
-## Implementation Notes
+## 影響
 
-- normalization should happen before repository calls
-- validation errors should use typed domain errors rather than relying on DB constraint failures
+- API 入力の揺れを service 層で吸収できる
+- DB constraint violation を application-level validation error に寄せられる
+- repository は normalize 済み payload を受け取る前提にできる
 
-## Implementation Status
+## 未解決事項
 
-- `diagram` / `entity` write paths now trim surrounding whitespace from `name`.
-- `name` is rejected when empty after trimming or when it exceeds the current DDL-backed `VARCHAR(255)` limit.
-- `description` is now optional in write requests and is normalized to `NULL` when omitted, `null`, or blank after trimming.
-- `diagram_id` existence checks and the final entity reassignment policy remain pending follow-up work tied to [ADR 0002](../adr/0002-entity-diagram-reassignment-policy.md).
-
-## Review Points
-
-- Should max length be checked by characters, bytes, or left to PostgreSQL column validation?
-- Do we want to preserve intentionally blank descriptions as empty strings, or standardize on `NULL` everywhere?
+- description の最大長を設けるか
+- locale-aware な name validation が必要か
+- HTML / markdown / plain text の扱いをどこまで制限するか

@@ -1,480 +1,134 @@
-# RFC 0008: Genealogy Aggregate, Diagram Merge, and Entity Visibility
+# RFC 0008: Genealogy Aggregate、Diagram Merge、Entity Visibility
 
-- Status: `Draft`
-- Last updated: `2026-03-28`
+- 状態: `下書き`
+- 最終更新: `2026-03-28`
 
-## Background
+## 背景
 
-The current model treats `diagram` as the top-level container for `entity`, `person`, `relationship`, and `tree_path`.
+現在の model では `diagram` が `entity`、`person`、`relationship`、`tree_path` の top-level container である。
 
-That works for single-diagram editing, but it does not yet define how to:
+これは単一 diagram の編集には十分だが、次の要件はまだ定義していない。
 
-- manage multiple family-tree diagrams as one mergeable unit
-- render a merged family-tree view without copying all source rows into a new diagram
-- reflect source diagram updates in the merged view after the merge has been configured
-- express publication scope for the container being shared
-- hide a person from public output while keeping visibility ownership on `entity`
-- avoid the inconsistent state where the same real-world person is visible in one source diagram and hidden in another
-- request centered views with JSON request data instead of query parameters
+- 複数 family-tree diagram を 1 つの mergeable unit として管理する
+- source row を新しい diagram に deep-copy せず merged family-tree view を描画する
+- merge 設定後も source diagram の更新を merged view に反映する
+- 共有対象 container の publication scope を表現する
+- public output から人物を隠しつつ、visibility ownership を `entity` に置く
+- 同じ実人物が diagram ごとに visible/hidden で食い違う状態を避ける
+- query parameter ではなく JSON request body で centered view を要求する
 
-The current single-diagram family-tree read API should remain valid, but it is not enough for these multi-diagram requirements.
+既存の単一 diagram family-tree read API は維持するが、multi-diagram 要件には不足している。
 
-## Goals
+## 目標
 
-- keep `diagram` as the write unit for existing CRUD on diagrams, persons, and relationships
-- add a higher-level aggregate that groups diagrams for merge and publication purposes
-- avoid deep-copy merge semantics so source updates naturally flow into merged reads
-- keep hidden-state ownership on `entity`
-- guarantee consistent hidden-state behavior for linked entities that represent the same person
-- support centered read requests through JSON request bodies
+- 既存 CRUD の write unit として `diagram` を維持する
+- diagram を merge / publication 用に group 化する上位 aggregate を追加する
+- source update が merged read に自然に反映されるよう、deep-copy merge を避ける
+- hidden state の ownership を `entity` に置く
+- 同じ人物を表す linked entity の hidden state を一貫させる
+- centered read request を JSON body で扱えるようにする
 
-## Non-Goals
+## 対象外
 
-- automatic same-person matching heuristics
-- final ACL or collaborator implementation details
-- replacing the existing single-diagram `GET /api/family-trees/{diagram_id}` endpoint
+- 同一人物の自動 matching heuristic
+- 最終的な ACL / collaborator 実装
+- 既存 `GET /api/family-trees/{diagram_id}` の置き換え
 
-## Naming Options
+## 命名案
 
-Several aggregate names are reasonable:
+候補:
 
-- `genealogy`: recommended
-- `family-space`
-- `family-network`
-- `diagram-group`
+- `genealogy`
+- `family_tree_collection`
+- `family_graph`
+- `lineage_project`
 
-Recommended choice: `genealogy`
+推奨は `genealogy`。理由は diagram より上位の家系情報 container を表しやすく、merged read や publication scope を持たせやすいため。
 
-Why:
+## 提案 model
 
-- it is domain-oriented rather than UI-oriented
-- it is broader than a single tree and can contain multiple roots and multiple source diagrams
-- it is less vague than `family-space`
-- it avoids the storage-oriented feel of `diagram-group`
+追加概念:
 
-Why not choose `family-space` as the primary term:
+- `genealogy`: 複数 diagram を束ねる上位 aggregate
+- `genealogy_diagram`: genealogy と source diagram の関連
+- `entity_identity_link`: 同じ実人物を表す entity の link
+- entity-level visibility: `entity` が public output に出るかを表す状態
 
-- `space` says "container" but not "shared genealogy"
-- it does not strongly imply cross-diagram identity linking
-- it reads more like a collaboration workspace than a genealogy domain object
+`diagram` は引き続き編集単位であり、`genealogy` は merge / publication / visibility consistency の単位である。
 
-## Proposal
+## Merge の意味
 
-Introduce a new top-level aggregate named `genealogy`.
+deep-copy ではなく、source diagram を参照する read-time merge を採用する。
 
-Responsibilities:
+利点:
 
-- own the set of source diagrams that should be rendered together
-- own publication metadata for the merged share unit
-- own cross-diagram same-person linkage metadata
-- provide merged family-tree read projections
+- source diagram の更新が merged view に反映される
+- copy 後の drift を避けられる
+- lineage / relationship の source provenance を保持しやすい
 
-Keep `diagram` as the source-of-truth write unit:
+欠点:
 
-- `diagram` still owns diagram metadata
-- `person` writes still mutate `entity` + `person`
-- `relationship` writes still stay diagram-scoped
-- `tree_path` maintenance remains diagram-scoped
+- read-time assembly が複雑になる
+- identity link と conflict resolution が必要になる
 
-Do not create a merged copy diagram as the primary model.
+## 可視性ポリシー
 
-Instead, define merge as:
+hidden state は `entity` が所有する。
 
-- a genealogy references multiple source diagrams
-- a genealogy links entities across those diagrams when they represent the same real-world person
-- merged reads are derived from source rows plus genealogy-owned linkage metadata
+同じ実人物を表す entity が複数 diagram に存在する場合、link group 内で visibility rule を一貫させる。
 
-This keeps post-merge updates visible without requiring copy-back synchronization.
+例:
 
-## Data Model
+- linked entity のどれかが hidden なら public merged view では全て hidden にする
+- または genealogy-level policy で override を明示する
 
-### New Tables
+初期方針では、安全側に倒して linked group の hidden を public output 全体に伝播させる。
 
-#### `genealogy`
+## 中心人物指定の読み取り
 
-Purpose:
+centered view は JSON request body を使う。
 
-- top-level merge and publication unit for multiple diagrams
+例:
 
-Suggested columns:
-
-- `id BIGSERIAL PRIMARY KEY`
-- `name VARCHAR(255) NOT NULL`
-- `description TEXT`
-- `publication_scope publication_scope NOT NULL DEFAULT 'private'`
-- `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`
-- `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`
-- `deleted_at TIMESTAMPTZ`
-
-#### `genealogy_diagram`
-
-Purpose:
-
-- attach source diagrams to a genealogy
-
-Suggested columns:
-
-- `genealogy_id BIGINT NOT NULL REFERENCES genealogy(id) ON DELETE CASCADE`
-- `diagram_id BIGINT NOT NULL REFERENCES diagram(id) ON DELETE CASCADE`
-- `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`
-- `PRIMARY KEY (genealogy_id, diagram_id)`
-
-#### `genealogy_identity_cluster`
-
-Purpose:
-
-- represent one same-person cluster inside a genealogy without creating a separate canonical person write model
-
-Suggested columns:
-
-- `id BIGSERIAL PRIMARY KEY`
-- `genealogy_id BIGINT NOT NULL REFERENCES genealogy(id) ON DELETE CASCADE`
-- `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`
-
-#### `genealogy_identity_member`
-
-Purpose:
-
-- attach source entities to a same-person cluster
-
-Suggested columns:
-
-- `genealogy_id BIGINT NOT NULL REFERENCES genealogy(id) ON DELETE CASCADE`
-- `cluster_id BIGINT NOT NULL REFERENCES genealogy_identity_cluster(id) ON DELETE CASCADE`
-- `entity_id BIGINT NOT NULL REFERENCES entity(id) ON DELETE CASCADE`
-- `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`
-- `PRIMARY KEY (genealogy_id, entity_id)`
-
-This keeps one entity in at most one identity cluster per genealogy.
-
-### Column Additions
-
-#### `diagram`
-
-Add:
-
-- `publication_scope publication_scope NOT NULL DEFAULT 'private'`
-
-This controls whether the diagram may participate in public or authenticated reads when accessed directly or through a genealogy.
-
-#### `entity`
-
-Add:
-
-- `visibility_mode entity_visibility_mode NOT NULL DEFAULT 'visible'`
-
-Recommended enum shape:
-
-- `visible`
-- `hidden`
-
-The hidden-state owner remains `entity`, not the identity cluster.
-
-### New Enums
-
-#### `publication_scope`
-
-Recommended initial values:
-
-- `private`
-- `authenticated`
-- `public`
-
-`authenticated` is useful even before a richer collaborator model exists because the system already distinguishes authenticated access from public access.
-
-#### `entity_visibility_mode`
-
-Recommended initial values:
-
-- `visible`
-- `hidden`
-
-If the product later needs placeholder nodes instead of omission, add a future `masked` mode instead of overloading `hidden`.
-
-## Merge Semantics
-
-Merge should be logical, not physical.
-
-Algorithm:
-
-1. attach source diagrams to a genealogy
-2. create identity clusters for entities that represent the same person across attached diagrams
-3. load active entities and relationships from attached diagrams
-4. collapse linked entities into one merged node per identity cluster
-5. carry unlinked entities through as standalone merged nodes
-6. normalize lineage relationships into parent-to-child direction
-7. collapse duplicate edges created by linked-entity unification
-8. filter by publication scope and entity visibility
-9. return the merged projection
-
-The merged view should never become the source-of-truth write model.
-
-## Why This Reflects Source Updates
-
-No deep-copy merged diagram is stored.
-
-Instead:
-
-- source `entity` and `relationship` rows stay in their original diagrams
-- genealogy-owned metadata only describes which diagrams belong together and which entities should be treated as the same person
-- merged family-tree reads are rebuilt from live source data
-
-That means:
-
-- editing a person in diagram A changes the next merged read automatically
-- editing a relationship in diagram B changes the next merged read automatically
-- hiding an entity changes the next merged read automatically
-
-If response caching or materialized projections are added later, invalidate them by affected `genealogy_id` on source writes rather than changing the source-of-truth model.
-
-## Visibility And Publication Rules
-
-### Ownership
-
-- publication scope is owned by `diagram` and `genealogy`
-- hidden-state is owned by `entity`
-
-### Effective Publication Rule
-
-Merged reads should include a source diagram only when both of these allow the requested audience:
-
-- the genealogy publication scope
-- the source diagram publication scope
-
-Use the more restrictive result.
-
-Example:
-
-- genealogy = `public`
-- diagram A = `private`
-- diagram B = `public`
-
-Public merged reads may include diagram B data but not diagram A data.
-
-### Effective Hidden Rule
-
-The write owner remains `entity.visibility_mode`, but linked same-person entities must not diverge in a merged genealogy.
-
-Recommended rule:
-
-1. visibility writes target a single entity id
-2. the write use case resolves its genealogy identity cluster memberships
-3. the same visibility value is propagated to all active member entities in the same cluster, in the same transaction
-
-Read-side safety rule:
-
-- if legacy data or manual DB edits leave a cluster inconsistent, the merged read should treat the cluster as hidden if any active member entity is hidden
-
-This keeps ownership on `entity` while preventing the "diagram A visible / diagram B hidden" split for the same person.
-
-### Hidden-Entity Output Behavior
-
-For v1 merged public reads, hidden entities should be omitted from the graph rather than returned as placeholders.
-
-This is simpler than placeholder masking and avoids accidentally leaking names or metadata.
-
-Future masking can be added later as a separate mode.
-
-## Read Model Shape
-
-Do not reuse the single-diagram `FamilyTreeNode.entity_id` as the merged node identifier.
-
-In a merged genealogy, one node may represent:
-
-- one unlinked entity, or
-- multiple linked entities across diagrams
-
-The merged read model should therefore use a stable merged node id.
-
-Recommended shape:
+```http
+POST /api/genealogies/{genealogy_id}/family-tree
+```
 
 ```json
 {
-  "status": "success",
-  "data": {
-    "genealogy": {
-      "id": 10,
-      "name": "Hayashi genealogy",
-      "publication_scope": "public"
-    },
-    "nodes": [
-      {
-        "node_id": "cluster:42",
-        "source_entity_ids": [100, 240],
-        "source_diagram_ids": [1, 4],
-        "representative_entity_id": 100,
-        "name": "A",
-        "parent_node_ids": [],
-        "child_node_ids": ["entity:302"],
-        "is_root": true
-      }
-    ],
-    "edges": [
-      {
-        "edge_id": "cluster:42->entity:302",
-        "source_relationship_ids": [500, 880],
-        "parent_node_id": "cluster:42",
-        "child_node_id": "entity:302"
-      }
-    ]
-  }
+  "center_entity_id": 10,
+  "ancestor_depth": 3,
+  "descendant_depth": 2,
+  "include_hidden": false
 }
 ```
 
-Notes:
+query parameter ではなく body にする理由:
 
-- `source_entity_ids` preserves traceability back to source entities
-- `representative_entity_id` gives the frontend one concrete entity id for drill-down
-- `source_relationship_ids` preserves traceability when multiple source edges collapse into one merged edge
+- request option が増えても構造化しやすい
+- depth、filter、visibility、layout hint をまとめて扱える
+- cache key は後で policy として定義できる
 
-## API Shape
+## レイヤリング
 
-### Management Endpoints
+- write は既存 diagram/person/relationship API を維持する
+- genealogy usecase は source diagram の read と identity link を orchestrate する
+- derivation service は merged graph の kinship semantics を扱う
+- adapter は genealogy 関連 table の repository を追加する
 
-Suggested write endpoints:
+## Migration / rollout
 
-- `POST /api/genealogies/create`
-- `PATCH /api/genealogies/update/{id}`
-- `DELETE /api/genealogies/delete/{id}`
-- `POST /api/genealogies/{id}/diagrams/attach`
-- `POST /api/genealogies/{id}/diagrams/detach`
-- `POST /api/genealogies/{id}/identity-clusters/link`
-- `POST /api/genealogies/{id}/identity-clusters/unlink`
+1. 単一 diagram family-tree API を維持する
+2. `genealogy` と `genealogy_diagram` を追加する
+3. read-only merged view を追加する
+4. entity identity link を追加する
+5. visibility propagation を実装する
+6. publication scope / ACL を追加する
 
-Suggested visibility endpoint:
+## 未解決事項
 
-- `PATCH /api/persons/visibility/{entity_id}`
-
-That endpoint still mutates `entity.visibility_mode` under the current public aggregate model.
-
-### Read Endpoints
-
-Keep the existing simple read:
-
-- `GET /api/family-trees/{diagram_id}`
-
-Add a merged read endpoint for genealogy projections:
-
-- `POST /api/genealogies/{id}/family-trees/view`
-
-Do not use query parameters for centered views or publication previews.
-
-Pass read controls as JSON request data:
-
-```json
-{
-  "data": {
-    "center_entity_id": 240,
-    "ancestor_depth": 2,
-    "descendant_depth": 3,
-    "included_diagram_ids": [1, 4],
-    "audience": "public"
-  }
-}
-```
-
-Recommended request fields:
-
-- `center_entity_id: Option<usize>`
-- `ancestor_depth: Option<usize>`
-- `descendant_depth: Option<usize>`
-- `included_diagram_ids: Option<Vec<usize>>`
-- `audience: Option<publication_scope>`
-
-Behavior:
-
-- if `center_entity_id` is omitted, return the full merged genealogy view
-- if `center_entity_id` is present, resolve it to its identity cluster if linked
-- then return only the requested ancestor / descendant window around that center
-
-Using `POST` for this read is acceptable because the request carries non-trivial structured view instructions and must not be encoded as query parameters.
-
-## Centered View Semantics
-
-Centered views should be defined at the genealogy layer, not as a mutation of the single-diagram family-tree endpoint.
-
-Recommended behavior:
-
-- input center is an `entity_id`
-- if that entity belongs to an identity cluster in the target genealogy, use the merged node for that cluster as the center
-- `ancestor_depth = 0` means no ancestors
-- `descendant_depth = 0` means no descendants
-- if both depths are omitted, return the full merged graph
-
-This keeps the API compatible with the current entity-centric data model while still giving the frontend a merged-person experience.
-
-## Layer Design
-
-### Driver
-
-Add new handlers and OpenAPI docs for:
-
-- genealogy CRUD
-- diagram attach / detach
-- identity-cluster link / unlink
-- merged family-tree view
-- person visibility update
-
-### Usecase
-
-Add a dedicated genealogy use case layer that handles:
-
-- diagram membership validation
-- identity cluster validation
-- cross-entity visibility propagation
-- merged graph assembly
-- centered-graph trimming
-
-### Service
-
-Extract projection logic from the current family-tree use case into reusable graph assembly helpers once genealogy view work starts.
-
-This aligns with the existing expectation that subtree or descendant read models may be added later.
-
-### Adapter
-
-Add repositories for:
-
-- genealogy
-- genealogy_diagram
-- genealogy_identity_cluster
-- genealogy_identity_member
-
-Add bulk read helpers to:
-
-- load all active entities by multiple diagram ids
-- load all active person records by entity ids
-- load all active relationships by multiple diagram ids
-- resolve entity memberships to genealogy clusters
-
-## Validation And Error Mapping
-
-Recommended behavior:
-
-- missing genealogy -> `404 NOT_FOUND`
-- soft-deleted genealogy -> `404 NOT_FOUND`
-- attach diagram not found or deleted -> `404 NOT_FOUND`
-- attach diagram of wrong kind -> `400 BAD_REQUEST`
-- link entities from diagrams not attached to the genealogy -> `400 BAD_REQUEST`
-- link non-person entities -> `400 BAD_REQUEST`
-- request body with invalid depth or ids -> `400 BAD_REQUEST`
-- visibility update on missing entity -> `404 NOT_FOUND`
-- unauthorized access for requested audience -> `401` or `403` depending on auth policy
-- unexpected DB or assembly failure -> `500 INTERNAL_SERVER_ERROR`
-
-## Rollout Plan
-
-1. add new enums and columns for `publication_scope` and `entity.visibility_mode`
-2. add genealogy and membership tables
-3. add attach / detach APIs
-4. add identity-cluster link / unlink APIs
-5. add visibility update API with cluster-wide propagation
-6. add merged family-tree `view` endpoint
-7. optionally add projection cache invalidation if live assembly becomes too expensive
-
-## Open Questions
-
-- Should one `diagram` be attachable to multiple genealogies, or should membership be exclusive?
-- Do we need explicit cross-diagram relationships beyond same-person clustering?
-- Should hidden nodes be fully omitted in all audiences, or should authenticated private reads be able to request placeholders later?
-- Should `audience` stay as an explicit read-body field, or should it eventually be inferred only from auth context plus endpoint choice?
+- genealogy の naming を最終決定するか
+- linked entity の conflict resolution policy
+- hidden state の override を許可するか
+- merged view の sorting / layout policy
+- publication scope と ACL の詳細

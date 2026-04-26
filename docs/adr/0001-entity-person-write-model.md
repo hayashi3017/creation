@@ -1,80 +1,78 @@
-# ADR 0001: Entity-Person Write Model
+# ADR 0001: Entity-Person 書き込みモデル
 
-- Status: `Draft`
-- Last updated: `2026-03-15`
+- 状態: `下書き`
+- 最終更新: `2026-03-15`
 
-## Context
+## 背景
 
-`entity` CRUD is implemented, but `person` table fields are not yet writable through the API.
+`entity` の CRUD は実装済みだが、`person` テーブル固有の項目はまだ API から書き込めない。
 
-Current schema shape:
+現在の schema は次の構造になっている。
 
-- `entity`: generic node row
-- `person`: `entity(kind='person')` specialization row
+- `entity`: 汎用 node row
+- `person`: `entity(kind='person')` の特化 row
 
-If we postpone this decision too long, future API additions may force a breaking request/response change.
+この判断を先送りしすぎると、将来 API を追加するときに request / response の破壊的変更が必要になる可能性がある。
 
-## Options
+## 選択肢
 
-### Option A: Entity and Person are written separately
+### Option A: Entity と Person を別々に書き込む
 
-- generic entity endpoint manages only `entity`
-- separate person endpoint manages `person`
+- 汎用 entity endpoint は `entity` だけを管理する
+- 別の person endpoint が `person` を管理する
 
-Pros:
+利点:
 
-- clear table ownership
-- simpler generic entity payload
+- table ownership が明確
+- 汎用 entity payload が単純
 
-Cons:
+欠点:
 
-- clients must coordinate multiple writes
-- partial write risk unless the server adds orchestration
+- client が複数 write を調整する必要がある
+- server 側で orchestration を入れない限り partial write のリスクがある
 
-### Option B: Single transactional write model with nested kind-specific payload
+### Option B: kind 固有 payload を含む単一 transaction write model
 
-- generic entity create/update accepts common fields
-- when `kind = person`, payload includes nested `person` details
-- server writes both tables in one transaction
+- 汎用 entity create/update が共通項目を受け取る
+- `kind = person` の場合、payload に nested `person` 詳細を含める
+- server が両テーブルを 1 transaction で書き込む
 
-Pros:
+利点:
 
-- matches current domain shape better
-- easier for clients to create complete person entities
-- avoids partial write flows
+- API 呼び出しが 1 回で済む
+- `entity` と `person` の整合性を保ちやすい
+- 将来の `entity_kind` 追加にも同じ形を使える
 
-Cons:
+欠点:
 
-- generic entity API becomes kind-aware
-- future entity kinds need extensible payload design
+- 汎用 endpoint が kind 固有 payload を知る
+- validation と error mapping が少し複雑になる
 
-## Proposed Decision
+### Option C: Person を aggregate resource として扱う
 
-Choose **Option B**.
+- public API は `/api/persons` を中心にする
+- `person` create/update が `entity` 共通項目と `person` 詳細をまとめて受け取る
+- 汎用 `entity` API は内部用または別用途として残す
 
-Recommended request shape:
+利点:
 
-```json
-{
-  "kind": "person",
-  "name": "Alice",
-  "description": "example",
-  "person": {
-    "gender": "female",
-    "birth_date": "1990-01-01"
-  }
-}
-```
+- client から見た resource が明確
+- `person` という business object と request shape が一致する
+- aggregate write を 1 transaction に閉じ込めやすい
 
-## Consequences
+欠点:
 
-- service layer must validate common fields and kind-specific payloads together
-- repository layer should use one transaction for `entity` + `person`
-- future specializations should follow the same nested payload pattern rather than inventing unrelated write APIs
+- 汎用 `entity` API との責務境界を決める必要がある
+- entity kind が増えると kind ごとの endpoint が増える
 
-## Follow-Up
+## 決定
 
-- current implementation exposes `person` as the public aggregate endpoint and writes `entity + person` together there, but generic `/api/entities` is no longer the public write surface
-- internal transaction ownership for that aggregate write is tracked separately in `docs/adr/0003-transaction-port-for-aggregate-writes.md`
-- define how reads should expose person-specific fields
-- define whether non-`person` entity kinds require their own nested object keys when introduced
+public API では Option C を採用する。
+
+`person` は `entity` と `person` specialization をまとめた aggregate resource として扱い、create/update/delete は usecase 層で orchestration する。
+
+## 影響
+
+- `person` API は `entity` 共通項目と `person` 詳細を同じ request で扱う
+- repository は table-focused に保ち、transaction と手順は usecase/service boundary で管理する
+- 将来別の specialization が増える場合も、同じ aggregate endpoint pattern を検討する

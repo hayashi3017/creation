@@ -1,9 +1,9 @@
 # ADR 0005: As-Of Projection と Current TreePath の役割分離
 
-- Status: `Accepted`
-- Last updated: `2026-04-25`
+- 状態: `採用`
+- 最終更新: `2026-04-25`
 
-## Context
+## 背景
 
 家系図の relationship は時系列を持つ。
 
@@ -33,7 +33,7 @@ RFC 0014 では、`GET /api/family-trees/{diagram_id}?as_of=1995-01-01` のよ�
 
 この ADR では、その as-of projection が current-state の `tree_path` を historical source of truth として使うべきかどうかを決定する。
 
-## Problem
+## 問題
 
 as-of mode では、指定日付時点で有効な人物と関係だけを使って家系図を投影したい。
 
@@ -68,7 +68,7 @@ D -> C: 1980-01-01 から 1992-12-31 まで有効
 
 単純な current-state closure や単一期間の closure row では、この意味を安全に扱えない。
 
-## Requirements
+## 要件
 
 as-of projection では次を満たす必要がある。
 
@@ -95,7 +95,7 @@ deleted_at IS NULL
 
 `death_date < as_of` の person は除外せず、deceased であることを UI 側で表現できるようにする。
 
-## Decision
+## 決定
 
 current-state の `tree_path` は as-of historical source of truth として使わない。
 
@@ -127,7 +127,7 @@ as-of projection の active relation 判定には `end_date` を使う。
 
 `end_reason` は validity 判定ではなく、説明や historical annotation に使う。
 
-## Considered Options
+## 検討した選択肢
 
 ### Option A: Current TreePath を As-Of にも使う
 
@@ -193,7 +193,7 @@ as-of projection の active relation 判定には `end_date` を使う。
 - 初期導入では採用しない
 - profiling で必要性が確認された場合だけ再検討する
 
-## Consequences
+## 影響
 
 良い影響:
 
@@ -217,7 +217,7 @@ as-of projection の active relation 判定には `end_date` を使う。
 - `deleted_at` の意味を historical audit のために変えない
 - audit mode が必要な場合は archive/event log を別途設計する
 
-## Rollout
+## 展開
 
 ### Phase 1
 
@@ -273,7 +273,7 @@ CREATE TABLE temporal_tree_path (
 
 この table は初期導入しない。
 
-## Future Extensions
+## 将来の拡張
 
 将来の拡張余地:
 
@@ -284,7 +284,7 @@ CREATE TABLE temporal_tree_path (
 - ancestry view と household view の分離
 - former spouse を active relation ではなく historical annotation として返す endpoint
 
-## Open Questions
+## 未解決事項
 
 - `deleted_at` 済み row を audit mode で参照する必要があるか
 - date precision は `DATE` だけでよいか、year-only / month-only を扱うか
@@ -292,10 +292,10 @@ CREATE TABLE temporal_tree_path (
 - former spouse を as-of active relation から除外した後、どの endpoint で historical annotation として返すか
 - temporal closure cache が必要になった場合、diagram 全体で持つか、date bucket ごとに持つか
 
-## Summary
+## 要約
 
-as-of projection is a query-time interpretation of canonical facts, not a separately persisted historical graph.
+as-of projection は canonical facts の query-time interpretation であり、別途永続化された historical graph ではない。
 
-We will keep `tree_path` as a current-state closure optimization and will not use it as the historical source of truth for as-of family-tree reads.
+`tree_path` は current-state closure optimization として維持し、as-of family-tree read の historical source of truth としては使わない。
 
-For as-of mode, we will filter canonical relationship rows by date and derive lineage closure request-locally.
+as-of mode では canonical relationship rows を date で filter し、lineage closure を request-local に導出する。

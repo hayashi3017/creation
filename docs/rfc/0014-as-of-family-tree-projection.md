@@ -1,63 +1,63 @@
 # RFC 0014: As-Of Family Tree Projection
 
-- Status: `Draft`
-- Last updated: `2026-04-25`
+- 状態: `下書き`
+- 最終更新: `2026-04-25`
 
-## Background
+## 背景
 
-Family-tree relationships are time-dependent.
+Family tree relationships は時点に依存する。
 
-Examples:
+例:
 
-- a spouse relationship may be active in 1990 but ended by 2005
-- a cohabitant or partner relationship may only apply for a limited period
-- an adoptive or step-parent relationship may start after birth
-- a person may be born after the requested point in time
-- a person may have died before the requested point in time, while still remaining visible in a historical family tree
+- spouse relationship は 1990 年には active だが 2005 年には終了している可能性がある。
+- cohabitant や partner relationship は限られた期間にだけ適用される可能性がある。
+- adoptive parent や step-parent relationship は出生後に始まる可能性がある。
+- person は要求された時点より後に生まれている可能性がある。
+- person は要求された時点より前に死亡していても、historical family tree には表示され続けるべき場合がある。
 
-The current schema already has `relationship.start_date` and `relationship.end_date`, but current read paths treat relationships as active rows without a requested historical date.
+現在の schema には既に `relationship.start_date` と `relationship.end_date` があるが、現在の read path は要求された historical date なしに relationships を active rows として扱っている。
 
-This means `GET /api/family-trees/{diagram_id}` can show the current stored graph, but cannot answer questions such as:
+そのため `GET /api/family-trees/{diagram_id}` は現在保存されている graph を表示できるが、次の質問には答えられない。
 
-- "What did this family tree look like on 1995-01-01?"
-- "Who was considered a spouse at this time?"
-- "Which parent / child / sibling / ancestor relationships were valid then?"
-- "What was the kinship from a center person at that point in time?"
+- "1995-01-01 時点でこの family tree はどう見えていたか"
+- "その時点で spouse とみなされていたのは誰か"
+- "どの parent / child / sibling / ancestor relationships がその時点で有効だったか"
+- "その時点で center person から見た kinship は何か"
 
-This RFC proposes an as-of read projection that evaluates explicit relationships and derived kinship at a requested point in time.
+この RFC は、要求された時点で explicit relationships と derived kinship を評価する as-of read projection を提案する。
 
-## Goals
+## 目標
 
-- support family-tree reads for a specific historical date
-- keep temporal behavior read-side first, without rewriting all storage to event sourcing
-- define how relationship `start_date` and `end_date` affect explicit and derived kinship
-- clarify how `tree_path` should be used for as-of reads
-- keep current read behavior compatible when no date is requested
-- align with RFC 0012 and RFC 0013
+- 特定の historical date に対する family-tree read を support する。
+- 全 storage を event sourcing に書き換えず、まず read-side の temporal behavior として扱う。
+- relationship `start_date` と `end_date` が explicit / derived kinship に与える影響を定義する。
+- as-of read で `tree_path` をどう使うべきか明確にする。
+- date が指定されない場合の現在の read behavior と互換性を保つ。
+- RFC 0012 と RFC 0013 に揃える。
 
-## Non-Goals
+## 非目標
 
-- implementing full event sourcing
-- storing every past version of every relationship row
-- deciding final UI timeline controls
-- changing write APIs in the same step
-- making `tree_path` a complete temporal history table in the initial rollout
-- solving ambiguous or approximate historical dates beyond simple date ranges
+- full event sourcing の実装。
+- すべての relationship row の過去 version を保存すること。
+- UI timeline controls の最終決定。
+- 同じ step で write API を変更すること。
+- 初期 rollout で `tree_path` を完全な temporal history table にすること。
+- 単純な date range を超える曖昧または概算の historical date を解くこと。
 
-## Feasibility
+## 実現可能性
 
-This is feasible with the current direction, but the implementation should distinguish two concepts:
+現在の方向性で実現可能だが、実装では 2 つの概念を区別する必要がある。
 
-- current-state closure: maintained `tree_path` for active canonical lineage rows
-- as-of projection: a read model built from rows whose validity range includes the requested date
+- current-state closure: active canonical lineage rows 用に維持される `tree_path`
+- as-of projection: 要求 date を含む validity range を持つ rows から構築される read model
 
-The current `tree_path` table does not store validity ranges, so it cannot answer historical closure queries by itself.
+現在の `tree_path` table は validity range を持たないため、単独では historical closure query に答えられない。
 
-For initial implementation, as-of lineage closure should be derived at read time from filtered canonical relationship rows. This avoids corrupting the meaning of the existing `tree_path` and avoids introducing a temporal closure table before the access pattern is proven.
+初期実装では、as-of lineage closure は filter 済み canonical relationship rows から read time に導出する。これにより既存 `tree_path` の意味を壊さず、access pattern が証明される前に temporal closure table を導入することも避けられる。
 
-## Proposed API
+## 提案 API
 
-Extend the family-tree read endpoint with an optional query parameter:
+Family-tree read endpoint に任意 query parameter を追加する。
 
 ```http
 GET /api/family-trees/{diagram_id}?as_of=1995-01-01
@@ -65,12 +65,12 @@ GET /api/family-trees/{diagram_id}?as_of=1995-01-01
 
 Semantics:
 
-- if `as_of` is omitted, preserve the current behavior
-- if `as_of` is present, return the projection valid on that date
-- `as_of` should be an ISO `YYYY-MM-DD` date
-- invalid dates return `400 BAD_REQUEST`
+- `as_of` 省略時は現在の挙動を維持する。
+- `as_of` 指定時は、その date に有効な projection を返す。
+- `as_of` は ISO `YYYY-MM-DD` date とする。
+- invalid date は `400 BAD_REQUEST` を返す。
 
-Recommended response metadata:
+推奨 response metadata:
 
 ```json
 {
@@ -87,13 +87,13 @@ Recommended response metadata:
 }
 ```
 
-For compatibility, the initial response may omit `temporal_mode` if API churn should be minimized. However, returning `as_of` is useful because it makes cache keys and client state explicit.
+API churn を最小にしたい場合、初期 response は `temporal_mode` を省略してもよい。ただし `as_of` を返すと cache key と client state が明示的になるため有用である。
 
-## Temporal Validity Rules
+## 時点有効性ルール
 
-Use inclusive date ranges.
+Date range は inclusive に扱う。
 
-A relationship is valid at `as_of` when:
+Relationship は次を満たすとき `as_of` で有効である。
 
 ```text
 (start_date IS NULL OR start_date <= as_of)
@@ -103,78 +103,78 @@ AND
 deleted_at IS NULL
 ```
 
-Interpretation:
+解釈:
 
-- `start_date = NULL`: relationship is valid from an unknown beginning
-- `end_date = NULL`: relationship remains valid after its start
-- `start_date = end_date`: relationship is valid for that one date
-- `deleted_at`: administrative deletion; not part of historical validity
+- `start_date = NULL`: relationship は unknown beginning から有効である。
+- `end_date = NULL`: relationship は start 後も有効である。
+- `start_date = end_date`: relationship はその 1 日だけ有効である。
+- `deleted_at`: administrative deletion であり、historical validity の一部ではない。
 
-`deleted_at` should continue to mean "this row should not participate in normal reads." If historical audit of deleted facts is needed later, that should be handled by a separate archive or event log, not by changing this projection.
+`deleted_at` は引き続き「この row は通常 read に参加しない」を意味する。削除済み fact の historical audit が必要な場合は、この projection の意味を変えるのではなく、別 archive または event log で扱う。
 
-## Person Visibility Rules
+## Person 可視性ルール
 
-The initial implementation should not hide deceased persons from a historical family tree.
+初期実装では、historical family tree から deceased persons を隠さない。
 
-Recommended baseline:
+推奨 baseline:
 
-- include active, non-deleted person/entity rows in the diagram
-- if `person.birth_date` is known and `birth_date > as_of`, exclude that person from the as-of projection
-- if `person.death_date` is known and `death_date < as_of`, keep the person visible but mark them as deceased through existing fields
+- diagram 内の active, non-deleted person/entity rows を含める。
+- `person.birth_date` が既知で `birth_date > as_of` の場合、その person を as-of projection から除外する。
+- `person.death_date` が既知で `death_date < as_of` の場合、その person は表示し続け、既存 field で deceased として示す。
 
-Rationale:
+理由:
 
-- family trees usually include ancestors who are no longer alive
-- showing deceased persons is necessary for historical ancestry
-- excluding people not yet born prevents impossible edges from appearing before birth
+- family tree は通常、既に亡くなった ancestors を含む。
+- historical ancestry には deceased persons の表示が必要である。
+- まだ生まれていない人を除外することで、出生前の不可能な edge を防ぐ。
 
-Open policy:
+未決ポリシー:
 
-- if the product later needs "living household at date" views, that should be a separate projection mode from a family-tree ancestry view
+- 将来「date 時点の living household」view が必要な場合、family-tree ancestry view とは別の projection mode とする。
 
-## Relationship Projection Rules
+## Relationship Projection ルール
 
-For as-of reads:
+As-of read では次の順序で処理する。
 
-1. load active persons/entities in the diagram
-2. filter persons by birth-date visibility
-3. load canonical relationship rows valid at `as_of`
-4. filter relationships whose endpoints are not visible in the as-of person set
-5. normalize explicit rows into canonical graph input
-6. derive lineage closure and kinship from the filtered graph
-7. assemble the response
+1. diagram 内の active persons/entities を load する。
+2. birth-date visibility で persons を filter する。
+3. `as_of` で有効な canonical relationship rows を load する。
+4. endpoint が as-of person set に含まれない relationships を filter する。
+5. explicit rows を canonical graph input に normalize する。
+6. filter 済み graph から lineage closure と kinship を derive する。
+7. response を assemble する。
 
-Examples:
+例:
 
-- `spouse(A, B)` with `start_date = 1980-01-01`, `end_date = 2000-12-31` is present for `as_of=1995-01-01`
-- the same spouse row is absent for `as_of=2005-01-01`
-- `parent(A, B)` with no dates is considered valid unless an endpoint is not visible
-- `adoptive_parent(A, B)` starts contributing to lineage only from its `start_date`
+- `start_date = 1980-01-01`, `end_date = 2000-12-31` の `spouse(A, B)` は `as_of=1995-01-01` で present である。
+- 同じ spouse row は `as_of=2005-01-01` では absent である。
+- date がない `parent(A, B)` は endpoint が visible である限り valid とみなす。
+- `adoptive_parent(A, B)` は `start_date` 以降のみ lineage に寄与する。
 
-## Tree Path Strategy
+## Tree Path 戦略
 
-Do not use the current `tree_path` table as the source of truth for as-of closure.
+As-of closure の source of truth として現在の `tree_path` table を使わない。
 
-Reason:
+理由:
 
-- `tree_path` has only `ancestor_id`, `descendant_id`, and `depth`
-- it has no `valid_from` or `valid_to`
-- it is maintained from current active lineage rows
-- a historical query may need closure for a relationship graph that differs from the current graph
+- `tree_path` には `ancestor_id`, `descendant_id`, `depth` しかない。
+- `valid_from` や `valid_to` がない。
+- 現在 active な lineage rows から維持されている。
+- historical query では現在 graph と異なる relationship graph の closure が必要になる可能性がある。
 
-Initial as-of strategy:
+初期 as-of strategy:
 
-- load relationship rows valid at `as_of`
-- keep only tree-edge kinds from RFC 0013, initially `parent` and `adoptive_parent`
-- build ancestor / descendant closure in memory for that request
-- detect cycles against the as-of graph
-- use that request-local closure for derived kinship
+- `as_of` で有効な relationship rows を load する。
+- RFC 0013 の tree-edge kinds、初期は `parent` と `adoptive_parent` のみを残す。
+- request 内で ancestor / descendant closure を memory 上に構築する。
+- as-of graph に対して cycle を detect する。
+- request-local closure を derived kinship に使う。
 
-This is acceptable for the first implementation because diagram-scoped family trees are expected to be small enough for request-local graph derivation.
+Diagram-scoped family tree は request-local graph derivation で扱える程度に小さい想定のため、初期実装としては許容できる。
 
-If performance becomes a problem, add a dedicated temporal closure table later.
+性能問題が出た場合は、後で dedicated temporal closure table を追加する。
 
-Possible future table:
+将来 table 案:
 
 ```sql
 CREATE TABLE temporal_tree_path (
@@ -188,13 +188,13 @@ CREATE TABLE temporal_tree_path (
 );
 ```
 
-This future table should not be introduced until there is a clear need, because maintaining temporal closure correctly is significantly more complex than current-state closure.
+Temporal closure の正しい維持は current-state closure よりかなり複雑なため、明確な必要性が出るまでこの future table は導入しない。
 
-## Kinship Derivation
+## 親族関係導出の扱い
 
-`KinshipDerivationService` from RFC 0012 should accept temporal input without owning persistence.
+RFC 0012 の `KinshipDerivationService` は persistence を所有せず、temporal input を受け取れるようにする。
 
-Recommended input shape:
+推奨 input shape:
 
 ```rust
 struct DeriveKinshipInput {
@@ -205,37 +205,35 @@ struct DeriveKinshipInput {
 }
 ```
 
-The usecase should own loading and temporal filtering.
+Usecase は loading と temporal filtering を所有する。
 
-The derivation service should own only the graph interpretation:
+Derivation service は graph interpretation のみを所有する。
 
-- inverse relationships such as `child`
-- symmetric expansion such as spouse / partner
-- sibling classification from shared as-of parents
-- ancestor / descendant from as-of lineage closure
-- higher-order kinship such as uncle/aunt and cousin
+- `child` のような inverse relationships
+- spouse / partner のような symmetric expansion
+- shared as-of parents からの sibling classification
+- as-of lineage closure からの ancestor / descendant
+- uncle/aunt や cousin のような higher-order kinship
 
-This keeps the responsibility split from RFC 0012 intact.
+これにより RFC 0012 の責務分割を維持する。
 
-## Relationship Lifecycle And End Reasons
+## Relationship Lifecycle と End Reasons
 
-RFC 0013 recommends representing ended spouse relationships with `end_date` and `end_reason` rather than a `divorced_spouse` kind.
+RFC 0013 は、終了した spouse relationships を `divorced_spouse` kind ではなく `end_date` と `end_reason` で表すことを推奨する。
 
-As-of projection should use `end_date` for validity, not `end_reason`.
+As-of projection は validity に `end_reason` ではなく `end_date` を使う。
 
-Examples:
+例:
 
 - `spouse`, `end_date = 2000-01-01`, `end_reason = divorce`
-- valid as spouse on `1999-12-31`
-- absent as spouse on `2001-01-01`
+- `1999-12-31` では spouse として valid
+- `2001-01-01` では spouse として absent
 
-If the UI wants to display "former spouse" after the end date, that should be a separate historical relationship view, not the as-of active relation projection.
+UI が end date 後に "former spouse" を表示したい場合、それは as-of active relation projection ではなく別の historical relationship view とする。
 
-## Query And Repository Changes
+## Query と Repository の変更
 
-Add read schemas that carry `as_of`.
-
-Example:
+`as_of` を持つ read schema を追加する。
 
 ```rust
 struct GetFamilyTreeSchema {
@@ -244,7 +242,7 @@ struct GetFamilyTreeSchema {
 }
 ```
 
-Relationship repository should support a date-filtered read path:
+Relationship repository は date-filtered read path を support する。
 
 ```rust
 struct GetRelationshipsAtDateSchema {
@@ -253,7 +251,7 @@ struct GetRelationshipsAtDateSchema {
 }
 ```
 
-Recommended SQL predicate:
+推奨 SQL predicate:
 
 ```sql
 WHERE
@@ -263,96 +261,94 @@ WHERE
   AND (r.end_date IS NULL OR $2 <= r.end_date)
 ```
 
-Person loading can initially reuse the current person list query and filter `birth_date` in the usecase. If this becomes inefficient, add a repository query that applies the same visibility rule in SQL.
+Person loading は初期状態では現在の person list query を再利用し、usecase で `birth_date` filter を行ってよい。非効率になった場合は、同じ visibility rule を SQL で適用する repository query を追加する。
 
-## Current Versus Historical Modes
+## Current Mode と Historical Mode
 
-There should be two separate code paths at the point where lineage closure is obtained:
+Lineage closure を得る時点で 2 つの code path を分ける。
 
-- current mode: may use maintained `tree_path`
-- as-of mode: builds request-local lineage closure from date-filtered relationships
+- current mode: 維持済み `tree_path` を使ってよい。
+- as-of mode: date-filtered relationships から request-local lineage closure を構築する。
 
-Do not mutate `tree_path` during an as-of read.
+As-of read 中に `tree_path` を mutate しない。Historical date 用に `tree_path` を一時 rebuild しようとしない。
 
-Do not try to temporarily rebuild `tree_path` for a historical date.
+維持済み `tree_path` は、現在 active graph の write-side consistency optimization のままである。
 
-The maintained `tree_path` remains a write-side consistency optimization for the current active graph.
-
-## Incremental Rollout
+## 段階的な展開
 
 ### Phase 1
 
-Add `as_of` to `GET /api/family-trees/{diagram_id}`.
+`GET /api/family-trees/{diagram_id}` に `as_of` を追加する。
 
-For this phase:
+この phase では次を行う。
 
-- filter explicit relationships by date
-- keep the public response shape mostly unchanged
-- derive direct edges from the as-of relationship set
-- build roots and adjacency from those as-of edges
-- do not expose richer derived kinship yet
+- explicit relationships を date で filter する。
+- public response shape はほぼ変更しない。
+- as-of relationship set から direct edges を derive する。
+- as-of edges から roots と adjacency を構築する。
+- richer derived kinship はまだ expose しない。
 
 ### Phase 2
 
-Wire `KinshipDerivationService` to accept as-of input.
+`KinshipDerivationService` が as-of input を受け取れるように接続する。
 
-For this phase:
+この phase では次を行う。
 
-- derive sibling / ancestor / descendant against as-of lineage
-- include source metadata internally
-- keep public response stable unless a separate response contract is accepted
+- as-of lineage に対して sibling / ancestor / descendant を derive する。
+- source metadata を内部的に含める。
+- 別 response contract が accepted されるまで public response を安定させる。
 
 ### Phase 3
 
-Add a richer temporal kinship endpoint if needed:
+必要に応じて richer temporal kinship endpoint を追加する。
 
 ```http
 GET /api/family-trees/{diagram_id}/kinships?as_of=1995-01-01&center_entity_id=10
 ```
 
-This endpoint can expose richer labels and center-person-relative kinship without overloading the current family-tree projection.
+この endpoint は現在の family-tree projection を過負荷にせず、richer labels と center-person-relative kinship を expose できる。
 
 ### Phase 4
 
-Consider temporal closure caching only if profiling shows request-local derivation is too slow.
+Profiling により request-local derivation が遅いと分かった場合にのみ、temporal closure caching を検討する。
 
-## Benefits
+## 利点
 
-- supports historical family-tree rendering without event sourcing
-- reuses existing `start_date` and `end_date`
-- keeps `tree_path` semantics clean
-- works with canonical relationship storage from RFC 0013
-- gives UI a clear `as_of` parameter for timeline controls
-- allows derived kinship to be evaluated consistently at a point in time
+- event sourcing なしに historical family-tree rendering を support できる。
+- 既存の `start_date` と `end_date` を再利用できる。
+- `tree_path` semantics を clean に保てる。
+- RFC 0013 の canonical relationship storage と整合する。
+- UI に timeline control 用の明確な `as_of` parameter を提供できる。
+- derived kinship を特定時点で一貫して評価できる。
 
-## Drawbacks
+## 欠点
 
-- as-of reads may be slower than current-state reads because closure is derived per request
-- date ranges with unknown starts or ends can still be semantically ambiguous
-- existing rows without dates are treated as always valid, which may be historically inaccurate
-- deleted rows are not available for historical projection unless archival support is added later
-- richer temporal semantics may eventually require event history or versioned facts
+- as-of read は request ごとに closure を derive するため current-state read より遅くなる可能性がある。
+- unknown start / end を持つ date range は依然として意味的に曖昧である。
+- date がない既存 rows は常に valid として扱われるため、historical accuracy が低い可能性がある。
+- archival support が追加されるまで、deleted rows は historical projection に使えない。
+- richer temporal semantics には将来的に event history や versioned facts が必要になる可能性がある。
 
-## Test Plan
+## テスト計画
 
-Minimum coverage:
+最小 coverage:
 
-- omitting `as_of` preserves current family-tree response behavior
-- invalid `as_of` returns `400 BAD_REQUEST`
-- relationship before `start_date` is excluded
-- relationship on `start_date` is included
-- relationship on `end_date` is included
-- relationship after `end_date` is excluded
-- person with `birth_date > as_of` is excluded
-- deceased person remains visible after `death_date`
-- roots and adjacency are recomputed from the as-of graph
-- as-of projection does not mutate `tree_path`
-- cycle detection runs against the as-of lineage graph
+- `as_of` 省略時、現在の family-tree response behavior が維持される。
+- invalid `as_of` は `400 BAD_REQUEST` を返す。
+- `start_date` より前の relationship は除外される。
+- `start_date` 当日の relationship は含まれる。
+- `end_date` 当日の relationship は含まれる。
+- `end_date` より後の relationship は除外される。
+- `birth_date > as_of` の person は除外される。
+- deceased person は `death_date` 後も visible のままである。
+- roots と adjacency が as-of graph から再計算される。
+- as-of projection は `tree_path` を mutate しない。
+- cycle detection は as-of lineage graph に対して走る。
 
-## Open Questions
+## 未解決事項
 
-- Should `deleted_at` rows ever participate in historical as-of reads through an audit mode?
-- Should date precision support year-only or month-only historical facts?
-- Should there be separate projection modes for ancestry, household, and legal family state?
-- Should former relationships be shown as historical annotations after `end_date`, or excluded from active as-of relation output?
-- Should temporal closure caching be diagram-wide, per date, or not introduced until required by profiling?
+- `deleted_at` rows は audit mode を通じて historical as-of read に参加すべきか。
+- Historical fact は year-only や month-only の date precision を support すべきか。
+- Ancestry、household、legal family state に別々の projection mode を用意すべきか。
+- Former relationships は `end_date` 後に historical annotation として表示すべきか、active as-of relation output から除外すべきか。
+- Temporal closure caching は diagram-wide、date ごと、または profiling で必要になるまで導入しない方針のどれにすべきか。

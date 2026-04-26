@@ -1,68 +1,71 @@
-# ADR 0002: Entity Diagram Reassignment Policy
+# ADR 0002: Entity の Diagram 再割り当て方針
 
-- Status: `Draft`
-- Last updated: `2026-03-14`
+- 状態: `下書き`
+- 最終更新: `2026-03-14`
 
-## Context
+## 背景
 
-`update_entity` currently accepts `diagram_id`, which means a generic update can move an entity across diagrams.
+`update_entity` は現在 `diagram_id` を受け取る。これは汎用 update によって entity を diagram 間で移動できることを意味する。
 
-That choice is not neutral because other tables are diagram-scoped:
+この選択は中立ではない。次の table は diagram scope を持つ。
 
 - `relationship.diagram_id`
 - `tree_path`
-- any future per-diagram invariants
+- 将来追加される diagram 単位の制約
 
-Allowing reassignment without an explicit policy risks silent data inconsistency.
+明示的な方針なしに再割り当てを許可すると、静かな data inconsistency を起こしやすい。
 
-## Options
+## 選択肢
 
-### Option A: Allow generic update to move entities across diagrams
+### Option A: 汎用 update で diagram 間移動を許可する
 
-Pros:
+利点:
 
-- fewer endpoints
-- simple client behavior
+- endpoint が少なくて済む
+- client の操作は単純
 
-Cons:
+欠点:
 
-- unclear cascade policy for relationships and tree paths
-- easy to move data accidentally
+- relationship と tree path の cascade policy が不明確
+- 誤操作で data を移動しやすい
 
-### Option B: Disallow reassignment in generic update
+### Option B: 汎用 update では再割り当てを禁止する
 
-- `diagram_id` is fixed after create
-- moving an entity requires a dedicated future workflow
+- `diagram_id` は create 後に固定する
+- entity の移動は将来専用 workflow を追加する場合だけ扱う
 
-Pros:
+利点:
 
-- safer default
-- keeps generic update semantics simple
-- avoids hidden cross-diagram side effects
+- 安全な default
+- 汎用 update の意味が単純
+- relationship / `tree_path` の整合性を壊しにくい
 
-Cons:
+欠点:
 
-- dedicated move operation is needed if the product later requires it
+- 本当に移動が必要な場合は別設計が必要
 
-### Option C: Allow reassignment only through a dedicated move endpoint
+### Option C: 条件付きで再割り当てを許可する
 
-Pros:
+- relationship がない場合だけ移動を許可する
+- または server が関連 relationship / tree_path を一括更新する
 
-- explicit intent
-- room for transactional revalidation and cascade handling
+利点:
 
-Cons:
+- 柔軟
 
-- still requires deciding the move semantics up front
+欠点:
 
-## Proposed Decision
+- ルールが複雑
+- API 利用者から結果を予測しにくい
 
-Choose **Option B** for the current API.
+## 決定
 
-`update_entity` should not change `diagram_id`. If cross-diagram moves become necessary, add a dedicated endpoint after relationship and tree maintenance rules are defined.
+Option B を採用する。
 
-## Consequences
+汎用 entity update では `diagram_id` の変更を許可しない。移動が必要な場合は、relationship と tree_path を含む専用 workflow を別途設計する。
 
-- future resource-oriented API can take `diagram_id` from the create path only
-- generic entity update should reject reassignment attempts
-- validation RFCs should assume diagram existence checks without permitting moves by default
+## 影響
+
+- update payload に `diagram_id` が残る場合でも、既存所属 diagram と一致することを validation する
+- diagram 間移動の cascade はこの API では扱わない
+- relationship と `tree_path` の diagram-scoped invariant を守りやすくなる

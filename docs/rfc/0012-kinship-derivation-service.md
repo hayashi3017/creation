@@ -1,167 +1,163 @@
 # RFC 0012: Kinship Derivation Service
 
-- Status: `Accepted`
-- Last updated: `2026-04-26`
+- 状態: `採用`
+- 最終更新: `2026-04-26`
 
-## Background
+## 背景
 
-The current `GET /api/family-trees/{diagram_id}` path is intentionally lineage-only, but the family-tree domain requirements point toward richer read-side kinship behavior:
+現在の `GET /api/family-trees/{diagram_id}` は意図的に lineage のみを扱うが、family tree domain ではより豊かな read-side kinship が必要になる。
 
-- inverse views such as `parent -> child`
-- symmetric views such as `spouse`
-- ancestor / descendant derivation from `tree_path`
+- `parent -> child` のような inverse view
+- `spouse` のような symmetric view
+- `tree_path` からの ancestor / descendant 導出
 - sibling classification
-- uncle / aunt, nephew / niece, cousin, and in-law derivation
-- source tracking such as `explicit`, `derived`, and `suggested`
-- gender- and age-aware presentation metadata
+- uncle / aunt、nephew / niece、cousin、in-law の導出
+- `explicit`、`derived`、`suggested` などの source tracking
+- gender と age を考慮した presentation metadata
 
-At the same time, the workspace already has an existing `RelationshipService` with a clear shape:
+一方、既存の `RelationshipService` には明確な責務がある。
 
-- validate explicit relationship write payloads
-- normalize write-side fields such as notes and dates
-- persist, update, delete, and fetch stored `relationship` rows
+- 明示的な relationship write payload の検証
+- notes や dates など write-side field の正規化
+- 保存済み `relationship` row の作成、更新、削除、取得
 
-If richer kinship logic is added without clarifying boundaries, two bad outcomes are likely:
+境界を曖昧にしたまま richer kinship logic を追加すると、次の問題が起きやすい。
 
-1. `FamilyTreeUsecase` becomes a large graph-derivation module instead of an orchestration layer.
-2. `RelationshipService` starts to mix CRUD for stored facts with read-only derivation for inferred facts.
+1. `FamilyTreeUsecase` が orchestration layer ではなく巨大な graph derivation module になる。
+2. `RelationshipService` が保存済み fact の CRUD と inferred fact の read-only derivation を混在させる。
 
-This RFC defines a new service boundary that is intentionally loose-coupled and MECE with `RelationshipService`.
+この RFC は、`RelationshipService` と MECE で loose-coupled な新しい service boundary を定義する。
 
-## Goals
+## 目標
 
-- keep persisted relationship management separate from read-only kinship derivation
-- define a service name based on role, not on one endpoint or one aggregate label
-- draw an explicit MECE boundary between `RelationshipService`, the new derivation service, and `FamilyTreeUsecase`
-- keep the new service loosely coupled to existing services
-- support incremental rollout from the current lineage-only projection to richer kinship output
+- 永続化された relationship 管理と read-only kinship derivation を分離する。
+- endpoint 名や aggregate 名ではなく、役割に基づく service 名を定義する。
+- `RelationshipService`、新しい derivation service、`FamilyTreeUsecase` の MECE 境界を明示する。
+- 新 service を既存 service と疎結合に保つ。
+- 現在の lineage-only projection から richer kinship output へ段階的に展開できるようにする。
 
-## Non-Goals
+## 非目標
 
-- changing the relationship CRUD API in the same change
-- persisting derived relationships into the `relationship` table
-- deciding final localized labels such as Japanese kinship strings
-- replacing `tree_path` write-side maintenance
-- solving cross-diagram merge or identity-linking concerns from RFC 0008
+- 同じ変更で relationship CRUD API を変えること。
+- derived relationships を `relationship` table に永続化すること。
+- 日本語親族表現など最終的な localized label を決めること。
+- `tree_path` の write-side maintenance を置き換えること。
+- RFC 0008 の cross-diagram merge や identity-linking concern を解くこと。
 
-## Proposal
+## 提案
 
-Introduce a dedicated service in `creation-service` for read-side kinship derivation.
+`creation-service` に read-side kinship derivation 専用 service を導入する。
 
-Recommended name:
+推奨名:
 
 - `KinshipDerivationService`
 
-Why this name:
+この名前を選ぶ理由:
 
-- `FamilyTreeRelationshipService` sounds like CRUD ownership for family-tree relationships
-- the real role is not "all family-tree relationships"
-- the role is "derive kinship semantics from explicit facts"
-- the same logic should be reusable beyond one endpoint, for example ancestors, descendants, relatives-of-person, or future merged genealogy reads
+- `FamilyTreeRelationshipService` は family tree relationship の CRUD 所有に見える。
+- 実際の役割は「family tree relationship 全般」ではない。
+- 役割は「明示的 fact から kinship semantics を導出すること」である。
+- 同じ logic は ancestor、descendant、relatives-of-person、将来の merged genealogy read など endpoint をまたいで再利用される。
 
-Recommended dependency direction:
+推奨する依存方向:
 
-- `FamilyTreeUsecase` depends on `ProvidesKinshipDerivationService`
-- `RelationshipService` and `KinshipDerivationService` do not depend on each other
-- `FamilyTreeUsecase` orchestrates both services and assembles the final response
+- `FamilyTreeUsecase` は `ProvidesKinshipDerivationService` に依存する。
+- `RelationshipService` と `KinshipDerivationService` は相互に依存しない。
+- `FamilyTreeUsecase` が両 service を orchestrate し、最終 response を組み立てる。
 
-This keeps the usecase thin while making the two services orthogonal instead of overlapping.
+これにより usecase を薄く保ち、2 つの service を重複ではなく直交した責務にできる。
 
-## MECE Service Boundary
+## MECE な Service 境界
 
-### `RelationshipService` Owns
+### `RelationshipService` の責務
 
-`RelationshipService` is the service for persisted explicit relationship facts.
+`RelationshipService` は永続化された明示的 relationship fact の service である。
 
-It owns:
+責務:
 
-- validation of create / update / delete payload shape for stored rows
-- write-side normalization such as blank-note cleanup and date-range checks
-- enforcement of explicit relationship invariants needed for persistence
+- 保存 row に対する create / update / delete payload shape の検証
+- blank note cleanup や date range check など write-side normalization
+- 永続化に必要な明示的 relationship invariant の enforcement
 - repository-backed CRUD for `relationship`
-- returning stored `Relationship` rows to callers as explicit facts
+- stored `Relationship` rows を explicit fact として caller に返すこと
 
-It does not own:
+責務ではないこと:
 
-- inverse expansion such as showing `child` from `parent`
-- symmetric expansion such as mirrored spouse views
-- canonical family-tree orientation for read-side graph use
+- `parent` から `child` を見せるような inverse expansion
+- mirrored spouse view のような symmetric expansion
+- read-side graph 用の canonical family-tree orientation
 - sibling / cousin / in-law / ancestor derivation
-- family-tree node adjacency or root detection
-- read-side source tagging such as `Derived` or `Suggested`
+- family-tree node adjacency や root detection
+- `Derived` や `Suggested` など read-side source tagging
 
-### `KinshipDerivationService` Owns
+### `KinshipDerivationService` の責務
 
-`KinshipDerivationService` is the service for read-only transformation from explicit facts to kinship semantics.
+`KinshipDerivationService` は explicit fact から kinship semantics への read-only transformation を担当する service である。
 
-It owns:
+責務:
 
-- canonicalization of explicit relationships into read-side graph form
-- inverse and symmetric read expansion
-- use of lineage closure data to derive ancestor / descendant semantics
-- sibling classification and higher-order kinship derivation
-- tagging outputs as `Explicit`, `Derived`, or `Suggested`
-- filtering derived relations to the active visible scope supplied by the caller
+- 明示的 relationship を read-side graph form に canonicalize すること
+- inverse / symmetric read expansion
+- lineage closure data を使った ancestor / descendant semantics の導出
+- sibling classification と higher-order kinship derivation
+- output を `Explicit`、`Derived`、`Suggested` として tag すること
+- caller が渡した active visible scope に derived relation を絞り込むこと
 
-It does not own:
+責務ではないこと:
 
-- persistence of `relationship` rows
-- create / update / delete validation for stored rows
-- mutation of `tree_path`
-- loading diagrams, entities, or persons for a request
-- mapping domain outputs directly into HTTP response DTOs
+- `relationship` row の永続化
+- 保存 row の create / update / delete validation
+- `tree_path` の mutation
+- request の diagram、entity、person loading
+- domain output を HTTP response DTO に直接 mapping すること
 
-### `FamilyTreeUsecase` Owns
+### `FamilyTreeUsecase` の責務
 
-`FamilyTreeUsecase` remains the application orchestration layer.
+`FamilyTreeUsecase` は application orchestration layer のままにする。
 
-It owns:
+責務:
 
-1. validating `diagram_id`
-2. loading the target diagram
-3. rejecting non-`family_tree` diagrams
-4. loading active persons in scope
-5. loading explicit relationships through `RelationshipService`
-6. loading any additional lineage closure input if the derivation service needs it
-7. calling `KinshipDerivationService`
-8. assembling `FamilyTree { nodes, edges, root_entity_ids, stats }`
+1. `diagram_id` を検証する。
+2. 対象 diagram を load する。
+3. 非 `family_tree` diagram を reject する。
+4. scope 内の active persons を load する。
+5. `RelationshipService` 経由で explicit relationships を load する。
+6. derivation service が必要なら追加の lineage closure input を load する。
+7. `KinshipDerivationService` を呼ぶ。
+8. `FamilyTree { nodes, edges, root_entity_ids, stats }` を assemble する。
 
-It does not own:
+責務ではないこと:
 
 - rule-by-rule kinship derivation
 - stored relationship CRUD semantics
 
-### Why This Split Is MECE
+### この分割が MECE である理由
 
-- persisted explicit fact lifecycle belongs only to `RelationshipService`
-- read-only kinship inference belongs only to `KinshipDerivationService`
-- request orchestration and response assembly belong only to `FamilyTreeUsecase`
+- 永続化された explicit fact lifecycle は `RelationshipService` のみに属する。
+- read-only kinship inference は `KinshipDerivationService` のみに属する。
+- request orchestration と response assembly は `FamilyTreeUsecase` のみに属する。
 
-No responsibility needs to be duplicated across the three.
+3 者で重複させる必要がある責務はない。
 
-## Stored vs Derived Relationships
+## Stored と Derived の関係
 
-This RFC recommends a policy rather than an immediate schema rewrite:
+この RFC は即時の schema rewrite ではなく、方針を推奨する。
 
-- explicit relationships are the rows stored in `relationship`
-- derived relationships are computed at read time and are never persisted
-- suggested relationships are heuristics that may be returned to clients later, but are not treated as canonical facts
+- explicit relationships は `relationship` に保存される rows である。
+- derived relationships は read time に計算され、永続化しない。
+- suggested relationships は将来 client に返す可能性がある heuristic output だが、canonical fact として扱わない。
 
-Current read/write baseline after RFC 0013:
+RFC 0013 後の read/write baseline:
 
 - explicit tree-edge lineage: `parent`, `adoptive_parent`
 - explicit non-tree-edge canonical kinds: `step_parent`, `spouse`, `partner`, `cohabitant`
-- derived-only kinds should include `sibling`, `ancestor`, `descendant`, `uncle_aunt`, `nephew_niece`, `cousin`, and `in_law`
+- derived-only kinds: `sibling`, `ancestor`, `descendant`, `uncle_aunt`, `nephew_niece`, `cousin`, `in_law`
 
-Do not store `sibling`, `ancestor`, `cousin`, or similar graph-expanded kinship as independent rows.
+`sibling`、`ancestor`、`cousin` など graph-expanded kinship を独立 row として保存しない。storage-facing Rust enum に `Sibling` など derived-only kind を含めない。
 
-The storage-facing Rust enum should not contain derived-only kinds such as `Sibling`.
+## 関係ソースの扱い
 
-## Relationship Source
-
-The distinction between explicit, derived, and suggested kinship is useful and should be preserved as a read-model concept.
-
-Recommended enum:
+explicit、derived、suggested の区別は有用であり、read model concept として残す。
 
 ```rust
 enum FamilyTreeRelationshipSource {
@@ -171,17 +167,17 @@ enum FamilyTreeRelationshipSource {
 }
 ```
 
-Meaning:
+意味:
 
-- `Explicit`: directly backed by a stored `relationship` row
-- `Derived`: deterministically implied by explicit rows plus lineage closure
-- `Suggested`: heuristic output that may be useful in UI or review flows, but should not be treated as already confirmed domain truth
+- `Explicit`: 保存済み `relationship` row に直接裏付けられる。
+- `Derived`: explicit row と lineage closure から決定論的に含意される。
+- `Suggested`: UI や review flow で有用な可能性がある heuristic output だが、確認済み domain truth として扱わない。
 
-## Read Model Shape
+## Read Model 形状
 
-Do not reuse the storage-oriented `Relationship` struct as the main output shape for richer kinship output.
+richer kinship output の主 output shape として、storage-oriented な `Relationship` struct を再利用しない。
 
-The derivation service should own its own domain output type, for example:
+Derivation service は独自の domain output type を持つ。
 
 ```rust
 struct KinshipRelation {
@@ -195,7 +191,7 @@ struct KinshipRelation {
 }
 ```
 
-Recommended supporting enum:
+補助 enum の例:
 
 ```rust
 enum FamilyTreeSiblingKind {
@@ -206,116 +202,114 @@ enum FamilyTreeSiblingKind {
 }
 ```
 
-Important design points:
+重要な設計点:
 
-- localized strings such as `兄`, `弟`, `父`, or `母` should not be the primary domain output
-- the derivation service may return semantic relations that are richer than the current `FamilyTreeEdge`
-- `FamilyTreeUsecase` decides how much of that output is exposed in a given endpoint contract
+- `兄`、`弟`、`父`、`母` のような localized string を主 domain output にしない。
+- derivation service は現在の `FamilyTreeEdge` より豊かな semantic relation を返してよい。
+- `FamilyTreeUsecase` が、endpoint contract でどこまで expose するかを決める。
 
-Instead, the service should return semantic data, and any final localized label should be rendered later from:
+最終的な localized label は、次をもとに後段で render する。
 
 - relationship kind
 - gender
-- age ordering when needed
+- 必要に応じた age ordering
 - locale / presentation rules
 
-This avoids locking the core domain contract to one language or one UI wording policy.
+これにより core domain contract を特定言語や UI wording policy に固定しない。
 
-## Derivation Rules
+## 導出ルール
 
-### Canonical Normalization
+### Canonical 正規化
 
-`KinshipDerivationService` should normalize stored rows into a canonical internal graph before deriving higher-level kinship.
+`KinshipDerivationService` は higher-level kinship を導出する前に、stored rows を canonical internal graph に正規化する。
 
-Examples:
+例:
 
-- `parent(A, B)` implies canonical lineage edge `A -> B`
-- `adoptive_parent(A, B)` implies canonical lineage edge `A -> B`
-- `spouse(A, B)` is symmetric
-- `cohabitant(A, B)` is symmetric
-- ended spouse state is represented by `spouse + end_date + end_reason`, not by a separate stored kind
+- `parent(A, B)` は canonical lineage edge `A -> B` を含意する。
+- `adoptive_parent(A, B)` は canonical lineage edge `A -> B` を含意する。
+- `spouse(A, B)` は symmetric である。
+- `cohabitant(A, B)` は symmetric である。
+- 終了した spouse state は別 kind ではなく、`spouse + end_date + end_reason` で表す。
 
-### Tree Path
+### Tree Path の扱い
 
-`tree_path` remains the authoritative lineage closure table for ancestor / descendant reachability.
+`tree_path` は ancestor / descendant reachability の authoritative lineage closure table のままである。
 
-`RelationshipService` does not interpret `tree_path`.
+`RelationshipService` は `tree_path` を解釈しない。
 
-`KinshipDerivationService` may consume lineage closure input for derivation such as:
+`KinshipDerivationService` は次のような導出のために lineage closure input を消費してよい。
 
 - `depth = 1`: direct parent / child
 - `depth = 2`: grandparent / grandchild metadata
-- `depth >= 1`: ancestor / descendant relationships with optional distance metadata
+- `depth >= 1`: optional distance metadata 付き ancestor / descendant relationships
 
-Do not expose raw `tree_path` rows as the main public contract just to support these derivations.
+これらの derivation を支えるためだけに raw `tree_path` rows を public contract の主形状として expose しない。
 
-### Siblings
+### Sibling の導出
 
-Sibling derivation should be read-only.
+Sibling derivation は read-only とする。
 
-Baseline rule:
+基準ルール:
 
-- two people are siblings when they share at least one parent in the canonical lineage graph
+- canonical lineage graph で少なくとも 1 人の parent を共有する 2 人は siblings である。
 
-Recommended classification:
+推奨 classification:
 
-- `full`: same two explicit parents
-- `half`: one shared explicit parent
-- `adoptive`: derived through adoptive lineage once those explicit kinds are supported
-- `step`: derived through step-parent semantics, not through blood/adoptive lineage
+- `full`: 同じ 2 人の explicit parents を共有する。
+- `half`: 1 人の explicit parent を共有する。
+- `adoptive`: explicit kind が対応した後、adoptive lineage 経由で導出する。
+- `step`: blood/adoptive lineage ではなく step-parent semantics 経由で導出する。
 
-### Uncle / Aunt, Nephew / Niece, Cousin
+### Uncle / Aunt、Nephew / Niece、Cousin
 
-These are second-order derived relationships and should not be materialized in storage.
+これらは second-order derived relationships であり、storage に materialize しない。
 
-Examples:
+例:
 
-- parent of A is sibling of B -> B is uncle/aunt of A
-- sibling of A has child B -> B is nephew/niece of A
-- parent of A is sibling of parent of B -> A and B are cousins
+- A の parent が B の sibling である場合、B は A の uncle/aunt である。
+- A の sibling に child B がいる場合、B は A の nephew/niece である。
+- A の parent と B の parent が siblings である場合、A と B は cousins である。
 
-The service should compute them from previously normalized lineage and sibling data rather than from ad hoc client-side logic.
+Service はこれらを ad hoc な client-side logic ではなく、正規化済み lineage と sibling data から計算する。
 
 ### In-Law
 
-In-law relationships should remain derived-only.
+In-law relationships は derived-only のままにする。
 
-Example:
+例:
 
-- spouse(A, B) + parent(B, C) -> A is parent-in-law of C
+- `spouse(A, B) + parent(B, C)` なら A は C の parent-in-law である。
 
-This is precisely the kind of graph expansion that should live in the derivation service rather than in `FamilyTreeUsecase`.
+これは `FamilyTreeUsecase` ではなく derivation service に置くべき graph expansion である。
 
-### Suggested Step Relationships
+### Suggested Step Relationship の扱い
 
-Suggested step relationships are useful, but they are also the easiest place to over-infer.
+Suggested step relationships は有用だが、過剰推論しやすい。
 
-Recommended policy:
+推奨ポリシー:
 
-- do not infer spouse from shared children
-- do not infer spouse from co-residence alone
-- do not treat `end_date` or divorce history as enough to conclude current family membership
-- only emit step-parent / step-child as `Suggested` unless there is an explicit canonical relationship kind or a stronger product rule
+- shared children から spouse を推論しない。
+- co-residence だけから spouse を推論しない。
+- `end_date` や divorce history だけで current family membership を結論しない。
+- explicit canonical relationship kind または強い product rule がない限り、step-parent / step-child は `Suggested` としてのみ emit する。
 
-If we later infer step relationships from `parent + spouse/cohabitant + date overlap`, that output should stay opt-in until product semantics are reviewed.
+将来 `parent + spouse/cohabitant + date overlap` から step relationship を推論する場合も、product semantics が review されるまで opt-in にする。
 
-## Loose Coupling Rules
+## 疎結合ルール
 
-To keep the new service loosely coupled:
+新 service を疎結合に保つ。
 
-- `KinshipDerivationService` should not call `RelationshipService`
-- `RelationshipService` should not call `KinshipDerivationService`
-- `FamilyTreeUsecase` should pass explicit relationships in as domain input
-- if lineage closure is needed, the usecase should pass it in or depend on a dedicated read port for that data
-- do not route closure-table concerns through `RelationshipService`, because that would blur persistence concerns with derivation concerns
+- `KinshipDerivationService` は `RelationshipService` を呼ばない。
+- `RelationshipService` は `KinshipDerivationService` を呼ばない。
+- `FamilyTreeUsecase` は explicit relationships を domain input として渡す。
+- lineage closure が必要なら、usecase が渡すか、その data 用の dedicated read port に依存する。
+- closure-table concern を `RelationshipService` 経由にしない。永続化 concern と derivation concern が曖昧になる。
 
-Recommended interface direction:
+推奨 interface:
 
-- use a domain input/output struct, not HTTP-specific schema structs
-- let the caller pass already loaded scope data for deterministic unit tests
-- if later needed, add a dedicated tree-path read port instead of expanding `RelationshipService`
-
-Example shape:
+- HTTP-specific schema struct ではなく domain input/output struct を使う。
+- deterministic unit tests のため、caller が既に load 済みの scope data を渡す。
+- 必要になったら `RelationshipService` を拡張するのではなく、dedicated tree-path read port を追加する。
 
 ```rust
 struct DeriveKinshipInput {
@@ -330,95 +324,89 @@ struct KinshipDerivation {
 }
 ```
 
-## Why A Service Is Better Than Keeping This In The Usecase
+## Usecase に置かず Service にする理由
 
-This RFC explicitly recommends the service boundary suggested in the user note, but with a narrower and clearer role than `FamilyTreeRelationshipService`.
+この RFC は、ユーザーのメモにある service boundary を推奨する。ただし `FamilyTreeRelationshipService` より狭く明確な役割にする。
 
-Reasons:
+理由:
 
-- kinship derivation is domain logic, not application orchestration
-- the algorithms will likely grow faster than the endpoint count
-- the same logic will be needed by future reads such as ancestors, descendants, relatives-of-person, or merged genealogy projections
-- service-level unit tests can focus on graph inputs and outputs without bootstrapping the full usecase stack
-- `FamilyTreeUsecase` stays readable and aligned with the rest of the workspace layering
-- `RelationshipService` keeps one job: manage persisted explicit relationship facts
+- kinship derivation は application orchestration ではなく domain logic である。
+- algorithm は endpoint 数より速く複雑化する可能性が高い。
+- 同じ logic は ancestor、descendant、relatives-of-person、merged genealogy projection など将来 read で必要になる。
+- service-level unit tests は full usecase stack を起動せず、graph input/output に集中できる。
+- `FamilyTreeUsecase` を読みやすく保ち、workspace layering と揃えられる。
+- `RelationshipService` は保存済み explicit relationship fact の管理に集中できる。
 
-In short:
+要するに、`FamilyTreeUsecase` は kinship derivation result を要求し、`RelationshipService` は stored relationship rows を所有し続ける。どちらも相手の責務を吸収しない。
 
-- `FamilyTreeUsecase` should ask for a kinship derivation result
-- `RelationshipService` should keep owning stored relationship rows
-- neither should absorb the other's job
-
-## Incremental Rollout
-
-To keep implementation tractable, use staged rollout.
+## 段階的な展開
 
 ### Phase 1
 
-Keep the public `/api/family-trees/{diagram_id}` response unchanged.
+public `/api/family-trees/{diagram_id}` response は変更しない。
 
-Introduce `KinshipDerivationService` with only the read-side canonicalization needed by the current endpoint:
+現在の endpoint に必要な read-side canonicalization だけを持つ `KinshipDerivationService` を導入する。
 
-- `parent` / `adoptive_parent` normalization into canonical lineage edges
-- filtering to active visible scope
+- `parent` / `adoptive_parent` を canonical lineage edges に正規化する。
+- active visible scope に絞り込む。
 
-Keep in `FamilyTreeUsecase` for now:
+当面 `FamilyTreeUsecase` に残すもの:
 
 - node assembly
 - adjacency list materialization
 - root detection
 - stats assembly
 
-This keeps the boundary MECE:
+これにより境界は MECE に保たれる。
 
-- derivation service derives kinship facts
-- usecase assembles endpoint-specific response shape
+- derivation service は kinship fact を derive する。
+- usecase は endpoint-specific response shape を assemble する。
 
-Implementation status:
+実装状況:
 
-- implemented in `creation-service/src/service/kinship_derivation.rs`
-- `FamilyTreeUsecase` now passes already loaded explicit relationships and active person ids into the service
-- the service returns canonical lineage edges for the current family-tree projection
-- the service also emits explicit parent/adoptive-parent relations and derived inverse child/adoptive-child relations internally
-- the public `/api/family-trees/{diagram_id}` response remains unchanged
+- `creation-service/src/service/kinship_derivation.rs` に実装済み。
+- `FamilyTreeUsecase` は load 済み explicit relationships と active person ids を service に渡す。
+- service は現在の family-tree projection 用 canonical lineage edges を返す。
+- service は内部的に explicit parent/adoptive-parent relations と derived inverse child/adoptive-child relations も emit する。
+- public `/api/family-trees/{diagram_id}` response は変更していない。
 
 ### Phase 2
 
-Extend `KinshipDerivationService` to carry:
+`KinshipDerivationService` を拡張し、次を扱う。
 
-- `Explicit` vs `Derived` source
+- `Explicit` と `Derived` の source
 - optional sibling classification
-- optional generation distance metadata from `tree_path`
+- `tree_path` 由来の optional generation distance metadata
 
-The existing public response may still stay lineage-only at this phase.
+この段階でも既存 public response は lineage-only のままでよい。
 
 ### Phase 3
 
-Add richer derived kinship output only after deciding the API contract:
+API contract を決めた後に richer derived kinship output を追加する。
 
-- extend `/api/family-trees/{diagram_id}`
-- or add a dedicated kinship-focused read under `/api/family-trees/{diagram_id}/relationships`
+- `/api/family-trees/{diagram_id}` を拡張する。
+- または `/api/family-trees/{diagram_id}/relationships` に kinship-focused read を追加する。
 
-Do not force the richer contract into the current read API until the public shape is reviewed.
+public shape を review する前に、現在の read API へ richer contract を押し込まない。
 
-## Benefits
+## 利点
 
-- keeps complex graph semantics out of the usecase layer
-- makes kinship rules reusable across multiple read models
-- preserves a clean separation between stored facts and read-only derivation
-- reduces pressure to persist mechanically derivable rows such as siblings or cousins
-- gives a safe place to add future heuristics without polluting CRUD services
+- 複雑な graph semantics を usecase layer から切り出せる。
+- kinship rule を複数 read model で再利用できる。
+- stored fact と read-only derivation の分離を保てる。
+- siblings や cousins のような機械的に導出できる row を保存する圧力を下げる。
+- CRUD service を汚さず、将来 heuristic を追加する場所を用意できる。
 
-## Drawbacks
+## 欠点
 
-- introduces more domain types and one more service trait
-- may require a dedicated tree-path read input later
-- some kinship terminology does not exactly match the current `RelationshipKind` enum and must be normalized carefully
+- domain type と service trait が増える。
+- 将来 dedicated tree-path read input が必要になる可能性がある。
+- 一部の kinship terminology は現在の `RelationshipKind` enum と一致しないため、慎重な正規化が必要である。
 
-## Open Questions
+## 未解決事項
 
-- Should richer derived kinship use a new read-only enum instead of extending the storage-facing `RelationshipKind`?
-- Should `Suggested` relationships be excluded by default unless an explicit include flag is added later?
-- Should localized kinship labels be rendered in the driver or left entirely to clients?
-- When the public write API starts accepting non-lineage kinds, which of them are canonical stored facts and which should stay derived-only?
-- If lineage closure input is needed, should the usecase load it directly from a dedicated read repository, or should `KinshipDerivationService` gain its own read-port dependency?
+- richer derived kinship は storage-facing `RelationshipKind` を拡張するのではなく、新しい read-only enum を使うべきか。
+- `Suggested` relationships は将来 explicit include flag が追加されるまで既定で除外すべきか。
+- localized kinship labels は driver で render すべきか、完全に client に任せるべきか。
+- public write API が non-lineage kinds を受け付け始める場合、どれを canonical stored fact とし、どれを derived-only にすべきか。
+- lineage closure input が必要な場合、usecase が dedicated read repository から直接 load すべきか、`KinshipDerivationService` が自身の read-port dependency を持つべきか。

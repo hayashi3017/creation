@@ -1,54 +1,45 @@
-# RFC 0004: SQLx Workflow And Test Environment
+# RFC 0004: SQLx Workflow と Test Environment
 
-- Status: `Accepted`
-- Last updated: `2026-03-15`
+- 状態: `採用`
+- 最終更新: `2026-03-15`
 
-## Background
+## 背景
 
-This repository already has two recurring workflow issues:
+この repository には SQLx と DB-backed test に関する recurring workflow issue がある。
 
-- `SQLX_OFFLINE=true` means new `query!` / `query_as!` usage requires query cache refresh
-- `sqlx::test` depends on a reachable setup database, but the bootstrap path is not documented tightly enough for all environments
+- `SQLX_OFFLINE=true` のため、新しい `query!` / `query_as!` を追加すると query cache refresh が必要
+- `sqlx::test` は接続可能な setup database に依存するが、bootstrap 手順が十分にまとまっていない
 
-## Proposal
+## 提案
 
-Treat `xtask` as the documented entrypoint for SQLx and DB-backed test workflows.
+SQLx と DB-backed test workflow の入口を `xtask` に統一する。
 
-### Recommended commands
+### 推奨 command
 
-- start local DB: `cargo run -p xtask -- docker`
-- run migrations: `cargo run -p xtask -- migrate`
-- refresh SQLx cache: `cargo run -p xtask -- sqlx-prepare`
-- run scoped tests: `cargo run -p xtask -- test -p creation-driver --test entity`
-- run convention-based scopes: `cargo run -p xtask -- test-scope entity`
+- local DB 起動: `cargo run -p xtask -- docker`
+- migration 実行: `cargo run -p xtask -- migrate`
+- SQLx cache 更新: `cargo run -p xtask -- sqlx-prepare`
+- scoped test 実行: `cargo run -p xtask -- test -p creation-driver --test entity`
+- convention-based scope 実行: `cargo run -p xtask -- test-scope entity`
 
-### CI expectations
+### CI 前提
 
-- provide a reachable PostgreSQL instance
-- run migrations before DB-backed tests
-- run SQLx cache verification as a dedicated step
-- fail fast when `.env` / `DATABASE_URL` is missing
+- 接続可能な PostgreSQL instance を用意する
+- DB-backed test 前に migration を実行する
+- SQLx cache verification を専用 step として実行する
+- `.env` / `DATABASE_URL` がない場合は早期に失敗させる
 
-### Documentation updates
+### ドキュメント更新
 
-- document required environment variables in one place
-- document the minimum local bootstrap order for contributors
+- required environment variables を 1 箇所にまとめる
+- contributor 向けの最低限の local bootstrap order を明記する
 
-## Rationale
+## 理由
 
-`xtask` already contains project-specific behavior such as the SQLx prepare workaround for cross-device link failures, so duplicating raw cargo/sqlx commands in multiple places increases drift.
+`xtask` は cross-device link failure を避ける SQLx prepare workaround など、project-specific behavior を既に含んでいる。raw cargo/sqlx command を複数箇所に書くと drift が起きやすい。
 
-## Implementation Status
+## 影響
 
-- CI now runs database migrations, verifies the checked-in SQLx cache with `cargo run -p xtask -- sqlx-prepare --check`, and executes tests with the same `cargo run -p xtask -- test` entrypoint documented for local development.
-- Local contributor setup is documented in `docs/local-development.md`.
-- `xtask test` now loads `.env` before spawning `cargo test`, so local runs inherit `DATABASE_URL` the same way other xtask database commands do.
-- `xtask` host-side DB commands now normalize `DATABASE_URL=...@host.docker.internal...` to `localhost` before spawning `sqlx` / `cargo test`, avoiding setup DB failures from container-only hostnames.
-- `xtask test` now uses `cargo test --no-fail-fast`, so one failing test binary does not stop the rest of the workspace suite from running.
-- `xtask test-scope` now resolves convention-based feature scopes to the matching driver and adapter test suites, so new resources can reuse the same post-implementation workflow if they follow the existing test naming pattern.
-- Installing `sqlx-cli` is still a manual prerequisite.
-
-## Review Points
-
-- Should CI run `cargo run -p xtask -- sqlx-prepare` directly, or should we add a dedicated `--check` mode first?
-- Do we want a single contributor setup guide in `README.md`, or a dedicated `docs/local-development.md`?
+- local / CI の test workflow が揃う
+- SQLx offline cache の更新漏れを検知しやすくなる
+- 新規 contributor の setup failure を減らせる

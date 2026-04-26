@@ -1,19 +1,19 @@
-# RFC 0010: Explicit ID Fields In Public API
+# RFC 0010: Public API の明示的な ID Field
 
-- Status: `Accepted`
-- Last updated: `2026-04-11`
+- 状態: `採用`
+- 最終更新: `2026-04-11`
 
-## Background
+## 背景
 
-RFC 0009 defines a schema-side move away from generic root-table primary key names such as `id`.
+RFC 0009 では、schema 側で root table の汎用 primary key 名 `id` を避ける方針を定義した。
 
-The public API still uses generic `id` in multiple places:
+一方で public API にはまだ汎用 `id` が残っている。
 
-- response objects such as `user.id`, `diagram.id`, and `relationship.id`
-- request bodies such as `UpdateDiagramSchema { id, ... }`
-- path parameters such as `/api/diagrams/update/{id}` and `/api/relationships/delete/{id}`
+- response object: `user.id`, `diagram.id`, `relationship.id`
+- request body: `UpdateDiagramSchema { id, ... }`
+- path parameter: `/api/diagrams/update/{id}`, `/api/relationships/delete/{id}`
 
-That leaves the external contract inconsistent with the explicit identifier names already used elsewhere in the API:
+これは API 内の明示的な identifier 名と不整合である。
 
 - `diagram_id`
 - `entity_id`
@@ -21,142 +21,41 @@ That leaves the external contract inconsistent with the explicit identifier name
 - `target_entity_id`
 - `relationship_id`
 
-Because this project has not been released yet, we do not need a backward-compatibility layer for the old `id` fields.
+この project はまだ release 前なので、旧 `id` field の backward compatibility layer は不要とする。
 
-## Goal
+## 目標
 
-Make public API identifiers resource-scoped and explicit everywhere instead of exposing generic `id`.
+public API の identifier を resource-scoped かつ明示的な名前へ統一する。
 
-## Non-Goals
+## 対象外
 
-- changing resource names such as `/api/diagrams` or `/api/persons`
-- changing non-identifier field names
-- defining a versioned compatibility strategy for legacy clients
+- `/api/diagrams` や `/api/persons` など resource name の変更
+- identifier 以外の field name の変更
+- legacy client 向け versioned compatibility strategy
 
-## Proposal
+## 提案
 
-Change public API contracts so identifier fields use explicit names that match the represented resource.
+public API contract の identifier field は、表している resource に合わせた明示名を使う。
 
-Recommended rule:
+推奨 rule:
 
-- every externally visible identifier field should use a resource-scoped name such as `user_id`, `diagram_id`, `entity_id`, or `relationship_id`
+- user: `user_id`
+- diagram: `diagram_id`
+- entity/person: `entity_id`
+- relationship: `relationship_id`
 
-This applies to:
+path parameter も同じ名前を使う。
 
-- JSON response fields
-- JSON request fields
-- path parameter names
-- OpenAPI parameter names and schemas
+例:
 
-Because compatibility is not required, old `id` names should be removed rather than aliased.
+- `/api/diagrams/update/{diagram_id}`
+- `/api/diagrams/delete/{diagram_id}`
+- `/api/persons/update/{entity_id}`
+- `/api/persons/delete/{entity_id}`
+- `/api/relationships/update/{relationship_id}`
+- `/api/relationships/delete/{relationship_id}`
 
-## Naming Rule
-
-Use singular resource-scoped names in the API contract.
-
-Examples:
-
-- `user_id`
-- `diagram_id`
-- `entity_id`
-- `relationship_id`
-
-Do not expose table-name-shaped identifiers such as `users_id` in the public API.
-
-## Scope
-
-### Response Models
-
-The following response fields should become explicit:
-
-- `FilteredUser.id` -> `user_id`
-- `Diagram.id` -> `diagram_id`
-- `Entity.id` -> `entity_id`
-- `Relationship.id` -> `relationship_id`
-
-Derived read models should also follow the same rule.
-
-Examples:
-
-- `FamilyTree.diagram.id` -> `FamilyTree.diagram.diagram_id`
-- any future merged genealogy node ids should use `node_id`, not generic `id`
-
-### Request Models
-
-Request-body identifiers should become explicit.
-
-Examples:
-
-- `UpdateDiagramSchema.id` -> `diagram_id`
-- `DeleteDiagramSchema.id` -> `diagram_id`
-- `ExistsActiveDiagramSchema.id` -> `diagram_id`
-- `GetDiagramSchema.id` -> `diagram_id`
-- `UpdateEntitySchema.id` -> `entity_id`
-- `DeleteEntitySchema.id` -> `entity_id`
-- `UpdateRelationshipSchema.id` -> `relationship_id`
-- `DeleteRelationshipSchema.id` -> `relationship_id`
-- `LoadRelationshipDiagramIdSchema.id` -> `relationship_id`
-
-Where a schema already uses an explicit identifier such as `entity_id` or `diagram_id`, leave it unchanged.
-
-### Path Parameters
-
-Path parameter names should also become explicit.
-
-Examples:
-
-- `/api/diagrams/update/{id}` -> `/api/diagrams/update/{diagram_id}`
-- `/api/diagrams/delete/{id}` -> `/api/diagrams/delete/{diagram_id}`
-- `/api/relationships/update/{id}` -> `/api/relationships/update/{relationship_id}`
-- `/api/relationships/delete/{id}` -> `/api/relationships/delete/{relationship_id}`
-
-Endpoints already using explicit names, such as `/api/persons/update/{entity_id}`, should remain as they are.
-
-## Example Contract Changes
-
-### User Response
-
-Before:
-
-```json
-{
-  "status": "success",
-  "data": {
-    "user": {
-      "id": "uuid-string",
-      "name": "alice"
-    }
-  }
-}
-```
-
-After:
-
-```json
-{
-  "status": "success",
-  "data": {
-    "user": {
-      "user_id": "uuid-string",
-      "name": "alice"
-    }
-  }
-}
-```
-
-### Diagram Response
-
-Before:
-
-```json
-{
-  "id": 1,
-  "name": "sample",
-  "kind": "family_tree"
-}
-```
-
-After:
+## Response 例
 
 ```json
 {
@@ -165,97 +64,32 @@ After:
   "kind": "family_tree"
 }
 ```
-
-### Relationship Response
-
-Before:
-
-```json
-{
-  "id": 10,
-  "diagram_id": 1,
-  "source_entity_id": 1,
-  "target_entity_id": 2
-}
-```
-
-After:
 
 ```json
 {
   "relationship_id": 10,
   "diagram_id": 1,
   "source_entity_id": 1,
-  "target_entity_id": 2
+  "target_entity_id": 2,
+  "kind": "parent"
 }
 ```
 
-## Path And Body Consistency
+## Migration 方針
 
-When a route uses a resource identifier in the path, the path variable name and the body field name should match.
+- DTO/schema struct の field を explicit name に変更する
+- handler path parameter 名を変更する
+- OpenAPI docs を更新する
+- tests を新 contract に合わせる
+- release 前なので旧 `id` alias は提供しない
 
-Examples:
+## 影響
 
-- `PATCH /api/diagrams/update/{diagram_id}` should use `diagram_id` throughout the handler and usecase boundary
-- `PATCH /api/relationships/update/{relationship_id}` should use `relationship_id` throughout the handler and usecase boundary
+- DB schema と public API の語彙が揃う
+- client code が resource type を推測しやすくなる
+- generic `id` の混乱を避けられる
 
-This avoids unnecessary translation between public names and internal names.
+## 未解決事項
 
-## No Compatibility Layer
-
-Because the API has not been released yet:
-
-- do not keep both `id` and `diagram_id`
-- do not accept both `{id}` and `{diagram_id}`
-- do not add serde aliases only for compatibility
-
-Prefer one clean cutover to the explicit names.
-
-## Implementation Notes
-
-### Driver
-
-Update:
-
-- handler path parameter names
-- OpenAPI path parameter descriptions
-- response DTO examples
-- API docs in `docs/api-overview.md` and `docs/request-flow.md`
-
-### Service And Usecase
-
-Update public request and response models to explicit identifier field names.
-
-Where internal helper structs are not externally visible, it is still preferable to align them to avoid mixed naming inside the codebase.
-
-### Adapter
-
-Repository row mappings should align with RFC 0009 schema naming to avoid repeated aliasing back to generic `id`.
-
-## Rollout Plan
-
-1. finalize RFC 0009 schema-side naming
-2. rename public API model fields to explicit ids
-3. rename path parameters to explicit ids
-4. update OpenAPI docs and examples
-5. update all tests and fixtures that assert JSON field names
-6. update `docs/api-overview.md` and `docs/request-flow.md`
-
-This should be implemented as one focused change set rather than as piecemeal aliases.
-
-## Benefits
-
-- clearer API contracts
-- better alignment between schema, Rust models, and OpenAPI
-- less ambiguity in handlers and tests
-- easier onboarding for future genealogy and merged-graph APIs
-
-## Drawbacks
-
-- broad mechanical changes across handlers, tests, OpenAPI, and docs
-- existing local clients must be updated immediately once the change lands
-
-## Open Questions
-
-- Should create endpoints that currently return only `{ response: "ok" }` continue doing so, or should they eventually return explicit resource ids after creation?
-- Should timestamp naming also be revisited for consistency, for example `createdAt` vs `created_at`, or should that stay out of scope?
+- timestamp field の casing を将来揃えるか
+- create response で作成済み resource id を返すか

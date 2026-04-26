@@ -1,55 +1,49 @@
-# RFC 0002: Mutation Result And Error Mapping
+# RFC 0002: Mutation Result と Error Mapping
 
-- Status: `Accepted`
-- Last updated: `2026-03-14`
+- 状態: `採用`
+- 最終更新: `2026-03-14`
 
-## Background
+## 背景
 
-Current soft-delete based update/delete handlers have two gaps:
+soft-delete を使う update/delete handler には現在 2 つの問題がある。
 
-- they return `200 OK` even when no active row matched the target ID
-- some database failures are mapped to `400 Bad Request`
+- 対象 ID に一致する active row がなくても `200 OK` を返す
+- 一部の database failure が `400 Bad Request` に mapping される
 
-This makes it hard for clients to distinguish invalid input, missing resources, and server failures.
+これでは client が invalid input、missing resource、server failure を区別しにくい。
 
-## Proposal
+## 提案
 
-Standardize mutation outcomes for Diagram / Entity handlers as follows.
+Diagram / Entity の mutation 結果を次のように標準化する。
 
-### HTTP status mapping
+### HTTP ステータス対応
 
-- `400 Bad Request`: malformed request or validation failure
-- `404 Not Found`: target row does not exist or is already soft-deleted
-- `409 Conflict`: business rule violation such as an unsupported state transition
-- `500 Internal Server Error`: database or infrastructure failure
+- `400 Bad Request`: request 形式不正または validation failure
+- `404 Not Found`: 対象 row が存在しない、または既に soft-delete 済み
+- `409 Conflict`: unsupported state transition などの business rule violation
+- `500 Internal Server Error`: database または infrastructure failure
 
 ### Repository / service behavior
 
-- update and delete should inspect `rows_affected()`
-- when `rows_affected() == 0`, repository or service should return a typed `NotFound` error
-- validation errors should remain separate from database errors
+- update/delete は `rows_affected()` を確認する
+- `rows_affected() == 0` の場合、repository または service は typed `NotFound` error を返す
+- validation error と database error は分離する
 
-## Scope
+## 対象範囲
 
 - `update_diagram`
 - `delete_diagram`
 - `update_entity`
 - `delete_entity`
 
-## Migration Plan
+## 移行方針
 
-1. Add `NotFound` variants to repository/service/usecase errors.
-2. Update handlers to map typed errors to `404`.
-3. Move database-originated unexpected errors to `500`.
+- repository に `NotFound` error variant を追加する
+- service/usecase/handler で typed error を HTTP status に mapping する
+- 既存 test を `404` expectation に更新する
 
-## Implementation Status
+## 影響
 
-- `update_diagram`, `delete_diagram`, `update_entity`, and `delete_entity` now inspect `rows_affected()` through typed repository errors.
-- When no active row matches the target ID, including already soft-deleted rows, handlers return `404 Not Found`.
-- Database-originated failures in these update/delete handlers now map to `500 Internal Server Error`.
-- User APIs remain out of scope for this pass.
-
-## Review Points
-
-- Is `already soft-deleted` best represented as `404`, or do we want a distinct `409` path?
-- Do we want the same status mapping policy applied to User APIs in the same pass?
+- client は missing resource を正しく扱える
+- `400` と `500` の意味が明確になる
+- 同じ方針を Person / Relationship / User API にも適用しやすくなる

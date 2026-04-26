@@ -1,86 +1,80 @@
-# RFC 0011: Rust Workspace Local Build Time Policy
+# RFC 0011: Rust ワークスペースのローカルビルド時間ポリシー
 
-- Status: `Draft`
-- Last updated: `2026-04-07`
+- 状態: `下書き`
+- 最終更新: `2026-04-07`
 
-## Background
+## 背景
 
-As this Rust workspace grows, local feedback loops become increasingly sensitive to configuration choices:
+Rust ワークスペースが大きくなるほど、ローカルのフィードバックループは設定に左右されやすくなる。
 
-- workspace-wide recompilation cascades across multiple crates
-- build scripts can rerun more often than necessary
-- developers often use `cargo build` even when `cargo check` would be sufficient
-- release-oriented settings are heavier than needed for day-to-day verification
-- build cache configuration is not yet standardized across the workspace
+- 複数 crate にまたがるワークスペース全体の再コンパイルが連鎖する
+- build script が必要以上に再実行される可能性がある
+- `cargo check` で十分な場面でも `cargo build` が使われがちである
+- 日常的な確認には `release` 向け設定が重い
+- ワークスペース全体のビルドキャッシュ設定がまだ標準化されていない
 
-The repository already uses a Cargo workspace at the root, but today it does not define:
+リポジトリルートには Cargo workspace があるが、現状では次を定義していない。
 
-- explicit workspace-level `profile.dev`
-- a fast verification profile between `dev` and `release`
-- workspace-level `sccache` integration in `.cargo/config.toml`
-- a documented policy for `default-members`
-- a documented policy for `build.rs` rerun conditions
+- 明示的なワークスペースレベルの `profile.dev`
+- `dev` と `release` の中間となる高速な検証用 profile
+- `.cargo/config.toml` によるワークスペースレベルの `sccache` 連携
+- `default-members` の運用ポリシー
+- `build.rs` の再実行条件に関する運用ポリシー
 
-At the time of writing:
+執筆時点では、ルート [Cargo.toml](/home/hayashi3017/git/creation/Cargo.toml) に `[workspace]` と `[workspace.dependencies]` はあるが `[profile.*]` はなく、リポジトリの `.cargo/config.toml` も `build.rs` も存在しない。
 
-- root [`Cargo.toml`](/home/hayashi3017/git/creation/Cargo.toml) defines `[workspace]` and `[workspace.dependencies]`, but no `[profile.*]`
-- no repository `.cargo/config.toml` is present
-- no `build.rs` files were found in the workspace
+## 目標
 
-## Goal
+本番用の最終 `release` profile を弱めずに、再現可能でワークスペース全体に効く形でローカル開発ビルド時間を短縮する。
 
-Reduce local development build time in a reproducible, workspace-wide way without weakening the final production `release` profile.
+## 非目標
 
-## Non-Goals
+- 本番実行時性能の最大化
+- CI の全面的な再設計
+- linker 固有または target 固有の調整
+- 大規模な依存関係削減
+- 広範な feature flag 再構成
 
-- maximizing production runtime performance
-- redesigning CI from scratch
-- linker-specific or target-specific tuning
-- large-scale dependency pruning
-- broad feature-flag restructuring
+これらは有用な可能性があるが、別作業として扱う。
 
-Those may still be useful later, but they should be handled by separate work.
+## 提案
 
-## Proposal
+このワークスペースに次のローカルビルドポリシーを導入する。
 
-Adopt the following local-build policy for this workspace:
+1. build profile はルート `Cargo.toml` にのみ定義する。
+2. `profile.dev` は edit-compile-check ループ向けに明示的に最適化する。
+3. 高速なローカル最適化ビルド用に `release-fast` profile を追加する。
+4. `.cargo/config.toml` による任意のワークスペースレベル `sccache` 対応を追加する。
+5. `workspace.default-members` で既定ビルド範囲を狭めるべきか確認する。
+6. 将来の `build.rs` には明示的な `rerun-if-*` ルールを求める。
+7. 日常的な確認コマンドの既定を `cargo check` として文書化する。
+8. 遅いビルドの調査には `cargo --timings` を使う。
 
-1. define workspace-level build profiles only at the root `Cargo.toml`
-2. make `profile.dev` explicitly optimized for edit-compile-check loops
-3. add a `release-fast` profile for fast local optimized builds
-4. add optional workspace-level `sccache` support via `.cargo/config.toml`
-5. review whether `workspace.default-members` should narrow default build scope
-6. require explicit `rerun-if-*` rules for any future `build.rs`
-7. document `cargo check` as the default day-to-day verification command
-8. use `cargo --timings` when investigating slow builds
+## 現在の状態
 
-## Current State In This Repository
+- ルート [Cargo.toml](/home/hayashi3017/git/creation/Cargo.toml) に `[profile.dev]` はない。
+- `release-fast` のようなカスタム release 系 profile はない。
+- `default-members` はない。
+- リポジトリの `.cargo/config.toml` はない。
+- 現在 `build.rs` は存在しない。
 
-Observed from the current workspace:
+したがって、この RFC は主にワークスペースがさらに大きくなる前にポリシーと基準を整えるためのものである。
 
-- root [`Cargo.toml`](/home/hayashi3017/git/creation/Cargo.toml) has no `[profile.dev]`
-- root [`Cargo.toml`](/home/hayashi3017/git/creation/Cargo.toml) has no custom release-like profile such as `release-fast`
-- root [`Cargo.toml`](/home/hayashi3017/git/creation/Cargo.toml) has no `default-members`
-- no repository `.cargo/config.toml` exists
-- no `build.rs` files exist today
+## Profile ポリシー
 
-That means this RFC is mostly about establishing policy and a clean baseline before the workspace grows further.
+### ルートのみで定義
 
-## Profile Policy
+Build profile はワークスペースルートの [Cargo.toml](/home/hayashi3017/git/creation/Cargo.toml) にのみ定義する。
 
-### Root-Only Profiles
+理由:
 
-Build profiles should be defined only in the workspace root [`Cargo.toml`](/home/hayashi3017/git/creation/Cargo.toml).
-
-Reason:
-
-- Cargo profile behavior is clearer when one file owns the policy
-- member crates should not silently drift into different local-build behavior
-- future reviews stay small and centralized
+- Cargo profile の挙動は、1 つのファイルがポリシーを所有した方が分かりやすい。
+- member crate がローカルビルド挙動を暗黙に分岐させるべきではない。
+- 将来のレビューを小さく集約できる。
 
 ### `profile.dev`
 
-Recommended baseline:
+推奨する基準:
 
 ```toml
 [profile.dev]
@@ -88,26 +82,24 @@ incremental = true
 debug = "line-tables-only"
 ```
 
-Intent:
+意図:
 
-- keep incremental compilation enabled for frequent edits
-- reduce debug info generation cost while preserving usable backtraces
+- 頻繁な編集に対して incremental compilation を有効に保つ。
+- 利用可能な backtrace を残しつつ debug info 生成コストを下げる。
 
-Fallback:
+利用中の toolchain で `debug = "line-tables-only"` が使えない場合は、`debug = 1` を優先する。
 
-- if `debug = "line-tables-only"` is not viable on the toolchain in use, prefer `debug = 1`
+`dev` では次を標準化しない。
 
-Do not standardize these in `dev`:
-
-- custom `opt-level`
+- カスタム `opt-level`
 - `lto`
-- aggressive `codegen-units` tuning
+- 攻めた `codegen-units` 調整
 
-The default development profile should stay optimized for fast iteration, not benchmark-like behavior.
+既定の開発 profile は benchmark 的な挙動ではなく、高速な反復に最適化する。
 
 ### `profile.release-fast`
 
-Add a local optimized verification profile:
+ローカル最適化検証用 profile を追加する。
 
 ```toml
 [profile.release-fast]
@@ -118,47 +110,43 @@ codegen-units = 64
 debug = "line-tables-only"
 ```
 
-Intent:
+意図:
 
-- provide a faster alternative to full `release`
-- keep production `release` untouched
-- support local validation of roughly optimized behavior without full release build cost
+- 完全な `release` より速い代替を用意する。
+- 本番 `release` は変更しない。
+- 完全な release ビルドのコストを払わず、概ね最適化された挙動をローカルで確認できるようにする。
 
-Use cases:
+用途:
 
-- quick local smoke tests under optimization
-- rough binary-size or speed checks
-- local reproduction of release-only behavior without paying full release build cost
+- 最適化下での簡易 smoke test
+- binary size や速度の概算確認
+- release でのみ出る挙動のローカル再現
 
-## Cache Policy
+## Cache ポリシー
 
-### `.cargo/config.toml`
-
-If it does not conflict with existing tooling, add:
+既存 tooling と衝突しない場合、`.cargo/config.toml` に次を追加する。
 
 ```toml
 [build]
 rustc-workspace-wrapper = "sccache"
 ```
 
-Intent:
+意図:
 
-- improve reuse across crates
-- reduce rebuild cost after branch switches or dependency churn
+- crate 間の再利用を改善する。
+- branch 切り替えや依存変更後の再ビルドコストを下げる。
 
-Constraints:
+制約:
 
-- `sccache` should remain optional, not a hard prerequisite for development
-- if wrapper configuration already exists, compatibility must be reviewed before changing it
-- any environment workaround should be documented with a short rationale comment near the setting
+- `sccache` は必須要件ではなく任意にする。
+- wrapper 設定が既にある場合は互換性を確認してから変更する。
+- 環境回避策を入れる場合は、その近くに短い理由コメントを書く。
 
-## Workspace Scope Policy
+## ワークスペース範囲ポリシー
 
-### `default-members`
+日常開発で既定の対象が本当に全 member である必要があるか確認する。
 
-Review whether daily development actually needs every workspace member by default.
-
-Possible future direction:
+将来案:
 
 ```toml
 [workspace]
@@ -166,17 +154,13 @@ members = ["creation-adapter", "creation-driver", "creation-service", "creation-
 default-members = ["creation-driver", "creation-adapter", "creation-service", "creation-usecase"]
 ```
 
-This is only a policy recommendation for review, not an automatic decision.
+これはレビュー対象のポリシー提案であり、自動的な決定ではない。`default-members` は実際の開発利用と一致する場合にだけ使う。狭めすぎると contributor を混乱させ、利用頻度の低い crate の破損を隠す。
 
-Use `default-members` only if it reflects real daily usage. Over-narrowing the default scope can surprise contributors and hide breakage in less common crates.
+## Build Script ポリシー
 
-## Build Script Policy
+現在 `build.rs` はないが、方針は先に定める。
 
-There are no `build.rs` files in the repository today, but the policy should be established now.
-
-Any future `build.rs` must declare explicit rerun conditions when practical.
-
-Examples:
+将来の `build.rs` は、実用的な範囲で明示的な再実行条件を宣言する。
 
 ```rust
 fn main() {
@@ -191,23 +175,21 @@ fn main() {
 }
 ```
 
-Intent:
+意図:
 
-- avoid unnecessary reruns
-- keep code generation inputs explicit
-- make future build-time cost easier to reason about
+- 不要な再実行を避ける。
+- code generation の入力を明示する。
+- 将来のビルド時間コストを推論しやすくする。
 
-Do not narrow rerun conditions unless the true inputs are known. Incorrectly small rerun scopes are worse than conservative reruns.
+真の入力が分からない場合は再実行条件を狭めない。誤って小さすぎる再実行範囲は、保守的な再実行より悪い。
 
-## Command Policy
+## コマンドポリシー
 
-For routine local development, prefer:
+日常のローカル開発では次を優先する。
 
 1. `cargo check`
-2. `cargo build` only when a binary or artifact is actually needed
-3. `cargo build --profile release-fast` for quick optimized verification
-
-Examples:
+2. binary や artifact が必要な場合だけ `cargo build`
+3. 高速な最適化検証には `cargo build --profile release-fast`
 
 ```bash
 cargo check --workspace
@@ -215,78 +197,72 @@ cargo check -p creation-driver
 cargo build -p creation-driver --profile release-fast
 ```
 
-Reason:
+理由:
 
-- `cargo check` skips unnecessary code generation for faster feedback
-- developers should pay full build cost only when the output artifact is needed
+- `cargo check` は不要な code generation を避け、フィードバックを速くする。
+- 出力 artifact が必要なときだけ完全な build コストを払うべきである。
 
-## Measurement Policy
+## 計測ポリシー
 
-When build time feels slow, use timings instead of guessing.
-
-Recommended command:
+ビルドが遅いと感じた場合は推測せず timings を使う。
 
 ```bash
 cargo build --workspace --profile release-fast --timings
 ```
 
-This should be used to identify:
+これにより、遅い crate、高コストな build script、想定外に広い再ビルド範囲を特定する。
 
-- slow crates
-- expensive build scripts
-- unexpectedly wide rebuild scopes
+## 検討した代替案
 
-## Alternatives Considered
+### `profile.release` を直接軽くする
 
-### Lighten `profile.release` Directly
+却下理由:
 
-Rejected because:
+- 本番 profile の意味を弱める。
+- ローカル利便性を release 期待値に結合してしまう。
 
-- it weakens the meaning of the production profile
-- it couples local convenience to release expectations
+### `dev` の `opt-level` を上げる
 
-### Raise `opt-level` In `dev`
+既定としては却下した。
 
-Rejected as the default because:
+- コンパイルを遅くすることが多い。
+- 高速な反復という主目的と衝突する。
 
-- it often slows compilation
-- it fights the primary goal of fast iteration
+### 攻めた linker または `RUSTFLAGS` 調整
 
-### Aggressive Linker Or `RUSTFLAGS` Tuning
+延期理由:
 
-Deferred because:
+- 環境依存性が高い。
+- contributor 間で再現可能に保ちにくい。
+- トラブルシュートが複雑になる。
 
-- it is more environment-specific
-- it is harder to keep reproducible across contributors
-- troubleshooting gets more complex
+## 展開計画
 
-## Rollout Plan
+1. ルートワークスペースの現在のビルド設定を確認する。
+2. ルートに `profile.dev` を追加する。
+3. ルートに `profile.release-fast` を追加する。
+4. `.cargo/config.toml` と任意の `sccache` 対応を評価する。
+5. `default-members` が現行 workflow に役立つか害になるか確認する。
+6. developer 向け docs にコマンド指針を記録する。
+7. `cargo --timings` で計測する。
 
-1. confirm current build configuration in the root workspace
-2. add root `profile.dev`
-3. add root `profile.release-fast`
-4. evaluate `.cargo/config.toml` and optional `sccache` support
-5. review whether `default-members` helps or harms the current workflow
-6. document command guidance in developer-facing docs
-7. measure with `cargo --timings`
+## 利点
 
-## Benefits
+- ローカル再ビルドが速くなる。
+- ビルド設定の所有箇所が明確になる。
+- ローカル検証と本番 release を分離できる。
+- crate 間で build policy が意図せずずれるリスクが下がる。
+- crate や code generation が増える前の良い基準になる。
 
-- faster local rebuilds
-- clearer ownership of build settings
-- better separation between local verification and production release
-- lower risk of accidental build-policy drift between crates
-- a better baseline before more crates or code generation are added
+## 欠点
 
-## Drawbacks
+- 保守すべき明示的な Cargo 設定が増える。
+- `release-fast` では完全な `release` でだけ出る問題を隠す可能性がある。
+- `sccache` を採用すると説明・トラブルシュート対象の tool が増える。
+- `default-members` が共通 workflow とずれると contributor を混乱させる。
 
-- more explicit Cargo configuration to maintain
-- `release-fast` may hide some issues that only appear in full `release`
-- `sccache` adds another tool to explain and troubleshoot if adopted
-- `default-members` can confuse contributors if it stops matching common workflows
+## レビュー観点
 
-## Review Points
-
-- Should this repository adopt `default-members` now, or wait until there is a clearer pain point?
-- Should `sccache` support be committed in-repo, or documented as an optional local setup first?
-- Should a future RFC also cover test execution latency, such as `nextest`, scoped test workflows, or fixture DB startup cost?
+- このリポジトリで今 `default-members` を採用すべきか、明確な痛みが出るまで待つべきか。
+- `sccache` 対応をリポジトリに commit すべきか、まず任意の local setup として文書化すべきか。
+- 将来 RFC で `nextest`、scoped test workflow、fixture DB 起動コストなど test 実行遅延も扱うべきか。

@@ -1,24 +1,24 @@
-# RFC Index
+# RFC 索引
 
-## Status
+## 状態
 
-- `Draft`: review in progress
-- `Accepted`: approved and ready for implementation
-- `Replaced`: superseded by another RFC
+- `下書き`: レビュー中
+- `採用`: 承認済みで、実装に進めてよい
+- `置き換え済み`: 別の RFC によって置き換えられた
 
-## Files
+## ファイル
 
-- `docs/rfc/0001-resource-oriented-api-shape.md`: Diagram / Person API path and parameter shape
-- `docs/rfc/0002-mutation-result-and-error-mapping.md`: Update/Delete result semantics and HTTP status mapping
-- `docs/rfc/0003-validation-and-normalization.md`: Input validation and normalization policy
-- `docs/rfc/0004-sqlx-workflow-and-test-environment.md`: SQLx offline workflow and DB-backed test setup
-- `docs/rfc/0005-entity-person-soft-delete-consistency.md`: Soft-delete propagation policy between `entity` and `person`
-- `docs/rfc/0006-relationship-soft-delete-and-tree-path-consistency.md`: Soft-delete propagation policy for `relationship` and `tree_path`
-- `docs/rfc/0007-family-tree-read-api.md`: Family-tree read projection endpoint and contract
-- `docs/rfc/0008-genealogy-aggregate-and-visibility.md`: Cross-diagram genealogy aggregate, merge semantics, publication scope, and entity visibility
-- `docs/rfc/0009-explicit-primary-key-column-names.md`: Rename generic root-table `id` columns to explicit resource-scoped primary key names
-- `docs/rfc/0010-explicit-id-fields-in-public-api.md`: Rename public API `id` fields and path parameters to explicit resource-scoped names
-- `docs/rfc/0011-rust-workspace-build-time.md`: Workspace-level policy for faster local Rust build and check loops
-- `docs/rfc/0012-kinship-derivation-service.md`: MECE service boundary for stored relationships and read-side kinship derivation
-- `docs/rfc/0013-canonical-relationship-kinds-and-tree-path.md`: Canonical stored relationship kinds and tree-path maintenance policy
-- `docs/rfc/0014-as-of-family-tree-projection.md`: As-of-date family-tree and kinship projection policy
+- `docs/rfc/0001-resource-oriented-api-shape.md`: Diagram / Person API の path と parameter shape
+- `docs/rfc/0002-mutation-result-and-error-mapping.md`: Update/Delete の結果 semantics と HTTP status mapping
+- `docs/rfc/0003-validation-and-normalization.md`: 入力 validation と normalization policy
+- `docs/rfc/0004-sqlx-workflow-and-test-environment.md`: SQLx offline workflow と DB-backed test setup
+- `docs/rfc/0005-entity-person-soft-delete-consistency.md`: `entity` と `person` の soft-delete propagation policy
+- `docs/rfc/0006-relationship-soft-delete-and-tree-path-consistency.md`: `relationship` と `tree_path` の soft-delete propagation policy
+- `docs/rfc/0007-family-tree-read-api.md`: family-tree read projection endpoint と contract
+- `docs/rfc/0008-genealogy-aggregate-and-visibility.md`: cross-diagram genealogy aggregate、merge semantics、publication scope、entity visibility
+- `docs/rfc/0009-explicit-primary-key-column-names.md`: root table の汎用 `id` column を resource-scoped primary key 名へ変更する方針
+- `docs/rfc/0010-explicit-id-fields-in-public-api.md`: public API の `id` field と path parameter を明示的な名前へ変更する方針
+- `docs/rfc/0011-rust-workspace-build-time.md`: Rust workspace の local build / check loop 高速化方針
+- `docs/rfc/0012-kinship-derivation-service.md`: stored relationship と read-side kinship derivation の MECE な service boundary
+- `docs/rfc/0013-canonical-relationship-kinds-and-tree-path.md`: canonical stored relationship kind と tree-path maintenance policy
+- `docs/rfc/0014-as-of-family-tree-projection.md`: as-of date 指定による family-tree / kinship projection policy

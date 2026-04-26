@@ -1,63 +1,67 @@
 # RFC 0005: Entity-Person Soft Delete Consistency
 
-- Status: `Draft`
-- Last updated: `2026-03-15`
+- 状態: `下書き`
+- 最終更新: `2026-03-15`
 
-## Background
+## 背景
 
-`person` CRUD is now implemented as a separate API on top of the `person` specialization table.
+`person` CRUD は `person` specialization table 上の API として実装された。
 
-Current behavior:
+現在の挙動は次の通り。
 
-- public `DELETE /api/persons/delete/{entity_id}` sets both `entity.deleted_at` and `person.deleted_at`
-- internal `entity_repository.delete_entity(...)` still sets only `entity.deleted_at`
-- `person` reads and writes require both `person.deleted_at IS NULL` and `entity.deleted_at IS NULL`
+- public `DELETE /api/persons/delete/{entity_id}` は `entity.deleted_at` と `person.deleted_at` の両方を設定する
+- internal `entity_repository.delete_entity(...)` は `entity.deleted_at` だけを設定する
+- `person` read/write は `person.deleted_at IS NULL` と `entity.deleted_at IS NULL` の両方を要求する
 
-This means deleting an `entity` hides the related `person` row from the API, but does not mark the `person` row as logically deleted in the database.
+つまり、`entity` を削除すると API からは関連 `person` row が見えなくなるが、DB 上では `person` row 自体は logical delete されていない。
 
-## Problem
+## 問題
 
-The current behavior leaves lifecycle semantics implicit:
+現在の挙動では lifecycle semantics が暗黙的になる。
 
-- DB state can contain `person.deleted_at IS NULL` rows whose parent `entity` is already soft-deleted
-- future restore / recreate semantics for the same `entity_id` become unclear
-- future specialization tables would likely repeat the same ambiguity
+- `person.deleted_at IS NULL` だが親 `entity` は soft-delete 済み、という状態が残る
+- 同じ `entity_id` の restore / recreate semantics が不明確になる
+- 将来 specialization table が増えたときに同じ曖昧さが繰り返される
 
-## Options
+## 選択肢
 
-### Option A: Parent soft delete does not propagate
+### Option A: 親の soft delete を specialization row に伝播しない
 
-- keep current behavior
-- child specialization rows remain physically present and logically active
-- API hides them by filtering on parent activity
+- 現状維持
+- child specialization row は物理的にも論理的にも active のまま残る
+- API は親 entity の active 条件で非表示にする
 
-Pros:
+利点:
 
-- smallest implementation
-- no cross-table update on parent delete
+- 実装変更が最小
+- parent delete 時に cross-table update が不要
 
-Cons:
+欠点:
 
-- DB state is harder to reason about
-- restore / recreate semantics stay ambiguous
+- DB state と API visibility がずれる
+- restore policy が曖昧
 
-### Option B: Parent soft delete propagates to specialization rows
+### Option B: 親 entity の soft delete を specialization row に伝播する
 
-- deleting `entity` also marks `person.deleted_at`
-- optionally, deleting `diagram` would later cascade logical delete into `entity` and specialization rows by the same policy
+- entity/person を同じ transaction で soft-delete する
+- 内部 repository も aggregate delete path 経由に寄せる
 
-Pros:
+利点:
 
-- lifecycle state is explicit in every table
-- easier to reason about restore / audit semantics
+- DB state が API visibility と一致する
+- future specialization にも同じ方針を適用しやすい
 
-Cons:
+欠点:
 
-- more cross-table mutation logic
-- broader policy decision if generalized beyond `person`
+- delete orchestration が必要
+- 汎用 entity repository 単体では完結しない
 
-## Open Questions
+## 提案
 
-- should `diagram` soft delete also logically delete its `entity` and `person` descendants in the same pass?
-- if restore APIs are added later, should restore also propagate from parent to child?
-- should child-specific delete remain allowed after parent delete, or become a no-op / `404` only?
+Option B を採用する方向で整理する。public aggregate delete と internal delete の semantics を揃え、specialization row の lifecycle を親 entity と一貫させる。
+
+## 未解決事項
+
+- restore API を追加する場合、restore も parent から child へ伝播させるか
+- parent delete 後の child-specific delete は no-op にするか `404` にするか
+- specialization が増えたときの共通 orchestration をどう表現するか

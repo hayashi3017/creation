@@ -1,73 +1,55 @@
 # RFC 0001: Resource-Oriented API Shape
 
-- Status: `Draft`
-- Last updated: `2026-03-14`
+- 状態: `下書き`
+- 最終更新: `2026-03-14`
 
-## Background
+## 背景
 
-Current Diagram / Entity endpoints have two inconsistencies:
+現在の Diagram / Entity endpoint には 2 つの不整合がある。
 
-- update and delete use `POST /.../update` and `POST /.../delete`
-- `GET /api/diagrams` and `GET /api/entities` currently depend on JSON bodies
+- update / delete が `POST /.../update` と `POST /.../delete` を使っている
+- `GET /api/diagrams` と `GET /api/entities` が JSON body に依存している
 
-This makes client generation, caching, and route discovery harder than necessary.
+これにより、client generation、cache、route discovery が必要以上に難しくなる。
 
-## Proposal
+## 提案
 
-Adopt resource-oriented paths in the next API revision.
+次の API revision で resource-oriented path に寄せる。
 
-### Diagram
+### Diagram リソース
 
 - `GET /api/diagrams`
 - `POST /api/diagrams`
-- `PATCH /api/diagrams/:id`
-- `DELETE /api/diagrams/:id`
+- `PATCH /api/diagrams/:diagram_id`
+- `DELETE /api/diagrams/:diagram_id`
 
-### Entity
+### Entity リソース
 
 - `GET /api/diagrams/:diagram_id/entities`
 - `POST /api/diagrams/:diagram_id/entities`
-- `PATCH /api/entities/:id`
-- `DELETE /api/entities/:id`
+- `PATCH /api/entities/:entity_id`
+- `DELETE /api/entities/:entity_id`
 
-### Request shape
+### リクエスト形状
 
-- Stop sending JSON bodies on `GET`
-- Use path parameters for parent-child ownership such as `diagram_id`
-- Reserve query parameters for future filters such as `kind`, pagination, or sort order
+- `GET` では JSON body を送らない
+- `diagram_id` のような親子 ownership は path parameter で表す
+- `kind`、pagination、sort order などの filter は query parameter に予約する
 
-## Migration Plan
+## 移行方針
 
-1. Add the new routes alongside the current ones.
-2. Mark `/create`, `/update`, `/delete` style routes as deprecated in docs.
-3. Remove legacy routes after clients migrate.
+- 既存 action-style endpoint は互換期間だけ残す
+- 新 endpoint を OpenAPI に追加する
+- client 側の移行が済んだら旧 endpoint を削除する
 
-## Implementation Status
+## 影響
 
-- The current implementation only partially follows this RFC.
+- HTTP method と resource の意味が揃う
+- `GET` が cache と client tooling に乗りやすくなる
+- path parameter 名は RFC 0010 の explicit id policy に合わせる
 
-### Already aligned with this RFC
+## 未解決事項
 
-- `GET /api/diagrams`
-
-### Still diverging from this RFC
-
-- Diagram write routes still use action-style segments:
-  - `POST /api/diagrams/create`
-  - `PATCH /api/diagrams/update/{id}`
-  - `DELETE /api/diagrams/delete/{id}`
-- Public person aggregate routes still diverge:
-  - `GET /api/persons` depends on a JSON body with `diagram_id`
-  - `POST /api/persons/create`
-  - `PATCH /api/persons/update/{id}`
-  - `DELETE /api/persons/delete/{id}`
-- Public relationship routes also diverge:
-  - `GET /api/relationships` depends on a JSON body with `diagram_id`
-  - `POST /api/relationships/create`
-  - `PATCH /api/relationships/update/{id}`
-  - `DELETE /api/relationships/delete/{id}`
-
-## Review Points
-
-- Should person update/delete also be nested under `/api/diagrams/:diagram_id/...`, or is a global `/api/persons/:id` better once the ID is known?
-- Do we want to add `GET /api/diagrams/:id` and `GET /api/persons/:id` in the same revision for consistency?
+- 旧 endpoint の廃止時期
+- API versioning を入れるか
+- `GET /api/entities` のような横断 query を残すか

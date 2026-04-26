@@ -1,9 +1,9 @@
-# ADR 0003: Transaction Port For Aggregate Writes
+# ADR 0003: Aggregate Write の Transaction Port
 
-- Status: `Accepted`
-- Last updated: `2026-03-15`
+- 状態: `採用`
+- 最終更新: `2026-03-15`
 
-## Context
+## 背景
 
 公開 `person` API は `entity` の共通項目と `person` の詳細項目を 1 リクエストで扱う aggregate write model になっている。
 
@@ -14,7 +14,7 @@
 - `entity` / `person` の table-focused repository を維持すること
 - それでも `person` aggregate write の原子性を失わないこと
 
-## Decision
+## 決定
 
 aggregate write の orchestration は usecase 層で行い、transaction boundary は service 側の port である `ProvidesTransactionManager` / `TransactionContext` で表現する。
 
@@ -38,39 +38,39 @@ usecase は「この操作は 1 transaction」と決めるが、`sqlx::Transacti
 - usecase は service port にだけ依存し、adapter 実装詳細を知らなくてよい
 - usecase は boundary を決めるだけで、DB 実装詳細からは切り離せる
 
-## Rejected Alternatives
+## 却下した代替案
 
 ### Option A: `person_repository` が `entity + person` を直接更新する
 
-Pros:
+利点:
 
 - 実装は単純
 - usecase は薄いままで済む
 
-Cons:
+欠点:
 
 - repository の責務が specialization aggregate に寄りすぎる
 - table-focused な再利用がしにくい
 
 ### Option B: usecase が `sqlx::Transaction` を直接扱う
 
-Pros:
+利点:
 
 - transaction boundary は明示的
 
-Cons:
+欠点:
 
 - usecase が adapter / SQLx 実装詳細に依存する
 - layered boundary が崩れる
 
 ### Option C: transaction ごとに tx-scoped repository を組み立てる
 
-Cons:
+欠点:
 
 - resource が増えるたびに transaction 専用 repository 型が増える
 - repository module の外側で CRUD 実装が重複しやすい
 
-## Consequences
+## 影響
 
 - `person` の create/update/delete は usecase で validation 済み payload を組み立ててから transaction port を開始し、transaction-aware な service container を通して順に呼ぶ
 - `person_repository` の write test は `person` テーブル専用の振る舞いだけを確認する

@@ -1,38 +1,42 @@
 # ADR 0004: Relationship Lineage Tree Maintenance
 
-- Status: `Superseded`
-- Last updated: `2026-04-26`
-- Superseded by: `docs/rfc/0013-canonical-relationship-kinds-and-tree-path.md`
+- 状態: `置き換え済み`
+- 最終更新: `2026-04-26`
+- 置き換え先: `docs/rfc/0013-canonical-relationship-kinds-and-tree-path.md`
 
-## Context
+## 背景
 
-The database schema already has two separate concepts:
+DB schema には次の 2 つの概念がある。
 
-- `relationship`: general links between entities
-- `tree_path`: closure table for ancestor / descendant traversal
+- `relationship`: entity 間の汎用 link
+- `tree_path`: ancestor / descendant traversal 用の closure table
 
-However, the `relationship_kind` enum contains both lineage and non-lineage kinds:
+当時の `relationship_kind` enum には lineage と non-lineage が混在していた。
 
-- lineage-like: `parent`, `child`
+- lineage 的なもの: `parent`, `child`
 - non-lineage: `sibling`, `spouse`, `adopted_*`, `step_*`, `cohabitant`, `divorced_spouse`
 
-`tree_path` only makes clear sense for directed ancestry. If every relationship kind were allowed to participate in closure maintenance, the meaning of ancestor / descendant would become ambiguous.
+`tree_path` は directed ancestry に対してだけ意味が明確である。すべての relationship kind を closure maintenance に参加させると、ancestor / descendant の意味が曖昧になる。
 
-## Decision
+## 決定
 
-For the implementation at the time this ADR was accepted:
+この ADR が採用された時点の実装では、次を方針とした。
 
-- public `relationship` write APIs only accept `parent` and `child`
-- `tree_path` is rebuilt only from active lineage edges
-- `parent` is interpreted as `source_entity_id -> target_entity_id`
-- `child` is interpreted as `target_entity_id -> source_entity_id`
-- non-lineage relationship kinds are not yet exposed through the public API
+- public `relationship` write API は `parent` と `child` だけを受け付ける
+- `tree_path` は active lineage edge だけから rebuild する
+- `parent` は `source_entity_id -> target_entity_id` と解釈する
+- `child` は `target_entity_id -> source_entity_id` と解釈する
+- non-lineage relationship kind は public API にまだ公開しない
 
-## Consequences
+## 影響
 
-- ancestor traversal semantics stay narrow and predictable
-- cycle detection can be implemented on a directed lineage graph
-- future support for `sibling`, `spouse`, `adopted_*`, or `step_*` needs a separate review of:
-  - whether those kinds should be accepted by the public API
-  - whether they affect `tree_path`
-  - whether a different traversal structure is needed
+- ancestor traversal semantics は狭く予測しやすい
+- cycle detection は directed lineage graph に対して実装できる
+- `sibling`, `spouse`, `adopted_*`, `step_*` の将来対応では次を再検討する必要があった
+- その kind を public API で受け付けるか
+- `tree_path` に影響させるか
+- 別の traversal structure が必要か
+
+## 現在の状態
+
+この ADR は RFC 0013 によって置き換えられた。現在は canonical relationship kind と `parent` / `adoptive_parent` を中心にした `tree_path` policy を採用する。

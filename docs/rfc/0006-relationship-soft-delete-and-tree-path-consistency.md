@@ -1,79 +1,82 @@
-# RFC 0006: Relationship Soft-Delete And Tree Path Consistency
+# RFC 0006: Relationship Soft-Delete と Tree Path Consistency
 
-- Status: `Draft`
-- Last updated: `2026-03-20`
+- 状態: `下書き`
+- 最終更新: `2026-03-20`
 
-## Background
+## 背景
 
-`relationship` writes currently rebuild `tree_path` inside the same transaction, so create / update / delete of lineage edges stays consistent.
+`relationship` write は同じ transaction 内で `tree_path` を rebuild するため、lineage edge の create / update / delete は整合する。
 
-That still leaves one unresolved path:
+ただし未解決の path がある。
 
-- an `entity` or `person` can be soft-deleted without touching `relationship`
-- `tree_path` is not rebuilt on that path today
+- `entity` または `person` は `relationship` に触れずに soft-delete できる
+- その path では現在 `tree_path` が rebuild されない
 
-Because `relationship` rows reference entities directly, soft-deleting an entity can leave active relationship rows and previously computed closure rows that no longer represent visible data.
+`relationship` row は entity を直接参照するため、entity を soft-delete すると active relationship row と古い closure row が残り、visible data を表さない状態になりうる。
 
-## Proposal
+## 提案
 
-Decide a single policy for soft-delete propagation across:
+次の範囲について soft-delete propagation policy を 1 つに決める。
 
 - `entity`
 - `person`
 - `relationship`
 - `tree_path`
 
-## Options
+## 選択肢
 
-### Option A: Cascade soft-delete to relationships and rebuild tree_path immediately
+### Option A: relationship へ cascade soft-delete し、即時に tree_path を rebuild する
 
-Behavior:
+挙動:
 
-- soft-delete the target `entity`
-- soft-delete active `relationship` rows that reference that entity
-- rebuild `tree_path` for the affected diagram in the same transaction
+- 対象 `entity` を soft-delete する
+- その entity を参照する active `relationship` row を soft-delete する
+- affected diagram の `tree_path` を同じ transaction で rebuild する
 
-Pros:
+利点:
 
-- read models stay physically consistent
-- tree traversal never depends on filtering out stale rows later
+- read model が物理的にも整合する
+- traversal が stale row filtering に依存しない
 
-Cons:
+欠点:
 
-- delete flow becomes heavier
-- restoring data later is more complex
+- delete path が重くなる
+- historical relationship row の扱いを別途整理する必要がある
 
-### Option B: Keep relationships as-is and filter deleted entities at read/rebuild time
+### Option B: relationship は残し、read/rebuild 時に deleted entity を除外する
 
-Behavior:
+挙動:
 
-- soft-delete only the target `entity` / `person`
-- leave `relationship` rows active
-- ensure all reads and `tree_path` rebuilds ignore deleted entities
+- active relationship row はそのまま残す
+- read と `tree_path` rebuild は deleted entity を無視する
 
-Pros:
+利点:
 
-- lighter write path
-- preserves relationship history more directly
+- relationship history を直接残しやすい
+- delete path の write が少ない
 
-Cons:
+欠点:
 
-- stale active rows remain in storage
-- every consumer must remember to filter deleted entities
+- 全 read/rebuild path で filtering を徹底する必要がある
+- stale row が DB 上に残る
 
-### Option C: Add a dedicated archival state for relationship visibility
+### Option C: relationship visibility 用の archival state を追加する
 
-Pros:
+挙動:
 
-- separates “entity deleted” from “relationship historically invalid”
-- allows future restore/archive behavior
+- entity deletion と relationship archival を別 state として扱う
 
-Cons:
+利点:
 
-- more schema and application complexity
+- history と visibility を分けられる
 
-## Review Points
+欠点:
 
-- Should entity/person delete trigger relationship soft-delete in the same transaction?
-- If not, should `tree_path` be rebuilt proactively anyway?
-- Do we want historical relationship rows to remain queryable after entity soft-delete, and if so through which endpoint?
+- model が増える
+- 初期実装としては重い
+
+## 未解決事項
+
+- entity/person delete は同じ transaction で relationship soft-delete を起こすべきか
+- そうしない場合でも `tree_path` は proactive に rebuild すべきか
+- entity soft-delete 後も historical relationship row を query 可能にするか
