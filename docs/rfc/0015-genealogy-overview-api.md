@@ -7,7 +7,7 @@
 
 Genealogy Overview は、world 内の複数 genealogy diagram を統合した家系図を返す read API である。
 
-単一 diagram の既存 `GET /api/family-trees/{diagram_id}` は移行前 API として diagram-local projection を返す。一方、overview では world-scoped `entity_id` を primary node とし、複数 diagram に配置された同じ entity を 1 つの人物 node として扱う。
+単一 diagram の既存 `GET /api/family-trees/{diagram_id}` は移行前 API として diagram-local projection を返す。一方、overview では world-scoped `entity_id` を primary node とし、複数 diagram に登録された同じ entity を 1 つの人物 node として扱う。
 
 この RFC は Genealogy Overview の API contract と projection rule を定義する。familytree から genealogy への repository-wide 命名変更方針は RFC 0017 で定義する。
 
@@ -96,7 +96,7 @@ Request:
 }
 ```
 
-Node の primary identifier は `entity_id` とする。`source_diagram_ids` は、その entity がどの diagram に配置されているかを示す provenance である。
+Node の primary identifier は `entity_id` とする。`source_diagram_ids` は、その entity がどの diagram に登録されているかを示す provenance である。
 
 ## Projection ルール
 
@@ -107,10 +107,10 @@ Overview は次の順序で組み立てる。
 3. query で `diagram_ids` が指定されていれば world 内に限定して filter する。
 4. `genealogy_overview_enabled = true` の diagram のみに filter する。
 5. filter 後の diagram が 0 件なら `409 CONFLICT` を返す。
-6. 対象 diagram に含まれる active entity と person attributes を load する。
-7. 同じ `entity_id` が複数 diagram に含まれる場合、1 node に統合する。
+6. 対象 diagram の active `diagram_entity` と entity / person attributes を load する。
+7. 同じ `entity_id` が複数 diagram に登録されている場合、1 node に統合する。
 8. 対象 diagram の active canonical relationship を load する。
-9. relationship endpoint が world 内 entity であり、対象 diagram に含まれることを確認する。
+9. relationship endpoint が world 内 entity であり、対象 diagram に `diagram_entity` として登録されていることを確認する。
 10. `source_entity_id = target_entity_id` になる relationship は overview edge から除外し、diagnostic として扱う。
 11. 同じ entity pair / kind / validity range の edge を統合する。
 12. `KinshipDerivationService` に overview 用 graph input を渡す。
@@ -219,7 +219,7 @@ RFC 0014 の as-of rule を world overview にも適用できる。
 - world 外の diagram は含まれない。
 - `genealogy_overview_enabled = false` の diagram は overview に含まれない。
 - すべての対象 diagram が disabled の場合は `409 CONFLICT` と `NO_VISIBLE_GENEALOGY_DIAGRAMS` を返す。
-- 同じ `entity_id` が複数 diagram に含まれても 1 node に統合される。
+- 同じ `entity_id` が複数 diagram に登録されていても 1 node に統合される。
 - source diagram provenance が返る。
 - relationship endpoint が world 内 entity として検証される。
 - 重複 relationship が 1 edge に統合される。

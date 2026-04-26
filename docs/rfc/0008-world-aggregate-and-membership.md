@@ -44,7 +44,7 @@
 - `world`: 複数 diagram と人物 entity を束ねる単位。
 - `entity`: world に所属する canonical node。`kind = person` の entity が人物を表す。
 - `person`: world-scoped `entity` の specialization。
-- `diagram`: world 内 entity を参照して関係や表示単位を構成する編集・表現単位。
+- `diagram`: world 内 entity を選択し、relationship を束ねる編集・表現単位。
 - `genealogy_overview`: world 内の diagram を統合して返す read model。
 
 推奨 schema:
@@ -83,7 +83,7 @@ CREATE TABLE entity (
 );
 ```
 
-`entity.diagram_id` は追加しない。entity と diagram の対応は `diagram_entity` だけで表す。
+`entity.diagram_id` は追加しない。entity は world に直接所属し、diagram で利用する entity は中間テーブルで管理する。
 
 ## 所属ルール
 
@@ -91,7 +91,7 @@ CREATE TABLE entity (
 - すべての entity は 1 つの world に所属する。
 - `entity.diagram_id` は持たない。
 - diagram を別 world に移動する操作は提供しない。
-- world を soft-delete すると、その world に属する diagram / entity / person / relationship / tree_path / diagram_entity も同じ transaction で soft-delete または削除する。
+- world を soft-delete すると、その world に属する diagram / entity / person / relationship / diagram_entity / tree_path も同じ transaction で soft-delete または削除する。
 - diagram の soft-delete は world 自体を削除しない。
 
 Diagram の `kind` は維持する。overview の対象は、初期実装では `kind = family_tree` かつ `genealogy_overview_enabled = true` の diagram のみに限定する。familytree という外部 API 命名は RFC 0017 で genealogy に統一する。
@@ -100,9 +100,26 @@ Diagram の `kind` は維持する。overview の対象は、初期実装では 
 
 ## Diagram と Entity の対応
 
-Entity が world に所属するようになると、diagram は entity を所有せず、world entity を参照する。
+Entity が world に所属するようになると、diagram は entity を所有しない。
 
-推奨 table:
+diagram で利用する entity は多対多の関係になるため、中間テーブルで明示的に管理する。
+
+推奨名は `diagram_entity` とする。
+
+理由:
+
+- 既存 table 名が単数形なので `diagram_entity` が一貫する。
+- どの 2 table の関連かが名前から直接分かる。
+- `j_` などの接頭語は project 内で意味が定義されておらず、検索性と可読性が落ちる。
+- join table であることは composite primary key と foreign key で十分表現できる。
+
+別候補:
+
+- `diagram_entity_membership`: 中間テーブルであることは分かりやすいが長い。
+- `diagram_entity_link`: link table であることは分かるが、既存命名より抽象的。
+- `diagram_person`: 現在は person だけなら分かりやすいが、将来 entity kind が増えると狭すぎる。
+
+推奨 schema:
 
 ```sql
 CREATE TABLE diagram_entity (
@@ -114,12 +131,33 @@ CREATE TABLE diagram_entity (
 );
 ```
 
+relationship は diagram 内の entity 間の explicit fact として保存する。
+
+```sql
+CREATE TABLE relationship (
+    relationship_id BIGSERIAL PRIMARY KEY,
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    source_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    target_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    kind relationship_kind NOT NULL,
+    start_date DATE,
+    end_date DATE,
+    end_reason VARCHAR(32),
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+```
+
 制約:
 
 - `diagram.world_id` と `entity.world_id` は一致している必要がある。
-- diagram に含まれない entity は、その diagram の relationship endpoint として使えない。
-- 同じ world 内の entity は複数 diagram に配置できる。
-- 同じ人物を複数 diagram で表現したい場合、新しい entity を作らず同じ `entity_id` を複数 diagram に関連付ける。
+- `diagram_entity` の diagram と entity は同じ world に属する必要がある。
+- relationship の source / target entity は、その relationship の diagram に `diagram_entity` として登録されている必要がある。
+- 同じ world 内の entity は、複数 diagram に `diagram_entity` として登録できる。
+- 同じ人物を複数 diagram で表現したい場合、新しい entity を作らず同じ `entity_id` を複数 diagram に登録する。
+- relationship を持たない孤立 entity でも、`diagram_entity` に登録されていれば diagram-specific projection に node として出せる。
 
 PostgreSQL で world 一致制約を直接表しにくい場合は、service / repository 層で検証する。
 
@@ -153,7 +191,7 @@ relationship.target_entity_id -> entity.entity_id
 追加ルール:
 
 - relationship の `diagram_id` が属する world と、source / target entity の `world_id` は一致する必要がある。
-- source / target entity は対象 diagram に `diagram_entity` として含まれている必要がある。
+- source / target entity は対象 diagram に `diagram_entity` として登録されている必要がある。
 - overview では relationship endpoint を変換せず、そのまま `entity_id` node 間の edge として扱う。
 
 この設計では `world_person_id` への正規化処理が不要になる。
@@ -227,14 +265,15 @@ World restore が必要になった場合は、別 RFC で lifecycle policy を�
 1. `world` table と model を追加する。
 2. `diagram.world_id` と `entity.world_id` を初期 schema に追加する。
 3. `entity.diagram_id` を schema から削除する。
-4. `diagram_entity` を追加し、diagram と entity の所属を分離する。
+4. `diagram_entity` を追加する。
 5. diagram create に world_id を要求する。
 6. entity/person create に world_id を要求する。
-7. relationship write で diagram と endpoint entity の world 一致を検証する。
-8. world delete で関連 data を同じ transaction で soft-delete する。
-9. world 内 diagram 一覧と entity 一覧 read を追加する。
-10. overview 用に world 内の family_tree diagram と関連 entity を load する repository を追加する。
-11. RFC 0015 の overview projection を実装する。
+7. diagram に entity を追加する API / repository を追加する。
+8. relationship write で diagram と endpoint entity の world 一致、および `diagram_entity` 登録を検証する。
+9. world delete で関連 data を同じ transaction で soft-delete する。
+10. world 内 diagram 一覧と entity 一覧 read を追加する。
+11. overview 用に world 内の family_tree diagram と diagram_entity / relationship endpoint entity を load する repository を追加する。
+12. RFC 0015 の overview projection を実装する。
 
 ## Test Plan
 
@@ -246,7 +285,7 @@ World restore が必要になった場合は、別 RFC で lifecycle policy を�
 - diagram に同じ world 内の entity を追加できる。
 - world が異なる entity は diagram に追加できない。
 - relationship endpoint entity は relationship の diagram と同じ world に属する必要がある。
-- diagram に含まれない entity を relationship endpoint にできない。
+- diagram に登録されていない entity は relationship endpoint にできない。
 - world delete が関連 diagram / entity / person / relationship / diagram_entity を同じ transaction で soft-delete する。
 - world delete が関連 tree_path rows を削除する。
 - overview では同じ entity が複数 diagram に存在しても 1 node になる。
