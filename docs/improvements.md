@@ -40,7 +40,7 @@ Detailed proposals and decisions:
 
 ## Genealogy Merge And Visibility
 
-- Cross-diagram merge, publication scope, entity-level hidden state, and centered merged-family-tree reads are not defined yet. Before implementing merged genealogy views, review the aggregate boundary, naming, and visibility propagation policy in `docs/rfc/0008-genealogy-aggregate-and-visibility.md`.
+- Cross-diagram merge, publication scope, entity-level hidden state, and centered merged-family-tree reads are not defined yet. Before implementing merged genealogy views, review the aggregate boundary, naming, and visibility propagation policy in `docs/rfc/0008-world-aggregate-and-membership.md`.
 
 ## Family Tree Derivation
 

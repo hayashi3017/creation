@@ -15,10 +15,13 @@
 - `docs/rfc/0005-entity-person-soft-delete-consistency.md`: `entity` と `person` の soft-delete propagation policy
 - `docs/rfc/0006-relationship-soft-delete-and-tree-path-consistency.md`: `relationship` と `tree_path` の soft-delete propagation policy
 - `docs/rfc/0007-family-tree-read-api.md`: family-tree read projection endpoint と contract
-- `docs/rfc/0008-genealogy-aggregate-and-visibility.md`: cross-diagram genealogy aggregate、merge semantics、publication scope、entity visibility
+- `docs/rfc/0008-world-aggregate-and-membership.md`: world aggregate、entity 所属、diagram 所属の方針
 - `docs/rfc/0009-explicit-primary-key-column-names.md`: root table の汎用 `id` column を resource-scoped primary key 名へ変更する方針
 - `docs/rfc/0010-explicit-id-fields-in-public-api.md`: public API の `id` field と path parameter を明示的な名前へ変更する方針
 - `docs/rfc/0011-rust-workspace-build-time.md`: Rust workspace の local build / check loop 高速化方針
 - `docs/rfc/0012-kinship-derivation-service.md`: stored relationship と read-side kinship derivation の MECE な service boundary
 - `docs/rfc/0013-canonical-relationship-kinds-and-tree-path.md`: canonical stored relationship kind と tree-path maintenance policy
 - `docs/rfc/0014-as-of-family-tree-projection.md`: as-of date 指定による family-tree / kinship projection policy
+- `docs/rfc/0015-genealogy-overview-api.md`: world 内 diagram を統合する Genealogy Overview API
+- `docs/rfc/0016-world-crud-api.md`: world CRUD API と lifecycle semantics
+- `docs/rfc/0017-familytree-to-genealogy-naming.md`: FamilyTree から Genealogy への命名変更方針
