@@ -11,8 +11,8 @@ use crate::{
         },
         tree_path::{
             CreateTreePathsSchema, DeleteTreePathsByEntityIdsSchema,
-            LoadStaleRelatedConnectionsSchema, SyncTreePathsByEntityIdsSchema, TreePath,
-            TreePathConnection,
+            DeleteTreePathsForDiagramSchema, LoadStaleRelatedConnectionsSchema,
+            SyncTreePathsByEntityIdsSchema, TreePath, TreePathConnection,
         },
     },
     repository::{
@@ -60,12 +60,28 @@ pub enum SyncTreePathsServiceError {
     CycleDetected,
 }
 
+#[derive(Debug, Error)]
+pub enum DeleteTreePathsForDiagramServiceError {
+    #[error(transparent)]
+    LoadActiveEntitiesByDiagramIdsRepositoryError(
+        #[from] LoadActiveEntitiesByDiagramIdsRepositoryError,
+    ),
+    #[error(transparent)]
+    DeleteTreePathsByEntityIdsRepositoryError(#[from] DeleteTreePathsByEntityIdsRepositoryError),
+    #[error("invalid parameter")]
+    InvalidParams,
+}
+
 #[async_trait]
 pub trait UsesTreePathService {
     async fn sync_tree_paths_by_entity_ids(
         &self,
         body: SyncTreePathsByEntityIdsSchema,
     ) -> Result<(), SyncTreePathsServiceError>;
+    async fn delete_tree_paths_for_diagram(
+        &self,
+        body: DeleteTreePathsForDiagramSchema,
+    ) -> Result<(), DeleteTreePathsForDiagramServiceError>;
 }
 
 #[async_trait]
@@ -152,6 +168,31 @@ impl<T: TreePathService> UsesTreePathService for T {
                 .create_tree_paths(CreateTreePathsSchema { tree_paths })
                 .await?;
         }
+
+        Ok(())
+    }
+
+    async fn delete_tree_paths_for_diagram(
+        &self,
+        body: DeleteTreePathsForDiagramSchema,
+    ) -> Result<(), DeleteTreePathsForDiagramServiceError> {
+        if body.diagram_id == 0 {
+            return Err(DeleteTreePathsForDiagramServiceError::InvalidParams);
+        }
+
+        let entity_ids = self
+            .entity_repository()
+            .load_active_entities_by_diagram_ids(LoadActiveEntitiesByDiagramIdsSchema {
+                diagram_ids: vec![body.diagram_id],
+            })
+            .await?
+            .into_iter()
+            .map(|entity| entity.entity_id)
+            .collect();
+
+        self.tree_path_repository()
+            .delete_tree_paths_by_entity_ids(DeleteTreePathsByEntityIdsSchema { entity_ids })
+            .await?;
 
         Ok(())
     }

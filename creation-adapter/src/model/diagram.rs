@@ -8,8 +8,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, sqlx::FromRow, Serialize, Clone)]
 pub struct DiagramTable {
     pub diagram_id: i64,
+    pub world_id: i64,
     pub name: String,
     pub kind: DiagramKind,
+    pub genealogy_overview_enabled: bool,
     pub description: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: DateTime<Utc>,

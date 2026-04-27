@@ -102,8 +102,10 @@ async fn create_person_returns_ok(db: PgPool) {
 
     let row = sqlx::query(
         r#"
-            SELECT e.diagram_id, e.name, e.description, p.gender, p.birthplace
+            SELECT de.diagram_id, e.name, e.description, p.gender, p.birthplace
             FROM entity AS e
+            INNER JOIN diagram_entity AS de
+                ON de.entity_id = e.entity_id
             INNER JOIN person AS p ON p.entity_id = e.entity_id
             WHERE e.name = $1
         "#,
@@ -275,8 +277,10 @@ async fn update_person_returns_ok(db: PgPool) {
 
     let row = sqlx::query(
         r#"
-            SELECT e.diagram_id, e.name, e.description, p.gender, p.death_date, p.birthplace, p.residence
+            SELECT de.diagram_id, e.name, e.description, p.gender, p.death_date, p.birthplace, p.residence
             FROM entity AS e
+            INNER JOIN diagram_entity AS de
+                ON de.entity_id = e.entity_id
             INNER JOIN person AS p ON p.entity_id = e.entity_id
             WHERE e.entity_id = $1
         "#,

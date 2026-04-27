@@ -125,6 +125,11 @@ pub struct DeleteRelationshipsForEntitySchema {
 }
 
 #[derive(Debug, Clone)]
+pub struct DeleteRelationshipsForDiagramSchema {
+    pub diagram_id: usize,
+}
+
+#[derive(Debug, Clone)]
 pub struct LoadRelationshipEdgesSchema {
     pub diagram_id: usize,
 }

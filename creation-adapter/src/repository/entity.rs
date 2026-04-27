@@ -1,15 +1,16 @@
 use async_trait::async_trait;
 use creation_service::{
     model::entity::{
-        CreateEntitySchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
-        LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema, LoadSeedEntitiesSchema,
-        SeedEntity, UpdateEntitySchema,
+        CreateEntitySchema, DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity,
+        GetEntitiesSchema, LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
+        LoadSeedEntitiesSchema, SeedEntity, UpdateEntitySchema,
     },
     repository::entity::{
-        CreateEntityRepositoryError, DeleteEntityRepositoryError, EntityRepository,
-        GetEntitiesRepositoryError, LoadActiveEntitiesByDiagramIdsRepositoryError,
-        LoadActiveEntityIdsRepositoryError, LoadSeedEntitiesRepositoryError,
-        ProvidesEntityRepository, UpdateEntityRepositoryError, UsesEntityRepository,
+        CreateEntityRepositoryError, DeleteDiagramEntityMembershipsRepositoryError,
+        DeleteEntityRepositoryError, EntityRepository, GetEntitiesRepositoryError,
+        LoadActiveEntitiesByDiagramIdsRepositoryError, LoadActiveEntityIdsRepositoryError,
+        LoadSeedEntitiesRepositoryError, ProvidesEntityRepository, UpdateEntityRepositoryError,
+        UsesEntityRepository,
     },
     service::entity::{EntityService, ProvidesEntityService},
 };
@@ -32,19 +33,27 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         let entities = sqlx::query_as::<_, EntityTable>(
             r#"
                 SELECT
-                    entity_id,
-                    diagram_id,
-                    kind,
-                    name,
-                    description,
-                    created_at,
-                    updated_at,
-                    deleted_at
-                FROM entity
+                    e.entity_id,
+                    de.diagram_id,
+                    e.world_id,
+                    e.kind,
+                    e.name,
+                    e.description,
+                    e.created_at,
+                    e.updated_at,
+                    e.deleted_at
+                FROM diagram_entity AS de
+                INNER JOIN diagram AS d
+                    ON d.diagram_id = de.diagram_id
+                    AND d.deleted_at IS NULL
+                INNER JOIN entity AS e
+                    ON e.entity_id = de.entity_id
+                    AND e.world_id = d.world_id
+                    AND e.deleted_at IS NULL
                 WHERE
-                    deleted_at IS NULL
-                    AND diagram_id = $1
-                ORDER BY entity_id
+                    de.deleted_at IS NULL
+                    AND de.diagram_id = $1
+                ORDER BY e.entity_id
             "#,
         )
         .bind(body.diagram_id as i64)
@@ -140,6 +149,31 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         }
     }
 
+    async fn delete_diagram_entity_memberships(
+        &self,
+        body: DeleteDiagramEntityMembershipsSchema,
+    ) -> Result<Vec<usize>, DeleteDiagramEntityMembershipsRepositoryError> {
+        let entity_ids = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                delete_diagram_entity_memberships_with(tx.as_mut(), body)
+                    .await
+                    .map_err(DeleteDiagramEntityMembershipsRepositoryError::Db)?
+            } else {
+                return Err(DeleteDiagramEntityMembershipsRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            delete_diagram_entity_memberships_with(&self.pool.0, body)
+                .await
+                .map_err(DeleteDiagramEntityMembershipsRepositoryError::Db)?
+        };
+
+        Ok(entity_ids)
+    }
+
     async fn load_seed_entities(
         &self,
         body: LoadSeedEntitiesSchema,
@@ -225,10 +259,22 @@ where
 {
     let entity_id = sqlx::query_scalar::<_, i64>(
         r#"
-            INSERT INTO entity
-                (diagram_id, kind, name, description)
-            VALUES ($1, $2, $3, $4)
-            RETURNING entity_id
+            WITH inserted_entity AS (
+                INSERT INTO entity
+                (world_id, kind, name, description)
+                SELECT d.world_id, $2, $3, $4
+                FROM diagram AS d
+                WHERE
+                    d.diagram_id = $1
+                    AND d.deleted_at IS NULL
+                RETURNING entity_id
+            ),
+            membership AS (
+                INSERT INTO diagram_entity
+                    (diagram_id, entity_id)
+                SELECT $1, entity_id FROM inserted_entity
+            )
+            SELECT entity_id FROM inserted_entity
         "#,
     )
     .bind(body.diagram_id as i64)
@@ -258,8 +304,19 @@ where
                 updated_at = now()
             WHERE
                 entity_id = $4
-                AND diagram_id = $5
                 AND deleted_at IS NULL
+                AND EXISTS (
+                    SELECT 1
+                    FROM diagram_entity AS de
+                    INNER JOIN diagram AS d
+                        ON d.diagram_id = de.diagram_id
+                        AND d.deleted_at IS NULL
+                    WHERE
+                        de.diagram_id = $5
+                        AND de.entity_id = entity.entity_id
+                        AND de.deleted_at IS NULL
+                        AND d.world_id = entity.world_id
+                )
         "#,
     )
     .bind(body.kind)
@@ -282,14 +339,35 @@ where
 {
     let diagram_id = sqlx::query_scalar::<_, i64>(
         r#"
-            UPDATE entity
-            SET
-                deleted_at = now(),
-                updated_at = now()
-            WHERE
-                entity_id = $1
-                AND deleted_at IS NULL
-            RETURNING diagram_id
+            WITH related_diagram AS (
+                SELECT de.diagram_id
+                FROM diagram_entity AS de
+                WHERE
+                    de.entity_id = $1
+                    AND de.deleted_at IS NULL
+                ORDER BY de.diagram_id
+                LIMIT 1
+            ),
+            soft_deleted_entity AS (
+                UPDATE entity
+                SET
+                    deleted_at = now(),
+                    updated_at = now()
+                WHERE
+                    entity_id = $1
+                    AND deleted_at IS NULL
+                RETURNING entity_id
+            ),
+            soft_deleted_membership AS (
+                UPDATE diagram_entity
+                SET deleted_at = now()
+                WHERE
+                    entity_id IN (SELECT entity_id FROM soft_deleted_entity)
+                    AND deleted_at IS NULL
+            )
+            SELECT related_diagram.diagram_id
+            FROM related_diagram
+            WHERE EXISTS (SELECT 1 FROM soft_deleted_entity)
         "#,
     )
     .bind(body.entity_id as i64)
@@ -297,6 +375,30 @@ where
     .await?;
 
     Ok(diagram_id.map(|diagram_id| diagram_id as usize))
+}
+
+async fn delete_diagram_entity_memberships_with<'e, E>(
+    executor: E,
+    body: DeleteDiagramEntityMembershipsSchema,
+) -> Result<Vec<usize>, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let entity_ids = sqlx::query_scalar::<_, i64>(
+        r#"
+            UPDATE diagram_entity
+            SET deleted_at = now()
+            WHERE
+                diagram_id = $1
+                AND deleted_at IS NULL
+            RETURNING entity_id
+        "#,
+    )
+    .bind(body.diagram_id as i64)
+    .fetch_all(executor)
+    .await?;
+
+    Ok(entity_ids.into_iter().map(|id| id as usize).collect())
 }
 
 async fn load_seed_entities_with<'e, E>(
@@ -318,10 +420,13 @@ where
 
     let rows = sqlx::query_as::<_, (i64, i64)>(
         r#"
-            SELECT entity_id, diagram_id
-            FROM entity
-            WHERE entity_id = ANY($1)
-            ORDER BY entity_id
+            SELECT e.entity_id, de.diagram_id
+            FROM entity AS e
+            INNER JOIN diagram_entity AS de
+                ON de.entity_id = e.entity_id
+                AND de.deleted_at IS NULL
+            WHERE e.entity_id = ANY($1)
+            ORDER BY e.entity_id, de.diagram_id
         "#,
     )
     .bind(entity_ids)
@@ -346,12 +451,15 @@ where
 {
     let entity_ids = sqlx::query_scalar::<_, i64>(
         r#"
-            SELECT entity_id
-            FROM entity
+            SELECT e.entity_id
+            FROM diagram_entity AS de
+            INNER JOIN entity AS e
+                ON e.entity_id = de.entity_id
+                AND e.deleted_at IS NULL
             WHERE
-                diagram_id = $1
-                AND deleted_at IS NULL
-            ORDER BY entity_id
+                de.diagram_id = $1
+                AND de.deleted_at IS NULL
+            ORDER BY e.entity_id
         "#,
     )
     .bind(body.diagram_id as i64)
@@ -380,12 +488,19 @@ where
 
     let rows = sqlx::query_as::<_, (i64, i64)>(
         r#"
-            SELECT entity_id, diagram_id
-            FROM entity
+            SELECT e.entity_id, de.diagram_id
+            FROM diagram_entity AS de
+            INNER JOIN diagram AS d
+                ON d.diagram_id = de.diagram_id
+                AND d.deleted_at IS NULL
+            INNER JOIN entity AS e
+                ON e.entity_id = de.entity_id
+                AND e.world_id = d.world_id
+                AND e.deleted_at IS NULL
             WHERE
-                diagram_id = ANY($1)
-                AND deleted_at IS NULL
-            ORDER BY diagram_id, entity_id
+                de.diagram_id = ANY($1)
+                AND de.deleted_at IS NULL
+            ORDER BY de.diagram_id, e.entity_id
         "#,
     )
     .bind(diagram_ids)

@@ -22,10 +22,21 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS world (
+    world_id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
 CREATE TABLE IF NOT EXISTS diagram (
     diagram_id BIGSERIAL PRIMARY KEY,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
+    genealogy_overview_enabled BOOLEAN NOT NULL DEFAULT true,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -34,13 +45,21 @@ CREATE TABLE IF NOT EXISTS diagram (
 
 CREATE TABLE IF NOT EXISTS entity (
     entity_id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     kind entity_kind NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS diagram_entity (
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ,
+    PRIMARY KEY (diagram_id, entity_id)
 );
 
 CREATE TABLE IF NOT EXISTS relationship (
@@ -65,53 +84,54 @@ CREATE TABLE IF NOT EXISTS tree_path (
     PRIMARY KEY (ancestor_id, descendant_id)
 );
 
-ALTER TABLE relationship
-    ADD CONSTRAINT chk_relationship_no_active_self_relation
-    CHECK (deleted_at IS NOT NULL OR source_entity_id <> target_entity_id);
-
-CREATE UNIQUE INDEX uq_relationship_directed_active
-ON relationship (diagram_id, source_entity_id, target_entity_id, kind)
-WHERE deleted_at IS NULL
-    AND kind IN ('parent', 'adoptive_parent', 'step_parent');
-
-CREATE UNIQUE INDEX uq_relationship_symmetric_active
-ON relationship (
-    diagram_id,
-    LEAST(source_entity_id, target_entity_id),
-    GREATEST(source_entity_id, target_entity_id),
-    kind
-)
-WHERE deleted_at IS NULL
-    AND kind IN ('spouse', 'partner', 'cohabitant');
-
 INSERT INTO users
   (user_id, email, name, password, photo, role)
 VALUES
   ('00000000-0000-0000-0000-000000000001', 'relationship-test@example.com', 'relationship_test', 'test_password', 'default.png', 'user');
 
-INSERT INTO diagram
-  (diagram_id, name, kind, description, deleted_at)
+INSERT INTO world
+  (world_id, name, description)
 VALUES
-  (1, 'Relationship Diagram 1', 'family_tree', 'first diagram', NULL),
-  (2, 'Relationship Diagram 2', 'family_tree', 'second diagram', NULL),
-  (3, 'Deleted Relationship Diagram', 'family_tree', 'soft deleted diagram', now());
+  (1, 'Relationship Test World', 'fixture world');
+
+SELECT setval(pg_get_serial_sequence('world', 'world_id'), 1, true);
+
+INSERT INTO diagram
+  (diagram_id, world_id, name, kind, description, deleted_at)
+VALUES
+  (1, 1, 'Relationship Diagram 1', 'family_tree', 'first diagram', NULL),
+  (2, 1, 'Relationship Diagram 2', 'family_tree', 'second diagram', NULL),
+  (3, 1, 'Deleted Relationship Diagram', 'family_tree', 'soft deleted diagram', now());
 
 SELECT setval(pg_get_serial_sequence('diagram', 'diagram_id'), 3, true);
 
 INSERT INTO entity
-  (entity_id, diagram_id, kind, name, description, deleted_at)
+  (entity_id, world_id, kind, name, description, deleted_at)
 VALUES
   (1, 1, 'person', 'Ancestor', NULL, NULL),
   (2, 1, 'person', 'Parent', NULL, NULL),
   (3, 1, 'person', 'Child', NULL, NULL),
-  (4, 2, 'person', 'Other Diagram Parent', NULL, NULL),
-  (5, 2, 'person', 'Other Diagram Child', NULL, NULL),
+  (4, 1, 'person', 'Other Diagram Parent', NULL, NULL),
+  (5, 1, 'person', 'Other Diagram Child', NULL, NULL),
   (6, 1, 'person', 'Extra Child', NULL, NULL),
   (7, 1, 'person', 'Deleted Entity', NULL, now()),
-  (8, 3, 'person', 'Deleted Diagram Parent', NULL, NULL),
-  (9, 3, 'person', 'Deleted Diagram Child', NULL, NULL);
+  (8, 1, 'person', 'Deleted Diagram Parent', NULL, NULL),
+  (9, 1, 'person', 'Deleted Diagram Child', NULL, NULL);
 
 SELECT setval(pg_get_serial_sequence('entity', 'entity_id'), 9, true);
+
+INSERT INTO diagram_entity
+  (diagram_id, entity_id)
+VALUES
+  (1, 1),
+  (1, 2),
+  (1, 3),
+  (2, 4),
+  (2, 5),
+  (1, 6),
+  (1, 7),
+  (3, 8),
+  (3, 9);
 
 INSERT INTO relationship
   (relationship_id, diagram_id, source_entity_id, target_entity_id, kind, notes, deleted_at)

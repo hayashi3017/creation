@@ -38,8 +38,14 @@ type JsonError = (StatusCode, Json<ErrorResponse>);
 pub struct UpdateDiagramRequest {
     pub name: String,
     pub kind: DiagramKind,
+    #[serde(default = "default_true")]
+    pub genealogy_overview_enabled: bool,
     #[serde(default)]
     pub description: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[doc = include_str!("../openapi_docs/en/operations/get_diagrams.md")]
@@ -143,6 +149,7 @@ pub async fn update_diagram_by_diagram_id(
             diagram_id,
             name: body.name,
             kind: body.kind,
+            genealogy_overview_enabled: body.genealogy_overview_enabled,
             description: body.description,
         },
     )
@@ -219,6 +226,7 @@ async fn delete_diagram_inner(
                     DeleteDiagramRepositoryError::NotFound => Err(not_found_error()),
                 },
             },
+            err => Err(internal_server_error(format!("Delete error: {}", err))),
         },
     }
 }

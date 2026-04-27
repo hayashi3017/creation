@@ -10,8 +10,10 @@ pub const DIAGRAM_NAME_MAX_CHARS: usize = 255;
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct Diagram {
     pub diagram_id: usize,
+    pub world_id: usize,
     pub name: String,
     pub kind: DiagramKind,
+    pub genealogy_overview_enabled: bool,
     pub description: Option<String>,
 }
 
@@ -47,8 +49,11 @@ pub struct GetDiagramsSchema {}
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateDiagramSchema {
+    pub world_id: usize,
     pub name: String,
     pub kind: DiagramKind,
+    #[serde(default = "default_true")]
+    pub genealogy_overview_enabled: bool,
     #[serde(default)]
     pub description: Option<String>,
 }
@@ -64,6 +69,8 @@ pub struct UpdateDiagramSchema {
     pub diagram_id: usize,
     pub name: String,
     pub kind: DiagramKind,
+    #[serde(default = "default_true")]
+    pub genealogy_overview_enabled: bool,
     #[serde(default)]
     pub description: Option<String>,
 }
@@ -81,4 +88,8 @@ pub struct ExistsActiveDiagramSchema {
 #[derive(Debug, Clone)]
 pub struct GetDiagramSchema {
     pub diagram_id: usize,
+}
+
+fn default_true() -> bool {
+    true
 }

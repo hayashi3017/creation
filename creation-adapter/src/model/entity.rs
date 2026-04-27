@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct EntityTable {
     pub entity_id: i64,
     pub diagram_id: i64,
+    pub world_id: i64,
     pub kind: EntityKind,
     pub name: String,
     pub description: Option<String>,

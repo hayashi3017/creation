@@ -5,12 +5,13 @@ use super::{map_service_result, normalize_name, normalize_optional_text};
 
 use crate::{
     model::entity::{
-        CreateEntitySchema, DeleteEntitySchema, Entity, GetEntitiesSchema, UpdateEntitySchema,
-        ENTITY_NAME_MAX_CHARS,
+        CreateEntitySchema, DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity,
+        GetEntitiesSchema, UpdateEntitySchema, ENTITY_NAME_MAX_CHARS,
     },
     repository::entity::{
-        CreateEntityRepositoryError, DeleteEntityRepositoryError, GetEntitiesRepositoryError,
-        ProvidesEntityRepository, UpdateEntityRepositoryError, UsesEntityRepository,
+        CreateEntityRepositoryError, DeleteDiagramEntityMembershipsRepositoryError,
+        DeleteEntityRepositoryError, GetEntitiesRepositoryError, ProvidesEntityRepository,
+        UpdateEntityRepositoryError, UsesEntityRepository,
     },
 };
 
@@ -27,6 +28,8 @@ pub enum EntityServiceError {
     UpdateEntityServiceError(#[from] UpdateEntityServiceError),
     #[error(transparent)]
     DeleteEntityServiceError(#[from] DeleteEntityServiceError),
+    #[error(transparent)]
+    DeleteDiagramEntityMembershipsServiceError(#[from] DeleteDiagramEntityMembershipsServiceError),
 }
 
 #[derive(Debug, Error)]
@@ -65,6 +68,16 @@ pub enum DeleteEntityServiceError {
     NotFound,
 }
 
+#[derive(Debug, Error)]
+pub enum DeleteDiagramEntityMembershipsServiceError {
+    #[error(transparent)]
+    DeleteDiagramEntityMembershipsRepositoryError(
+        #[from] DeleteDiagramEntityMembershipsRepositoryError,
+    ),
+    #[error("invalid parameter")]
+    InvalidParams,
+}
+
 #[async_trait]
 pub trait UsesEntityService {
     async fn get_entities(
@@ -81,6 +94,10 @@ pub trait UsesEntityService {
         &self,
         body: DeleteEntitySchema,
     ) -> Result<usize, DeleteEntityServiceError>;
+    async fn delete_diagram_entity_memberships(
+        &self,
+        body: DeleteDiagramEntityMembershipsSchema,
+    ) -> Result<Vec<usize>, DeleteDiagramEntityMembershipsServiceError>;
 }
 
 #[async_trait]
@@ -141,6 +158,20 @@ impl<T: EntityService> UsesEntityService for T {
             Err(DeleteEntityRepositoryError::NotFound) => Err(DeleteEntityServiceError::NotFound),
             Err(err) => Err(DeleteEntityServiceError::DeleteEntityRepositoryError(err)),
         }
+    }
+
+    async fn delete_diagram_entity_memberships(
+        &self,
+        body: DeleteDiagramEntityMembershipsSchema,
+    ) -> Result<Vec<usize>, DeleteDiagramEntityMembershipsServiceError> {
+        if body.diagram_id == 0 {
+            return Err(DeleteDiagramEntityMembershipsServiceError::InvalidParams);
+        }
+
+        self.entity_repository()
+            .delete_diagram_entity_memberships(body)
+            .await
+            .map_err(DeleteDiagramEntityMembershipsServiceError::DeleteDiagramEntityMembershipsRepositoryError)
     }
 }
 

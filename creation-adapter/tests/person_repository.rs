@@ -31,9 +31,21 @@ async fn create_person_record_inserts_person_row_only(db: PgPool) {
     sqlx::query(
         r#"
             INSERT INTO entity
-                (entity_id, diagram_id, kind, name, description)
+                (entity_id, world_id, kind, name, description)
             VALUES
                 (6, 1, 'person', 'Created Through Entity Seed', 'seed entity')
+        "#,
+    )
+    .execute(&db)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"
+            INSERT INTO diagram_entity
+                (diagram_id, entity_id)
+            VALUES
+                (1, 6)
         "#,
     )
     .execute(&db)
@@ -108,9 +120,11 @@ async fn update_person_record_updates_person_row_only(db: PgPool) {
     .unwrap();
     let entity_row = sqlx::query(
         r#"
-            SELECT diagram_id, name, description
-            FROM entity
-            WHERE entity_id = $1
+            SELECT de.diagram_id, e.name, e.description
+            FROM entity AS e
+            INNER JOIN diagram_entity AS de
+                ON de.entity_id = e.entity_id
+            WHERE e.entity_id = $1
         "#,
     )
     .bind(1_i64)

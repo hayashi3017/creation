@@ -23,10 +23,21 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS world (
+    world_id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
 CREATE TABLE IF NOT EXISTS diagram (
     diagram_id BIGSERIAL PRIMARY KEY,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
+    genealogy_overview_enabled BOOLEAN NOT NULL DEFAULT true,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -35,13 +46,21 @@ CREATE TABLE IF NOT EXISTS diagram (
 
 CREATE TABLE IF NOT EXISTS entity (
     entity_id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     kind entity_kind NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS diagram_entity (
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ,
+    PRIMARY KEY (diagram_id, entity_id)
 );
 
 CREATE TABLE IF NOT EXISTS person (
@@ -84,17 +103,24 @@ INSERT INTO users
 VALUES
   ('00000000-0000-0000-0000-000000000001', 'family-tree-test@example.com', 'family_tree_test', 'test_password', 'default.png', 'user');
 
-INSERT INTO diagram
-  (diagram_id, name, kind, description, deleted_at)
+INSERT INTO world
+  (world_id, name, description)
 VALUES
-  (1, 'Family Tree Diagram', 'family_tree', 'normalized family tree', NULL),
-  (2, 'Correlation Diagram', 'correlation', 'non family tree', NULL),
-  (3, 'Deleted Family Tree', 'family_tree', 'soft deleted diagram', now());
+  (1, 'Family Tree Test World', 'fixture world');
+
+SELECT setval(pg_get_serial_sequence('world', 'world_id'), 1, true);
+
+INSERT INTO diagram
+  (diagram_id, world_id, name, kind, description, deleted_at)
+VALUES
+  (1, 1, 'Family Tree Diagram', 'family_tree', 'normalized family tree', NULL),
+  (2, 1, 'Correlation Diagram', 'correlation', 'non family tree', NULL),
+  (3, 1, 'Deleted Family Tree', 'family_tree', 'soft deleted diagram', now());
 
 SELECT setval(pg_get_serial_sequence('diagram', 'diagram_id'), 3, true);
 
 INSERT INTO entity
-  (entity_id, diagram_id, kind, name, description, deleted_at)
+  (entity_id, world_id, kind, name, description, deleted_at)
 VALUES
   (1, 1, 'person', 'Ancestor', 'root of first branch', NULL),
   (2, 1, 'person', 'Parent', 'middle generation', NULL),
@@ -102,11 +128,24 @@ VALUES
   (4, 1, 'person', 'Other Root', 'root of second branch', NULL),
   (5, 1, 'person', 'Other Root Child', 'second branch leaf', NULL),
   (6, 1, 'person', 'Deleted Endpoint', 'should not appear', now()),
-  (7, 2, 'person', 'Correlation Person', 'wrong kind', NULL),
-  (8, 3, 'person', 'Deleted Diagram Parent', 'soft deleted diagram', NULL),
-  (9, 3, 'person', 'Deleted Diagram Child', 'soft deleted diagram', NULL);
+  (7, 1, 'person', 'Correlation Person', 'wrong kind', NULL),
+  (8, 1, 'person', 'Deleted Diagram Parent', 'soft deleted diagram', NULL),
+  (9, 1, 'person', 'Deleted Diagram Child', 'soft deleted diagram', NULL);
 
 SELECT setval(pg_get_serial_sequence('entity', 'entity_id'), 9, true);
+
+INSERT INTO diagram_entity
+  (diagram_id, entity_id)
+VALUES
+  (1, 1),
+  (1, 2),
+  (1, 3),
+  (1, 4),
+  (1, 5),
+  (1, 6),
+  (2, 7),
+  (3, 8),
+  (3, 9);
 
 INSERT INTO person
   (entity_id, gender, birth_date, death_date, birthplace, residence, photo_url, deleted_at)

@@ -2,11 +2,11 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::model::relationship::{
-    CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForEntitySchema,
-    DiagramRelationshipEdge, GetRelationshipsSchema, LoadRelationshipDiagramIdSchema,
-    LoadRelationshipEdgesByDiagramIdsSchema, LoadRelationshipEdgesSchema, Relationship,
-    RelationshipEdge, RelationshipEndpoints, UpdateRelationshipSchema,
-    UpdatedRelationshipEndpoints,
+    CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForDiagramSchema,
+    DeleteRelationshipsForEntitySchema, DiagramRelationshipEdge, GetRelationshipsSchema,
+    LoadRelationshipDiagramIdSchema, LoadRelationshipEdgesByDiagramIdsSchema,
+    LoadRelationshipEdgesSchema, Relationship, RelationshipEdge, RelationshipEndpoints,
+    UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
 };
 
 pub trait RelationshipRepository: Send + Sync + 'static {}
@@ -43,6 +43,12 @@ pub enum DeleteRelationshipRepositoryError {
 
 #[derive(Debug, Error)]
 pub enum DeleteRelationshipsForEntityRepositoryError {
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum DeleteRelationshipsForDiagramRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
 }
@@ -87,6 +93,10 @@ pub trait UsesRelationshipRepository: Send + Sync + 'static {
         &self,
         body: DeleteRelationshipsForEntitySchema,
     ) -> Result<Vec<usize>, DeleteRelationshipsForEntityRepositoryError>;
+    async fn delete_relationships_for_diagram(
+        &self,
+        body: DeleteRelationshipsForDiagramSchema,
+    ) -> Result<Vec<usize>, DeleteRelationshipsForDiagramRepositoryError>;
     async fn load_relationship_diagram_id(
         &self,
         body: LoadRelationshipDiagramIdSchema,

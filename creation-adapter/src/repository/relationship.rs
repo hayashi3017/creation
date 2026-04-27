@@ -1,18 +1,19 @@
 use async_trait::async_trait;
 use creation_service::{
     model::relationship::{
-        CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForEntitySchema,
-        DiagramRelationshipEdge, GetRelationshipsSchema, LoadRelationshipDiagramIdSchema,
-        LoadRelationshipEdgesByDiagramIdsSchema, LoadRelationshipEdgesSchema, Relationship,
-        RelationshipEdge, RelationshipEndpoints, RelationshipKind, UpdateRelationshipSchema,
-        UpdatedRelationshipEndpoints,
+        CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForDiagramSchema,
+        DeleteRelationshipsForEntitySchema, DiagramRelationshipEdge, GetRelationshipsSchema,
+        LoadRelationshipDiagramIdSchema, LoadRelationshipEdgesByDiagramIdsSchema,
+        LoadRelationshipEdgesSchema, Relationship, RelationshipEdge, RelationshipEndpoints,
+        RelationshipKind, UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
     },
     repository::relationship::{
         CreateRelationshipRepositoryError, DeleteRelationshipRepositoryError,
-        DeleteRelationshipsForEntityRepositoryError, GetRelationshipsRepositoryError,
-        LoadRelationshipDiagramIdRepositoryError, LoadRelationshipEdgesByDiagramIdsRepositoryError,
-        LoadRelationshipEdgesRepositoryError, ProvidesRelationshipRepository,
-        RelationshipRepository, UpdateRelationshipRepositoryError, UsesRelationshipRepository,
+        DeleteRelationshipsForDiagramRepositoryError, DeleteRelationshipsForEntityRepositoryError,
+        GetRelationshipsRepositoryError, LoadRelationshipDiagramIdRepositoryError,
+        LoadRelationshipEdgesByDiagramIdsRepositoryError, LoadRelationshipEdgesRepositoryError,
+        ProvidesRelationshipRepository, RelationshipRepository, UpdateRelationshipRepositoryError,
+        UsesRelationshipRepository,
     },
 };
 use sqlx::{Executor, Postgres};
@@ -184,6 +185,31 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
         Ok(entity_ids)
     }
 
+    async fn delete_relationships_for_diagram(
+        &self,
+        body: DeleteRelationshipsForDiagramSchema,
+    ) -> Result<Vec<usize>, DeleteRelationshipsForDiagramRepositoryError> {
+        let entity_ids = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                delete_relationships_for_diagram_with(tx.as_mut(), body)
+                    .await
+                    .map_err(DeleteRelationshipsForDiagramRepositoryError::Db)?
+            } else {
+                return Err(DeleteRelationshipsForDiagramRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            delete_relationships_for_diagram_with(&self.pool.0, body)
+                .await
+                .map_err(DeleteRelationshipsForDiagramRepositoryError::Db)?
+        };
+
+        Ok(entity_ids)
+    }
+
     async fn load_relationship_diagram_id(
         &self,
         body: LoadRelationshipDiagramIdSchema,
@@ -281,19 +307,27 @@ where
                 AND
                 EXISTS (
                     SELECT 1
-                    FROM entity AS source
-                    WHERE
-                        source.entity_id = $2
-                        AND source.diagram_id = $1
+                    FROM diagram_entity AS source_member
+                    INNER JOIN entity AS source
+                        ON source.entity_id = source_member.entity_id
+                        AND source.world_id = d.world_id
                         AND source.deleted_at IS NULL
+                    WHERE
+                        source_member.diagram_id = $1
+                        AND source_member.entity_id = $2
+                        AND source_member.deleted_at IS NULL
                 )
                 AND EXISTS (
                     SELECT 1
-                    FROM entity AS target
-                    WHERE
-                        target.entity_id = $3
-                        AND target.diagram_id = $1
+                    FROM diagram_entity AS target_member
+                    INNER JOIN entity AS target
+                        ON target.entity_id = target_member.entity_id
+                        AND target.world_id = d.world_id
                         AND target.deleted_at IS NULL
+                    WHERE
+                        target_member.diagram_id = $1
+                        AND target_member.entity_id = $3
+                        AND target_member.deleted_at IS NULL
                 )
             RETURNING relationship_id
         "#,
@@ -325,6 +359,7 @@ where
                 SELECT
                     r.relationship_id,
                     r.diagram_id,
+                    d.world_id,
                     r.source_entity_id,
                     r.target_entity_id
                 FROM relationship AS r
@@ -350,19 +385,27 @@ where
                 r.relationship_id = previous.relationship_id
                 AND EXISTS (
                     SELECT 1
-                    FROM entity AS source
-                    WHERE
-                        source.entity_id = $1
-                        AND source.diagram_id = previous.diagram_id
+                    FROM diagram_entity AS source_member
+                    INNER JOIN entity AS source
+                        ON source.entity_id = source_member.entity_id
+                        AND source.world_id = previous.world_id
                         AND source.deleted_at IS NULL
+                    WHERE
+                        source_member.diagram_id = previous.diagram_id
+                        AND source_member.entity_id = $1
+                        AND source_member.deleted_at IS NULL
                 )
                 AND EXISTS (
                     SELECT 1
-                    FROM entity AS target
-                    WHERE
-                        target.entity_id = $2
-                        AND target.diagram_id = previous.diagram_id
+                    FROM diagram_entity AS target_member
+                    INNER JOIN entity AS target
+                        ON target.entity_id = target_member.entity_id
+                        AND target.world_id = previous.world_id
                         AND target.deleted_at IS NULL
+                    WHERE
+                        target_member.diagram_id = previous.diagram_id
+                        AND target_member.entity_id = $2
+                        AND target_member.deleted_at IS NULL
                 )
             RETURNING previous.source_entity_id, previous.target_entity_id
         "#,
@@ -467,6 +510,37 @@ where
         .collect())
 }
 
+async fn delete_relationships_for_diagram_with<'e, E>(
+    executor: E,
+    body: DeleteRelationshipsForDiagramSchema,
+) -> Result<Vec<usize>, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let endpoints = sqlx::query_as::<_, (i64, i64)>(
+        r#"
+            UPDATE relationship
+            SET
+                deleted_at = now(),
+                updated_at = now()
+            WHERE
+                diagram_id = $1
+                AND deleted_at IS NULL
+            RETURNING source_entity_id, target_entity_id
+        "#,
+    )
+    .bind(body.diagram_id as i64)
+    .fetch_all(executor)
+    .await?;
+
+    Ok(endpoints
+        .into_iter()
+        .flat_map(|(source_entity_id, target_entity_id)| {
+            [source_entity_id as usize, target_entity_id as usize]
+        })
+        .collect())
+}
+
 async fn load_relationship_diagram_id_with<'e, E>(
     executor: E,
     body: LoadRelationshipDiagramIdSchema,
@@ -506,13 +580,21 @@ where
             INNER JOIN diagram AS d
                 ON d.diagram_id = r.diagram_id
                 AND d.deleted_at IS NULL
+            INNER JOIN diagram_entity AS source_member
+                ON source_member.diagram_id = r.diagram_id
+                AND source_member.entity_id = r.source_entity_id
+                AND source_member.deleted_at IS NULL
             INNER JOIN entity AS source
-                ON source.entity_id = r.source_entity_id
-                AND source.diagram_id = r.diagram_id
+                ON source.entity_id = source_member.entity_id
+                AND source.world_id = d.world_id
                 AND source.deleted_at IS NULL
+            INNER JOIN diagram_entity AS target_member
+                ON target_member.diagram_id = r.diagram_id
+                AND target_member.entity_id = r.target_entity_id
+                AND target_member.deleted_at IS NULL
             INNER JOIN entity AS target
-                ON target.entity_id = r.target_entity_id
-                AND target.diagram_id = r.diagram_id
+                ON target.entity_id = target_member.entity_id
+                AND target.world_id = d.world_id
                 AND target.deleted_at IS NULL
             WHERE
                 r.diagram_id = $1
@@ -567,13 +649,21 @@ where
             INNER JOIN diagram AS d
                 ON d.diagram_id = r.diagram_id
                 AND d.deleted_at IS NULL
+            INNER JOIN diagram_entity AS source_member
+                ON source_member.diagram_id = r.diagram_id
+                AND source_member.entity_id = r.source_entity_id
+                AND source_member.deleted_at IS NULL
             INNER JOIN entity AS source
-                ON source.entity_id = r.source_entity_id
-                AND source.diagram_id = r.diagram_id
+                ON source.entity_id = source_member.entity_id
+                AND source.world_id = d.world_id
                 AND source.deleted_at IS NULL
+            INNER JOIN diagram_entity AS target_member
+                ON target_member.diagram_id = r.diagram_id
+                AND target_member.entity_id = r.target_entity_id
+                AND target_member.deleted_at IS NULL
             INNER JOIN entity AS target
-                ON target.entity_id = r.target_entity_id
-                AND target.diagram_id = r.diagram_id
+                ON target.entity_id = target_member.entity_id
+                AND target.world_id = d.world_id
                 AND target.deleted_at IS NULL
             WHERE
                 r.diagram_id = ANY($1)

@@ -5,14 +5,15 @@ use super::normalize_optional_text;
 
 use crate::{
     model::relationship::{
-        CreateRelationshipSchema, DeleteRelationshipSchema, GetRelationshipsSchema, Relationship,
-        RelationshipEndpoints, RelationshipKind, RelationshipTopology, UpdateRelationshipSchema,
-        UpdatedRelationshipEndpoints,
+        CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForDiagramSchema,
+        GetRelationshipsSchema, Relationship, RelationshipEndpoints, RelationshipKind,
+        RelationshipTopology, UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
     },
     repository::relationship::{
         CreateRelationshipRepositoryError, DeleteRelationshipRepositoryError,
-        GetRelationshipsRepositoryError, ProvidesRelationshipRepository,
-        UpdateRelationshipRepositoryError, UsesRelationshipRepository,
+        DeleteRelationshipsForDiagramRepositoryError, GetRelationshipsRepositoryError,
+        ProvidesRelationshipRepository, UpdateRelationshipRepositoryError,
+        UsesRelationshipRepository,
     },
 };
 
@@ -57,6 +58,16 @@ pub enum DeleteRelationshipServiceError {
     NotFound,
 }
 
+#[derive(Debug, Error)]
+pub enum DeleteRelationshipsForDiagramServiceError {
+    #[error(transparent)]
+    DeleteRelationshipsForDiagramRepositoryError(
+        #[from] DeleteRelationshipsForDiagramRepositoryError,
+    ),
+    #[error("invalid parameter")]
+    InvalidParams,
+}
+
 #[async_trait]
 pub trait UsesRelationshipService {
     async fn get_relationships(
@@ -75,6 +86,10 @@ pub trait UsesRelationshipService {
         &self,
         body: DeleteRelationshipSchema,
     ) -> Result<RelationshipEndpoints, DeleteRelationshipServiceError>;
+    async fn delete_relationships_for_diagram(
+        &self,
+        body: DeleteRelationshipsForDiagramSchema,
+    ) -> Result<Vec<usize>, DeleteRelationshipsForDiagramServiceError>;
 }
 
 #[async_trait]
@@ -158,6 +173,20 @@ impl<T: RelationshipService> UsesRelationshipService for T {
             }
             Err(err) => Err(DeleteRelationshipServiceError::DeleteRelationshipRepositoryError(err)),
         }
+    }
+
+    async fn delete_relationships_for_diagram(
+        &self,
+        body: DeleteRelationshipsForDiagramSchema,
+    ) -> Result<Vec<usize>, DeleteRelationshipsForDiagramServiceError> {
+        if body.diagram_id == 0 {
+            return Err(DeleteRelationshipsForDiagramServiceError::InvalidParams);
+        }
+
+        self.relationship_repository()
+            .delete_relationships_for_diagram(body)
+            .await
+            .map_err(DeleteRelationshipsForDiagramServiceError::DeleteRelationshipsForDiagramRepositoryError)
     }
 }
 

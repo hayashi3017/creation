@@ -81,6 +81,11 @@ pub struct DeleteEntitySchema {
 }
 
 #[derive(Debug, Clone)]
+pub struct DeleteDiagramEntityMembershipsSchema {
+    pub diagram_id: usize,
+}
+
+#[derive(Debug, Clone)]
 pub struct LoadSeedEntitiesSchema {
     pub entity_ids: Vec<usize>,
 }

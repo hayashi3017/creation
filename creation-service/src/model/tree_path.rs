@@ -31,6 +31,11 @@ pub struct DeleteTreePathsByEntityIdsSchema {
 }
 
 #[derive(Debug, Clone)]
+pub struct DeleteTreePathsForDiagramSchema {
+    pub diagram_id: usize,
+}
+
+#[derive(Debug, Clone)]
 pub struct CreateTreePathsSchema {
     pub tree_paths: Vec<TreePath>,
 }

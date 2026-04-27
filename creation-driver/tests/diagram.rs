@@ -61,6 +61,7 @@ async fn create_diagram_returns_ok(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": "New Diagram",
                         "kind": "family_tree",
                         "description": "created from test"
@@ -91,6 +92,7 @@ async fn create_diagram_normalizes_name_and_blank_description(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": "  Normalized Diagram  ",
                         "kind": "family_tree",
                         "description": "   "
@@ -136,6 +138,7 @@ async fn create_diagram_rejects_empty_name(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": "",
                         "kind": "family_tree",
                         "description": "invalid"
@@ -172,6 +175,7 @@ async fn create_diagram_rejects_too_long_name(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": too_long_name,
                         "kind": "family_tree",
                         "description": "invalid"

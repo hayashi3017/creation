@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::model::entity::{
-    CreateEntitySchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
-    LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema, LoadSeedEntitiesSchema,
-    SeedEntity, UpdateEntitySchema,
+    CreateEntitySchema, DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity,
+    GetEntitiesSchema, LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
+    LoadSeedEntitiesSchema, SeedEntity, UpdateEntitySchema,
 };
 
 pub trait EntityRepository: Send + Sync + 'static {}
@@ -19,6 +19,10 @@ pub enum EntityRepositoryError {
     UpdateEntityRepositoryError(#[from] UpdateEntityRepositoryError),
     #[error(transparent)]
     DeleteEntityRepositoryError(#[from] DeleteEntityRepositoryError),
+    #[error(transparent)]
+    DeleteDiagramEntityMembershipsRepositoryError(
+        #[from] DeleteDiagramEntityMembershipsRepositoryError,
+    ),
     #[error(transparent)]
     LoadSeedEntitiesRepositoryError(#[from] LoadSeedEntitiesRepositoryError),
     #[error(transparent)]
@@ -58,6 +62,12 @@ pub enum DeleteEntityRepositoryError {
 }
 
 #[derive(Debug, Error)]
+pub enum DeleteDiagramEntityMembershipsRepositoryError {
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+}
+
+#[derive(Debug, Error)]
 pub enum LoadSeedEntitiesRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
@@ -93,6 +103,10 @@ pub trait UsesEntityRepository: Send + Sync + 'static {
         &self,
         body: DeleteEntitySchema,
     ) -> Result<usize, DeleteEntityRepositoryError>;
+    async fn delete_diagram_entity_memberships(
+        &self,
+        body: DeleteDiagramEntityMembershipsSchema,
+    ) -> Result<Vec<usize>, DeleteDiagramEntityMembershipsRepositoryError>;
     async fn load_seed_entities(
         &self,
         body: LoadSeedEntitiesSchema,

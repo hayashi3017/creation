@@ -101,8 +101,10 @@ async fn get_diagram_returns_none_for_missing_row(db: PgPool) {
 async fn create_diagram_inserts_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db.clone()).await;
     let body = CreateDiagramSchema {
+        world_id: 1,
         name: "New Diagram".to_string(),
         kind: DiagramKind::FamilyTree,
+        genealogy_overview_enabled: true,
         description: Some("created from repository test".to_string()),
     };
 
@@ -128,6 +130,7 @@ async fn update_diagram_updates_active_row(db: PgPool) {
         diagram_id: 1,
         name: "Updated Diagram".to_string(),
         kind: DiagramKind::Correlation,
+        genealogy_overview_enabled: true,
         description: Some("updated from repository test".to_string()),
     };
 
@@ -196,6 +199,7 @@ async fn update_diagram_returns_not_found_for_deleted_row(db: PgPool) {
         diagram_id: 3,
         name: "Missing Diagram".to_string(),
         kind: DiagramKind::Correlation,
+        genealogy_overview_enabled: true,
         description: Some("should fail".to_string()),
     };
 

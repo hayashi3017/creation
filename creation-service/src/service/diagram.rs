@@ -102,6 +102,10 @@ impl<T: DiagramService> UsesDiagramService for T {
         body: CreateDiagramSchema,
     ) -> Result<(), CreateDiagramServiceError> {
         let mut body = body;
+        if body.world_id == 0 {
+            return Err(CreateDiagramServiceError::InvalidParams);
+        }
+
         let Some(name) = normalize_name(&body.name, DIAGRAM_NAME_MAX_CHARS) else {
             return Err(CreateDiagramServiceError::InvalidParams);
         };

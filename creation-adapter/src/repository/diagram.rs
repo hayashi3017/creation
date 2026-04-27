@@ -11,12 +11,9 @@ use creation_service::{
     },
     service::diagram::{DiagramService, ProvidesDiagramService},
 };
-use creation_usecase::usecase::diagram::{DiagramUsecase, ProvidesDiagramUsecase};
 
 use crate::repository::transaction::closed_transaction_error;
 use crate::{model::diagram::DiagramTable, repository::RepositoryImpl};
-
-use super::impl_minimal_cake_bindings;
 
 #[async_trait]
 impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
@@ -28,8 +25,10 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
             r#"
                 SELECT
                     diagram_id,
+                    world_id,
                     name,
                     kind,
+                    genealogy_overview_enabled,
                     description,
                     created_at,
                     updated_at,
@@ -98,19 +97,29 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         &self,
         body: CreateDiagramSchema,
     ) -> Result<(), CreateDiagramRepositoryError> {
-        let _ = sqlx::query(
+        let result = sqlx::query(
             r#"
                 INSERT INTO diagram
-                    (name, kind, description)
-                VALUES ($1, $2, $3)
+                    (world_id, name, kind, genealogy_overview_enabled, description)
+                SELECT $1, $2, $3, $4, $5
+                FROM world
+                WHERE
+                    world_id = $1
+                    AND deleted_at IS NULL
             "#,
         )
+        .bind(body.world_id as i64)
         .bind(body.name)
         .bind(body.kind as DiagramKind)
+        .bind(body.genealogy_overview_enabled)
         .bind(body.description)
         .execute(&self.pool.0)
         .await
         .map_err(CreateDiagramRepositoryError::Db)?;
+
+        if result.rows_affected() == 0 {
+            return Err(CreateDiagramRepositoryError::Db(sqlx::Error::RowNotFound));
+        }
 
         Ok(())
     }
@@ -125,15 +134,17 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
                 SET
                     name = $1,
                     kind = $2,
-                    description = $3,
+                    genealogy_overview_enabled = $3,
+                    description = $4,
                     updated_at = now()
                 WHERE
-                    diagram_id = $4
+                    diagram_id = $5
                     AND deleted_at IS NULL
             "#,
         )
         .bind(body.name)
         .bind(body.kind)
+        .bind(body.genealogy_overview_enabled)
         .bind(body.description)
         .bind(body.diagram_id as i64)
         .execute(&self.pool.0)
@@ -209,8 +220,10 @@ where
         r#"
             SELECT
                 diagram_id,
+                world_id,
                 name,
                 kind,
+                genealogy_overview_enabled,
                 description,
                 created_at,
                 updated_at,
@@ -231,21 +244,30 @@ where
 fn map_diagram_table(diagram: DiagramTable) -> Diagram {
     Diagram {
         diagram_id: diagram.diagram_id as usize,
+        world_id: diagram.world_id as usize,
         name: diagram.name,
         kind: diagram.kind,
+        genealogy_overview_enabled: diagram.genealogy_overview_enabled,
         description: diagram.description,
     }
 }
 
-impl_minimal_cake_bindings!(
-    model = DiagramTable,
-    repository_trait = DiagramRepository,
-    provides_repository_trait = ProvidesDiagramRepository,
-    repository_getter = diagram_repository,
-    service_trait = DiagramService,
-    provides_service_trait = ProvidesDiagramService,
-    service_getter = diagram_service,
-    usecase_trait = DiagramUsecase,
-    provides_usecase_trait = ProvidesDiagramUsecase,
-    usecase_getter = diagram_usecase,
-);
+impl DiagramRepository for RepositoryImpl<DiagramTable> {}
+
+impl ProvidesDiagramRepository for RepositoryImpl<DiagramTable> {
+    type T = Self;
+
+    fn diagram_repository(&self) -> &Self::T {
+        self
+    }
+}
+
+impl DiagramService for RepositoryImpl<DiagramTable> {}
+
+impl ProvidesDiagramService for RepositoryImpl<DiagramTable> {
+    type T = Self;
+
+    fn diagram_service(&self) -> &Self::T {
+        self
+    }
+}

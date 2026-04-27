@@ -39,7 +39,13 @@ async fn create_entity_inserts_row(db: PgPool) {
 
     let count: i64 = sqlx::query_scalar(
         r#"
-            SELECT COUNT(*) FROM entity WHERE name = $1 AND diagram_id = $2
+            SELECT COUNT(*)
+            FROM entity AS e
+            INNER JOIN diagram_entity AS de
+                ON de.entity_id = e.entity_id
+            WHERE
+                e.name = $1
+                AND de.diagram_id = $2
         "#,
     )
     .bind("New Entity")
@@ -66,9 +72,11 @@ async fn update_entity_updates_active_row(db: PgPool) {
 
     let row = sqlx::query(
         r#"
-            SELECT diagram_id, kind, name, description, deleted_at
-            FROM entity
-            WHERE entity_id = $1
+            SELECT de.diagram_id, e.kind, e.name, e.description, e.deleted_at
+            FROM entity AS e
+            INNER JOIN diagram_entity AS de
+                ON de.entity_id = e.entity_id
+            WHERE e.entity_id = $1
         "#,
     )
     .bind(1_i64)

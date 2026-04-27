@@ -36,10 +36,21 @@ CREATE TABLE users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE world (
+    world_id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
+);
+
 CREATE TABLE diagram (
     diagram_id BIGSERIAL PRIMARY KEY,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     kind diagram_kind NOT NULL,
+    genealogy_overview_enabled BOOLEAN NOT NULL DEFAULT true,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -48,13 +59,21 @@ CREATE TABLE diagram (
 
 CREATE TABLE entity (
     entity_id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     kind entity_kind NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ
+);
+
+CREATE TABLE diagram_entity (
+    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ,
+    PRIMARY KEY (diagram_id, entity_id)
 );
 
 CREATE TABLE person (
@@ -95,8 +114,11 @@ CREATE TABLE tree_path (
 );
 
 CREATE INDEX users_email_idx ON users (email);
+CREATE INDEX idx_diagram_world ON diagram(world_id);
 CREATE INDEX idx_entity_kind ON entity(kind);
-CREATE INDEX idx_entity_diagram ON entity(diagram_id);
+CREATE INDEX idx_entity_world ON entity(world_id);
+CREATE INDEX idx_diagram_entity_diagram ON diagram_entity(diagram_id);
+CREATE INDEX idx_diagram_entity_entity ON diagram_entity(entity_id);
 CREATE INDEX idx_relationship_source_entity ON relationship(source_entity_id);
 CREATE INDEX idx_relationship_target_entity ON relationship(target_entity_id);
 CREATE INDEX idx_relationship_kind ON relationship(kind);

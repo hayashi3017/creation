@@ -1,8 +1,10 @@
 DROP TABLE IF EXISTS tree_path;
 DROP TABLE IF EXISTS relationship;
 DROP TABLE IF EXISTS person;
+DROP TABLE IF EXISTS diagram_entity;
 DROP TABLE IF EXISTS entity;
 DROP TABLE IF EXISTS diagram;
+DROP TABLE IF EXISTS world;
 DROP TABLE IF EXISTS users;
 
 DROP TYPE IF EXISTS relationship_kind;
