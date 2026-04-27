@@ -7,6 +7,7 @@ use creation_service::model::{
         CreateRelationshipSchema, GetRelationshipsSchema, Relationship, RelationshipKind,
     },
     user::{FilteredUser, LoginUserSchema, RegisterUserSchema},
+    world::{CreateWorldSchema, World},
 };
 use utoipa::{
     openapi::security::{ApiKey, ApiKeyValue, HttpAuthScheme, HttpBuilder, SecurityScheme},
@@ -16,12 +17,12 @@ use utoipa::{
 use crate::{
     handler::{
         diagram::UpdateDiagramRequest, person::UpdatePersonRequest,
-        relationship::UpdateRelationshipRequest,
+        relationship::UpdateRelationshipRequest, world::UpdateWorldRequest,
     },
     response::{
         DiagramListResponse, ErrorResponse, FamilyTreeResponse, HealthCheckResponse,
         LoginUserResponse, PersonListResponse, RegisterUserResponse, RelationshipListResponse,
-        StatusResponse, UserResponse,
+        StatusResponse, UserResponse, WorldListResponse, WorldResponse,
     },
 };
 
@@ -59,6 +60,11 @@ impl Modify for SecurityAddon {
         crate::handler::user::login_user_handler,
         crate::handler::user::logout_handler,
         crate::handler::user::get_me_handler,
+        crate::handler::world::get_worlds,
+        crate::handler::world::create_world,
+        crate::handler::world::get_world_by_id,
+        crate::handler::world::update_world_by_id,
+        crate::handler::world::delete_world_by_id,
         crate::handler::family_tree::get_family_tree_by_diagram_id,
         crate::handler::diagram::get_diagrams,
         crate::handler::diagram::create_diagram,
@@ -77,6 +83,9 @@ impl Modify for SecurityAddon {
         RegisterUserSchema,
         LoginUserSchema,
         FilteredUser,
+        CreateWorldSchema,
+        UpdateWorldRequest,
+        World,
         CreateDiagramSchema,
         UpdateDiagramRequest,
         Diagram,
@@ -101,6 +110,8 @@ impl Modify for SecurityAddon {
         RegisterUserResponse,
         LoginUserResponse,
         UserResponse,
+        WorldResponse,
+        WorldListResponse,
         DiagramListResponse,
         PersonListResponse,
         RelationshipListResponse,
@@ -116,6 +127,7 @@ impl Modify for SecurityAddon {
         (name = "Health", description = include_str!("openapi_docs/en/tags/health.md")),
         (name = "Auth", description = include_str!("openapi_docs/en/tags/auth.md")),
         (name = "Users", description = include_str!("openapi_docs/en/tags/users.md")),
+        (name = "Worlds", description = "World workspace CRUD APIs."),
         (
             name = "FamilyTrees",
             description = include_str!("openapi_docs/en/tags/family_trees.md")

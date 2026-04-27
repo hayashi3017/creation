@@ -6,6 +6,7 @@ pub mod relationship;
 pub mod transaction;
 pub mod tree_path;
 pub mod user;
+pub mod world;
 
 pub(crate) fn normalize_name(name: &str, max_chars: usize) -> Option<String> {
     let trimmed = name.trim();

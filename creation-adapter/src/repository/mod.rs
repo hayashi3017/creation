@@ -13,6 +13,7 @@ pub mod relationship;
 pub mod transaction;
 pub mod tree_path;
 pub mod user;
+pub mod world;
 
 macro_rules! impl_minimal_cake_bindings {
     (

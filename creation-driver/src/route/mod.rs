@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     middleware,
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post},
     Router,
 };
 
@@ -23,6 +23,9 @@ use crate::{
             get_relationships_by_diagram, update_relationship_by_relationship_id,
         },
         user::{get_me_handler, login_user_handler, logout_handler, register_user_handler},
+        world::{
+            create_world, delete_world_by_id, get_world_by_id, get_worlds, update_world_by_id,
+        },
     },
     jwt_auth::auth,
     openapi::{openapi_json, swagger_ui_html},
@@ -45,6 +48,29 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route(
             "/api/users/me",
             get(get_me_handler)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/worlds",
+            get(get_worlds).route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/worlds/create",
+            post(create_world).route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/worlds/:world_id",
+            get(get_world_by_id)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/worlds/update/:world_id",
+            patch(update_world_by_id)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/worlds/delete/:world_id",
+            delete(delete_world_by_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(

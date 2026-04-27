@@ -4,3 +4,4 @@ pub mod person;
 pub mod relationship;
 pub mod tree_path;
 pub mod user;
+pub mod world;

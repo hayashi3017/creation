@@ -3,6 +3,7 @@ use creation_adapter::{
     model::{
         diagram::DiagramTable, entity::EntityTable, person::PersonTable,
         relationship::RelationshipTable, tree_path::TreePathTable, user::UserTable,
+        world::WorldTable,
     },
     persistence::postgres::Db,
     repository::{
@@ -15,6 +16,7 @@ use creation_service::{
         diagram::ProvidesDiagramRepository, entity::ProvidesEntityRepository,
         person::ProvidesPersonRepository, relationship::ProvidesRelationshipRepository,
         tree_path::ProvidesTreePathRepository, user::ProvidesUserRepository,
+        world::ProvidesWorldRepository,
     },
     service::{
         diagram::{DiagramService, ProvidesDiagramService},
@@ -27,6 +29,7 @@ use creation_service::{
         },
         tree_path::{ProvidesTreePathService, TreePathService},
         user::{ProvidesUserService, UserService},
+        world::{ProvidesWorldService, WorldService},
     },
 };
 use creation_usecase::usecase::{
@@ -36,6 +39,7 @@ use creation_usecase::usecase::{
     person::{PersonUsecase, ProvidesPersonUsecase},
     relationship::{ProvidesRelationshipUsecase, RelationshipUsecase},
     user::{ProvidesUserUsecase, UserUsecase},
+    world::{ProvidesWorldUsecase, WorldUsecase},
 };
 use sqlx::{Pool, Postgres};
 
@@ -58,6 +62,7 @@ pub struct AppModule {
     pub db: Db,
     pub tx: Option<SharedTransaction>,
     pub user_repository: RepositoryImpl<UserTable>,
+    pub world_repository: RepositoryImpl<WorldTable>,
     pub diagram_repository: RepositoryImpl<DiagramTable>,
     pub entity_repository: RepositoryImpl<EntityTable>,
     pub person_repository: RepositoryImpl<PersonTable>,
@@ -73,6 +78,7 @@ impl AppModule {
             db: db.clone(),
             tx: None,
             user_repository: RepositoryImpl::<UserTable>::from_db(db.clone()),
+            world_repository: RepositoryImpl::<WorldTable>::from_db(db.clone()),
             diagram_repository: RepositoryImpl::<DiagramTable>::from_db(db.clone()),
             entity_repository: RepositoryImpl::<EntityTable>::from_db(db.clone()),
             person_repository: RepositoryImpl::<PersonTable>::from_db(db.clone()),
@@ -88,6 +94,7 @@ impl AppModule {
             db: db.clone(),
             tx: None,
             user_repository: RepositoryImpl::<UserTable>::from_db(db.clone()),
+            world_repository: RepositoryImpl::<WorldTable>::from_db(db.clone()),
             diagram_repository: RepositoryImpl::<DiagramTable>::from_db(db.clone()),
             entity_repository: RepositoryImpl::<EntityTable>::from_db(db.clone()),
             person_repository: RepositoryImpl::<PersonTable>::from_db(db.clone()),
@@ -102,6 +109,14 @@ impl ProvidesUserRepository for AppModule {
 
     fn user_repository(&self) -> &Self::T {
         &self.user_repository
+    }
+}
+
+impl ProvidesWorldRepository for AppModule {
+    type T = RepositoryImpl<WorldTable>;
+
+    fn world_repository(&self) -> &Self::T {
+        &self.world_repository
     }
 }
 
@@ -160,6 +175,10 @@ impl ProvidesTransactionManager for AppModule {
                 self.db.clone(),
                 shared_tx.clone(),
             ),
+            world_repository: RepositoryImpl::<WorldTable>::from_db_with_transaction(
+                self.db.clone(),
+                shared_tx.clone(),
+            ),
             diagram_repository: RepositoryImpl::<DiagramTable>::from_db_with_transaction(
                 self.db.clone(),
                 shared_tx.clone(),
@@ -201,6 +220,7 @@ impl TransactionContext for AppModule {
 }
 
 impl UserService for AppModule {}
+impl WorldService for AppModule {}
 impl DiagramService for AppModule {}
 impl EntityService for AppModule {}
 impl KinshipDerivationService for AppModule {}
@@ -212,6 +232,14 @@ impl ProvidesUserService for AppModule {
     type T = Self;
 
     fn user_service(&self) -> &Self::T {
+        self
+    }
+}
+
+impl ProvidesWorldService for AppModule {
+    type T = Self;
+
+    fn world_service(&self) -> &Self::T {
         self
     }
 }
@@ -265,6 +293,7 @@ impl ProvidesTreePathService for AppModule {
 }
 
 impl UserUsecase for AppModule {}
+impl WorldUsecase for AppModule {}
 impl DiagramUsecase for AppModule {}
 impl EntityUsecase for AppModule {}
 impl FamilyTreeUsecase for AppModule {}
@@ -275,6 +304,14 @@ impl ProvidesUserUsecase for AppModule {
     type T = Self;
 
     fn user_usecase(&self) -> &Self::T {
+        self
+    }
+}
+
+impl ProvidesWorldUsecase for AppModule {
+    type T = Self;
+
+    fn world_usecase(&self) -> &Self::T {
         self
     }
 }
