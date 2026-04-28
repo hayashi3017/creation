@@ -10,18 +10,24 @@ use creation_service::{
         CreateDiagramSchema, DeleteDiagramSchema, DiagramKind, GetDiagramsSchema,
         UpdateDiagramSchema,
     },
+    model::entity::CreateDiagramEntityMembershipSchema,
     repository::diagram::{
         CreateDiagramRepositoryError, DeleteDiagramRepositoryError, GetDiagramsRepositoryError,
         UpdateDiagramRepositoryError,
     },
+    repository::entity::CreateDiagramEntityMembershipRepositoryError,
     service::diagram::{
         CreateDiagramServiceError, DeleteDiagramServiceError, GetDiagramsServiceError,
         UpdateDiagramServiceError,
     },
+    service::entity::CreateDiagramEntityMembershipServiceError,
 };
-use creation_usecase::usecase::diagram::{
-    CreateDiagramUsecaseError, DeleteDiagramUsecaseError, GetDiagramsUsecaseError,
-    UpdateDiagramUsecaseError, UsesDiagramUsecase,
+use creation_usecase::usecase::{
+    diagram::{
+        CreateDiagramUsecaseError, DeleteDiagramUsecaseError, GetDiagramsUsecaseError,
+        UpdateDiagramUsecaseError, UsesDiagramUsecase,
+    },
+    entity::{CreateDiagramEntityMembershipUsecaseError, UsesEntityUsecase},
 };
 use http::StatusCode;
 use serde::Deserialize;
@@ -116,6 +122,53 @@ pub async fn create_diagram(
                     CreateDiagramRepositoryError::Db(err) => {
                         Err(bad_request_error(format!("Database error: {}", err)))
                     }
+                },
+            },
+        },
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/diagrams/entities/create",
+    tag = "Diagrams",
+    security(("cookie_auth" = []), ("bearer_auth" = [])),
+    request_body = CreateDiagramEntityMembershipSchema,
+    responses(
+        (status = 200, description = "The entity was added to the diagram successfully."),
+        (status = 400, description = "The request was invalid.", body = ErrorResponse),
+        (status = 401, description = "Authentication is required.", body = ErrorResponse),
+        (status = 404, description = "The diagram or entity was not found in the same world.", body = ErrorResponse),
+        (status = 500, description = "The membership could not be created.", body = ErrorResponse)
+    )
+)]
+pub async fn create_diagram_entity_membership(
+    State(data): State<Arc<AppState>>,
+    Json(body): Json<CreateDiagramEntityMembershipSchema>,
+) -> Result<impl IntoResponse, JsonError> {
+    let query_result = data.driver.create_diagram_entity_membership(body).await;
+
+    match query_result {
+        Ok(()) => Ok(()),
+        Err(err) => match err {
+            CreateDiagramEntityMembershipUsecaseError::InvalidParams => {
+                Err(bad_request_error("Invalid Parameter".to_string()))
+            }
+            CreateDiagramEntityMembershipUsecaseError::NotFound => Err(not_found_error()),
+            CreateDiagramEntityMembershipUsecaseError::CreateDiagramEntityMembershipServiceError(
+                err,
+            ) => match err {
+                CreateDiagramEntityMembershipServiceError::InvalidParams => {
+                    Err(bad_request_error("Invalid Parameter".to_string()))
+                }
+                CreateDiagramEntityMembershipServiceError::NotFound => Err(not_found_error()),
+                CreateDiagramEntityMembershipServiceError::CreateDiagramEntityMembershipRepositoryError(
+                    err,
+                ) => match err {
+                    CreateDiagramEntityMembershipRepositoryError::Db(err) => {
+                        Err(internal_server_error(format!("Database error: {}", err)))
+                    }
+                    CreateDiagramEntityMembershipRepositoryError::NotFound => Err(not_found_error()),
                 },
             },
         },

@@ -20,7 +20,7 @@ async fn transaction_commit_persists_entity_and_person(db: PgPool) {
     let entity_id = tx
         .entity_service()
         .create_entity(CreateEntitySchema {
-            diagram_id: 1,
+            world_id: 1,
             kind: EntityKind::Person,
             name: "Committed Transaction Person".to_string(),
             description: Some("committed".to_string()),
@@ -71,7 +71,7 @@ async fn transaction_rolls_back_when_followup_service_fails(db: PgPool) {
     let entity_id = tx
         .entity_service()
         .create_entity(CreateEntitySchema {
-            diagram_id: 1,
+            world_id: 1,
             kind: EntityKind::Person,
             name: "Rollback Candidate".to_string(),
             description: Some("should not persist".to_string()),
@@ -127,7 +127,7 @@ async fn closed_transaction_does_not_fallback_to_pool(db: PgPool) {
     let result = tx_clone
         .entity_service()
         .create_entity(CreateEntitySchema {
-            diagram_id: 1,
+            world_id: 1,
             kind: EntityKind::Person,
             name: "Should Error After Commit".to_string(),
             description: None,

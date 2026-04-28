@@ -1,11 +1,13 @@
 use async_trait::async_trait;
 use creation_service::{
     model::entity::{
-        CreateEntitySchema, DeleteEntitySchema, Entity, GetEntitiesSchema, UpdateEntitySchema,
+        CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteEntitySchema, Entity,
+        GetEntitiesSchema, UpdateEntitySchema,
     },
     service::entity::{
-        CreateEntityServiceError, DeleteEntityServiceError, GetEntitiesServiceError,
-        ProvidesEntityService, UpdateEntityServiceError, UsesEntityService,
+        CreateDiagramEntityMembershipServiceError, CreateEntityServiceError,
+        DeleteEntityServiceError, GetEntitiesServiceError, ProvidesEntityService,
+        UpdateEntityServiceError, UsesEntityService,
     },
 };
 use thiserror::Error;
@@ -22,6 +24,8 @@ pub enum EntityUsecaseError {
     #[error(transparent)]
     CreateEntityUsecaseError(#[from] CreateEntityUsecaseError),
     #[error(transparent)]
+    CreateDiagramEntityMembershipUsecaseError(#[from] CreateDiagramEntityMembershipUsecaseError),
+    #[error(transparent)]
     UpdateEntityUsecaseError(#[from] UpdateEntityUsecaseError),
     #[error(transparent)]
     DeleteEntityUsecaseError(#[from] DeleteEntityUsecaseError),
@@ -37,6 +41,16 @@ pub enum GetEntitiesUsecaseError {
 pub enum CreateEntityUsecaseError {
     #[error(transparent)]
     CreateEntityServiceError(#[from] CreateEntityServiceError),
+}
+
+#[derive(Debug, Error)]
+pub enum CreateDiagramEntityMembershipUsecaseError {
+    #[error("invalid parameter")]
+    InvalidParams,
+    #[error("not found")]
+    NotFound,
+    #[error(transparent)]
+    CreateDiagramEntityMembershipServiceError(#[from] CreateDiagramEntityMembershipServiceError),
 }
 
 #[derive(Debug, Error)]
@@ -96,6 +110,41 @@ impl<T: EntityUsecase> UsesCreateEntityUsecase for T {
 }
 
 #[async_trait]
+pub trait UsesCreateDiagramEntityMembershipUsecase {
+    async fn create_diagram_entity_membership(
+        &self,
+        body: CreateDiagramEntityMembershipSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipUsecaseError>;
+}
+
+#[async_trait]
+impl<T: EntityUsecase> UsesCreateDiagramEntityMembershipUsecase for T {
+    async fn create_diagram_entity_membership(
+        &self,
+        body: CreateDiagramEntityMembershipSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipUsecaseError> {
+        match self
+            .entity_service()
+            .create_diagram_entity_membership(body)
+            .await
+        {
+            Ok(()) => Ok(()),
+            Err(CreateDiagramEntityMembershipServiceError::InvalidParams) => {
+                Err(CreateDiagramEntityMembershipUsecaseError::InvalidParams)
+            }
+            Err(CreateDiagramEntityMembershipServiceError::NotFound) => {
+                Err(CreateDiagramEntityMembershipUsecaseError::NotFound)
+            }
+            Err(err) => Err(
+                CreateDiagramEntityMembershipUsecaseError::CreateDiagramEntityMembershipServiceError(
+                    err,
+                ),
+            ),
+        }
+    }
+}
+
+#[async_trait]
 pub trait UsesUpdateEntityUsecase {
     async fn update_entity(&self, body: UpdateEntitySchema)
         -> Result<(), UpdateEntityUsecaseError>;
@@ -137,7 +186,11 @@ impl<T: EntityUsecase> UsesDeleteEntityUsecase for T {
 
 #[async_trait]
 pub trait UsesEntityUsecase:
-    UsesGetEntitiesUsecase + UsesCreateEntityUsecase + UsesUpdateEntityUsecase + UsesDeleteEntityUsecase
+    UsesGetEntitiesUsecase
+    + UsesCreateEntityUsecase
+    + UsesCreateDiagramEntityMembershipUsecase
+    + UsesUpdateEntityUsecase
+    + UsesDeleteEntityUsecase
 {
     async fn get_entities(
         &self,
@@ -151,6 +204,13 @@ pub trait UsesEntityUsecase:
         body: CreateEntitySchema,
     ) -> Result<(), CreateEntityUsecaseError> {
         UsesCreateEntityUsecase::create_entity(self, body).await
+    }
+
+    async fn create_diagram_entity_membership(
+        &self,
+        body: CreateDiagramEntityMembershipSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipUsecaseError> {
+        UsesCreateDiagramEntityMembershipUsecase::create_diagram_entity_membership(self, body).await
     }
 
     async fn update_entity(
@@ -171,6 +231,7 @@ pub trait UsesEntityUsecase:
 impl<T> UsesEntityUsecase for T where
     T: UsesGetEntitiesUsecase
         + UsesCreateEntityUsecase
+        + UsesCreateDiagramEntityMembershipUsecase
         + UsesUpdateEntityUsecase
         + UsesDeleteEntityUsecase
 {

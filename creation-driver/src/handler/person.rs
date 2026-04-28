@@ -25,7 +25,6 @@ type JsonError = (StatusCode, Json<ErrorResponse>);
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdatePersonRequest {
-    pub diagram_id: usize,
     pub name: String,
     #[serde(default)]
     pub description: Option<String>,
@@ -121,7 +120,6 @@ pub async fn update_person_by_entity_id(
         .driver
         .update_person(UpdatePersonSchema {
             entity_id,
-            diagram_id: body.diagram_id,
             name: body.name,
             description: body.description,
             gender: body.gender,

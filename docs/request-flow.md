@@ -130,6 +130,20 @@ Handler: `creation-driver/src/handler/diagram.rs::create_diagram`
    - `200` on success (empty body in current handler)
    - `400` invalid params / DB error mapping
 
+### `POST /api/diagrams/entities/create` (protected)
+
+Handler: `creation-driver/src/handler/diagram.rs::create_diagram_entity_membership`
+
+1. Auth middleware validates token.
+2. Parse JSON into `CreateDiagramEntityMembershipSchema`.
+3. Service-level validation checks `diagram_id != 0` and `entity_id != 0`.
+4. Repository inserts or reactivates `diagram_entity` only when the diagram and entity are active and belong to the same world.
+5. Return:
+   - `200` on success (empty body in current handler)
+   - `400` invalid params
+   - `404` missing, deleted, or cross-world diagram/entity
+   - `500` DB failure
+
 ### `PATCH /api/diagrams/update/{diagram_id}` (protected)
 
 Handler: `creation-driver/src/handler/diagram.rs::update_diagram_by_diagram_id`
@@ -184,7 +198,8 @@ Handler: `creation-driver/src/handler/person.rs::create_person`
 1. Auth middleware validates token.
 2. Parse JSON body into `CreatePersonSchema`.
 3. Usecase normalizes the aggregate payload using service-level validation helpers:
-   - `diagram_id != 0`
+   - `world_id != 0`
+   - optional `diagram_id`, when provided, must identify an active diagram in the same world
    - trimmed `name` is not empty
    - trimmed `name` fits `VARCHAR(255)`
    - blank or missing `description` is normalized to `NULL`
@@ -192,10 +207,11 @@ Handler: `creation-driver/src/handler/person.rs::create_person`
    - `photo_url` fits `VARCHAR(512)` after trim
    - blank optional strings are normalized to `NULL`
 4. Usecase begins the service-side transaction port and gets a transaction-aware service container.
-5. The transactional `entity` service inserts `entity(kind=person)` and returns `entity_id`.
-6. The transactional `person` service inserts the matching `person` row.
-7. The transaction context commits.
-8. Return:
+5. The transactional `entity` service inserts `entity(world_id, kind=person)` and returns `entity_id`.
+6. When `diagram_id` is provided, the transactional `entity` service creates the `diagram_entity` membership.
+7. The transactional `person` service inserts the matching `person` row.
+8. The transaction context commits.
+9. Return:
    - `200` on success (empty body in current handler)
    - `400` invalid params
    - `500` DB failure
@@ -208,7 +224,6 @@ Handler: `creation-driver/src/handler/person.rs::update_person_by_entity_id`
 2. Read `entity_id` from path and parse JSON body into the update request payload.
 3. Usecase normalizes the aggregate payload using service-level validation helpers:
    - `entity_id != 0`
-   - `diagram_id != 0`
    - trimmed `name` is not empty
    - trimmed `name` fits `VARCHAR(255)`
    - blank or missing `description` is normalized to `NULL`

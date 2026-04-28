@@ -167,7 +167,7 @@ impl<T: PersonService> UsesPersonService for T {
 
 pub fn prepare_create_person(body: CreatePersonSchema) -> Option<CreatePersonSchema> {
     let entity = prepare_create_entity(CreateEntitySchema {
-        diagram_id: body.diagram_id,
+        world_id: body.world_id,
         kind: EntityKind::Person,
         name: body.name,
         description: body.description,
@@ -177,7 +177,8 @@ pub fn prepare_create_person(body: CreatePersonSchema) -> Option<CreatePersonSch
         normalize_person_text_fields(body.birthplace, body.residence, body.photo_url)?;
 
     Some(CreatePersonSchema {
-        diagram_id: entity.diagram_id,
+        world_id: entity.world_id,
+        diagram_id: body.diagram_id,
         name: entity.name,
         description: entity.description,
         gender: body.gender,
@@ -192,7 +193,6 @@ pub fn prepare_create_person(body: CreatePersonSchema) -> Option<CreatePersonSch
 pub fn prepare_update_person(body: UpdatePersonSchema) -> Option<UpdatePersonSchema> {
     let entity = prepare_update_entity(UpdateEntitySchema {
         entity_id: body.entity_id,
-        diagram_id: body.diagram_id,
         kind: EntityKind::Person,
         name: body.name,
         description: body.description,
@@ -203,7 +203,6 @@ pub fn prepare_update_person(body: UpdatePersonSchema) -> Option<UpdatePersonSch
 
     Some(UpdatePersonSchema {
         entity_id: entity.entity_id,
-        diagram_id: entity.diagram_id,
         name: entity.name,
         description: entity.description,
         gender: body.gender,

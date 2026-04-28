@@ -56,7 +56,9 @@ pub struct GetPersonRecordsSchema {
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreatePersonSchema {
-    pub diagram_id: usize,
+    pub world_id: usize,
+    #[serde(default)]
+    pub diagram_id: Option<usize>,
     pub name: String,
     #[serde(default)]
     pub description: Option<String>,
@@ -88,7 +90,6 @@ pub struct CreatePersonRecordSchema {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdatePersonSchema {
     pub entity_id: usize,
-    pub diagram_id: usize,
     pub name: String,
     #[serde(default)]
     pub description: Option<String>,

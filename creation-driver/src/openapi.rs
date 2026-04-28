@@ -1,6 +1,7 @@
 use axum::{response::Html, Json};
 use creation_service::model::{
     diagram::{CreateDiagramSchema, Diagram, DiagramKind},
+    entity::CreateDiagramEntityMembershipSchema,
     genealogy_diagram::{
         GenealogyDiagramEdge, GenealogyDiagramGraph, GenealogyDiagramNode, GenealogyDiagramStats,
     },
@@ -76,6 +77,7 @@ impl Modify for SecurityAddon {
         crate::handler::genealogy_overview::get_genealogy_overview,
         crate::handler::diagram::get_diagrams,
         crate::handler::diagram::create_diagram,
+        crate::handler::diagram::create_diagram_entity_membership,
         crate::handler::diagram::update_diagram_by_diagram_id,
         crate::handler::diagram::delete_diagram_by_diagram_id,
         crate::handler::person::get_persons_by_diagram,
@@ -95,6 +97,7 @@ impl Modify for SecurityAddon {
         UpdateWorldRequest,
         World,
         CreateDiagramSchema,
+        CreateDiagramEntityMembershipSchema,
         UpdateDiagramRequest,
         Diagram,
         DiagramKind,

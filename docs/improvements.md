@@ -24,8 +24,6 @@ Detailed proposals and decisions:
 
 ## Validation And Error Handling
 
-- `entity` の write validation では、まだ `diagram_id` の存在確認をしていない。作成先 / 更新先の diagram が存在し、かつ論理削除されていないことをどのレイヤで保証するかを決めた方が仕様が安定する。See `docs/rfc/0003-validation-and-normalization.md`.
-- `update_entity` / `update_person` は diagram 間移動を拒否するようになったが、現行 API は更新 payload に `diagram_id` を残したまま「現在の所属 diagram と一致していること」を guard として使っている。resource-oriented な path に寄せるなら、この guard を残すか path / server-side lookup に寄せるかを整理した方がよい。See `docs/rfc/0001-resource-oriented-api-shape.md` and `docs/adr/0002-entity-diagram-reassignment-policy.md`.
 - 公開 `person` API は entity/person を同時に論理削除するが、内部の `entity_repository.delete_entity(...)` は依然として親 `entity` だけを論理削除する。specialization row の削除伝播方針は内部 API も含めて明文化した方がよい。See `docs/rfc/0005-entity-person-soft-delete-consistency.md`.
 - User API にも Diagram / Person と同じ status mapping policy を適用するかは未整理。`register/login/me/logout` を同じ観点で揃えるか、User API だけ別ポリシーにするかを決めた方がエラー契約の見通しが良くなる。See `docs/rfc/0002-mutation-result-and-error-mapping.md`.
 

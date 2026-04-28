@@ -4,8 +4,8 @@ use async_trait::async_trait;
 use creation_service::{
     model::{
         entity::{
-            CreateEntitySchema, DeleteEntitySchema, EntityKind, GetEntitiesSchema,
-            UpdateEntitySchema,
+            CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteEntitySchema,
+            EntityKind, GetEntitiesSchema, UpdateEntitySchema,
         },
         person::{
             CreatePersonRecordSchema, CreatePersonSchema, DeletePersonSchema,
@@ -21,8 +21,9 @@ use creation_service::{
     },
     service::{
         entity::{
-            CreateEntityServiceError, DeleteEntityServiceError, GetEntitiesServiceError,
-            ProvidesEntityService, UpdateEntityServiceError, UsesEntityService,
+            CreateDiagramEntityMembershipServiceError, CreateEntityServiceError,
+            DeleteEntityServiceError, GetEntitiesServiceError, ProvidesEntityService,
+            UpdateEntityServiceError, UsesEntityService,
         },
         person::{
             prepare_create_person, prepare_delete_person, prepare_update_person,
@@ -203,13 +204,23 @@ where
         let entity_id = tx
             .entity_service()
             .create_entity(CreateEntitySchema {
-                diagram_id: body.diagram_id,
+                world_id: body.world_id,
                 kind: EntityKind::Person,
                 name: body.name,
                 description: body.description,
             })
             .await
             .map_err(map_create_person_entity_error)?;
+
+        if let Some(diagram_id) = body.diagram_id {
+            tx.entity_service()
+                .create_diagram_entity_membership(CreateDiagramEntityMembershipSchema {
+                    diagram_id,
+                    entity_id,
+                })
+                .await
+                .map_err(map_create_person_membership_error)?;
+        }
 
         tx.person_service()
             .create_person_record(CreatePersonRecordSchema {
@@ -257,7 +268,6 @@ where
         tx.entity_service()
             .update_entity(UpdateEntitySchema {
                 entity_id: body.entity_id,
-                diagram_id: body.diagram_id,
                 kind: EntityKind::Person,
                 name: body.name,
                 description: body.description,
@@ -380,9 +390,33 @@ fn map_create_person_entity_error(err: CreateEntityServiceError) -> CreatePerson
         CreateEntityServiceError::CreateEntityRepositoryError(err) => {
             CreatePersonUsecaseError::TransactionError(TransactionError::Db(match err {
                 creation_service::repository::entity::CreateEntityRepositoryError::Db(err) => err,
+                creation_service::repository::entity::CreateEntityRepositoryError::NotFound => {
+                    sqlx::Error::RowNotFound
+                }
             }))
         }
         CreateEntityServiceError::InvalidParams => CreatePersonUsecaseError::InvalidParams,
+    }
+}
+
+fn map_create_person_membership_error(
+    err: CreateDiagramEntityMembershipServiceError,
+) -> CreatePersonUsecaseError {
+    match err {
+        CreateDiagramEntityMembershipServiceError::InvalidParams
+        | CreateDiagramEntityMembershipServiceError::NotFound => {
+            CreatePersonUsecaseError::InvalidParams
+        }
+        CreateDiagramEntityMembershipServiceError::CreateDiagramEntityMembershipRepositoryError(
+            err,
+        ) => CreatePersonUsecaseError::TransactionError(TransactionError::Db(match err {
+            creation_service::repository::entity::CreateDiagramEntityMembershipRepositoryError::Db(
+                err,
+            ) => err,
+            creation_service::repository::entity::CreateDiagramEntityMembershipRepositoryError::NotFound => {
+                sqlx::Error::RowNotFound
+            }
+        })),
     }
 }
 

@@ -1,9 +1,11 @@
 use creation_adapter::{model::entity::EntityTable, repository::RepositoryImpl};
 use creation_service::{
     model::entity::{
-        CreateEntitySchema, DeleteEntitySchema, EntityKind, GetEntitiesSchema, UpdateEntitySchema,
+        CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteEntitySchema, EntityKind,
+        GetEntitiesSchema, UpdateEntitySchema,
     },
     repository::entity::{
+        CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
         DeleteEntityRepositoryError, UpdateEntityRepositoryError, UsesEntityRepository,
     },
 };
@@ -29,27 +31,90 @@ async fn get_entities_filters_by_diagram_and_excludes_deleted(db: PgPool) {
 async fn create_entity_inserts_row(db: PgPool) {
     let repo = RepositoryImpl::<EntityTable>::new_test(db.clone()).await;
     let body = CreateEntitySchema {
-        diagram_id: 1,
+        world_id: 1,
         kind: EntityKind::Person,
         name: "New Entity".to_string(),
         description: Some("created from repository test".to_string()),
     };
 
-    repo.create_entity(body).await.unwrap();
+    let entity_id = repo.create_entity(body).await.unwrap();
+
+    let row = sqlx::query(
+        r#"
+            SELECT world_id, kind, name, description, deleted_at
+            FROM entity
+            WHERE entity_id = $1
+        "#,
+    )
+    .bind(entity_id as i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(row.get::<i64, _>("world_id"), 1);
+    assert!(matches!(
+        row.get::<EntityKind, _>("kind"),
+        EntityKind::Person
+    ));
+    assert_eq!(row.get::<String, _>("name"), "New Entity");
+    assert_eq!(
+        row.get::<Option<String>, _>("description").as_deref(),
+        Some("created from repository test")
+    );
+    assert!(row
+        .get::<Option<chrono::DateTime<chrono::Utc>>, _>("deleted_at")
+        .is_none());
+
+    let membership_count: i64 = sqlx::query_scalar(
+        r#"
+            SELECT COUNT(*)
+            FROM diagram_entity
+            WHERE entity_id = $1
+        "#,
+    )
+    .bind(entity_id as i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(membership_count, 0);
+}
+
+#[sqlx::test(fixtures("entity_repository"))]
+async fn create_entity_returns_not_found_for_deleted_world(db: PgPool) {
+    let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
+    let body = CreateEntitySchema {
+        world_id: 3,
+        kind: EntityKind::Person,
+        name: "Rejected Entity".to_string(),
+        description: None,
+    };
+
+    let err = repo.create_entity(body).await.unwrap_err();
+
+    assert!(matches!(err, CreateEntityRepositoryError::NotFound));
+}
+
+#[sqlx::test(fixtures("entity_repository"))]
+async fn create_diagram_entity_membership_inserts_row(db: PgPool) {
+    let repo = RepositoryImpl::<EntityTable>::new_test(db.clone()).await;
+
+    repo.create_diagram_entity_membership(CreateDiagramEntityMembershipSchema {
+        diagram_id: 1,
+        entity_id: 4,
+    })
+    .await
+    .unwrap();
 
     let count: i64 = sqlx::query_scalar(
         r#"
             SELECT COUNT(*)
-            FROM entity AS e
-            INNER JOIN diagram_entity AS de
-                ON de.entity_id = e.entity_id
-            WHERE
-                e.name = $1
-                AND de.diagram_id = $2
+            FROM diagram_entity
+            WHERE diagram_id = $1 AND entity_id = $2 AND deleted_at IS NULL
         "#,
     )
-    .bind("New Entity")
     .bind(1_i64)
+    .bind(4_i64)
     .fetch_one(&db)
     .await
     .unwrap();
@@ -58,11 +123,28 @@ async fn create_entity_inserts_row(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("entity_repository"))]
+async fn create_diagram_entity_membership_returns_not_found_for_world_mismatch(db: PgPool) {
+    let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
+
+    let err = repo
+        .create_diagram_entity_membership(CreateDiagramEntityMembershipSchema {
+            diagram_id: 1,
+            entity_id: 5,
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        CreateDiagramEntityMembershipRepositoryError::NotFound
+    ));
+}
+
+#[sqlx::test(fixtures("entity_repository"))]
 async fn update_entity_updates_active_row(db: PgPool) {
     let repo = RepositoryImpl::<EntityTable>::new_test(db.clone()).await;
     let body = UpdateEntitySchema {
         entity_id: 1,
-        diagram_id: 1,
         kind: EntityKind::Person,
         name: "Updated Entity".to_string(),
         description: Some("updated from repository test".to_string()),
@@ -96,22 +178,6 @@ async fn update_entity_updates_active_row(db: PgPool) {
     assert!(row
         .get::<Option<chrono::DateTime<chrono::Utc>>, _>("deleted_at")
         .is_none());
-}
-
-#[sqlx::test(fixtures("entity_repository"))]
-async fn update_entity_returns_not_found_for_diagram_mismatch(db: PgPool) {
-    let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
-    let body = UpdateEntitySchema {
-        entity_id: 1,
-        diagram_id: 2,
-        kind: EntityKind::Person,
-        name: "Moved Entity".to_string(),
-        description: Some("should be rejected".to_string()),
-    };
-
-    let err = repo.update_entity(body).await.unwrap_err();
-
-    assert!(matches!(err, UpdateEntityRepositoryError::NotFound));
 }
 
 #[sqlx::test(fixtures("entity_repository"))]
@@ -149,7 +215,6 @@ async fn update_entity_returns_not_found_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
     let body = UpdateEntitySchema {
         entity_id: 3,
-        diagram_id: 1,
         kind: EntityKind::Person,
         name: "Missing Entity".to_string(),
         description: Some("should fail".to_string()),

@@ -2,6 +2,7 @@ use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::Type;
+use utoipa::ToSchema;
 
 pub const ENTITY_NAME_MAX_CHARS: usize = 255;
 
@@ -52,7 +53,7 @@ pub struct GetEntitiesSchema {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateEntitySchema {
-    pub diagram_id: usize,
+    pub world_id: usize,
     pub kind: EntityKind,
     pub name: String,
     #[serde(default)]
@@ -68,7 +69,6 @@ impl Display for CreateEntitySchema {
 #[derive(Debug, Deserialize)]
 pub struct UpdateEntitySchema {
     pub entity_id: usize,
-    pub diagram_id: usize,
     pub kind: EntityKind,
     pub name: String,
     #[serde(default)]
@@ -83,6 +83,12 @@ pub struct DeleteEntitySchema {
 #[derive(Debug, Clone)]
 pub struct DeleteDiagramEntityMembershipsSchema {
     pub diagram_id: usize,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct CreateDiagramEntityMembershipSchema {
+    pub diagram_id: usize,
+    pub entity_id: usize,
 }
 
 #[derive(Debug, Clone)]

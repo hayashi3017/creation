@@ -51,33 +51,37 @@ CREATE TABLE IF NOT EXISTS diagram_entity (
 );
 
 INSERT INTO world
-  (world_id, name, description)
+  (world_id, name, description, deleted_at)
   VALUES
-  (1, 'Repository World', 'fixture world');
+  (1, 'Repository World', 'fixture world', NULL),
+  (2, 'Other Repository World', 'second fixture world', NULL),
+  (3, 'Deleted Repository World', 'deleted fixture world', now());
 
-SELECT setval(pg_get_serial_sequence('world', 'world_id'), 1, true);
+SELECT setval(pg_get_serial_sequence('world', 'world_id'), 3, true);
 
 INSERT INTO diagram
   (diagram_id, world_id, name, kind, description)
   VALUES
   (1, 1, 'Repository Diagram 1', 'family_tree', 'first diagram'),
-  (2, 1, 'Repository Diagram 2', 'correlation', 'second diagram');
+  (2, 1, 'Repository Diagram 2', 'correlation', 'second diagram'),
+  (3, 2, 'Other World Diagram', 'family_tree', 'other world diagram');
 
-SELECT setval(pg_get_serial_sequence('diagram', 'diagram_id'), 2, true);
+SELECT setval(pg_get_serial_sequence('diagram', 'diagram_id'), 3, true);
 
 INSERT INTO entity
   (entity_id, world_id, kind, name, description)
   VALUES
   (1, 1, 'person', 'Active Entity 1', 'first active'),
   (2, 1, 'person', 'Active Entity 2', 'second active'),
-  (4, 1, 'person', 'Other Diagram Entity', 'belongs to another diagram');
+  (4, 1, 'person', 'Other Diagram Entity', 'belongs to another diagram'),
+  (5, 2, 'person', 'Other World Entity', 'belongs to another world');
 
 INSERT INTO entity
   (entity_id, world_id, kind, name, description, deleted_at)
   VALUES
   (3, 1, 'person', 'Deleted Entity', 'should be filtered', now());
 
-SELECT setval(pg_get_serial_sequence('entity', 'entity_id'), 4, true);
+SELECT setval(pg_get_serial_sequence('entity', 'entity_id'), 5, true);
 
 INSERT INTO diagram_entity
   (diagram_id, entity_id)

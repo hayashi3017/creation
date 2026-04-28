@@ -1,13 +1,15 @@
 use async_trait::async_trait;
 use creation_service::{
     model::entity::{
-        CreateEntitySchema, DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity,
-        GetEntitiesSchema, LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
+        CreateDiagramEntityMembershipSchema, CreateEntitySchema,
+        DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
+        LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
         LoadEntitiesByDiagramIdsSchema, LoadSeedEntitiesSchema, SeedEntity, UpdateEntitySchema,
     },
     repository::entity::{
-        CreateEntityRepositoryError, DeleteDiagramEntityMembershipsRepositoryError,
-        DeleteEntityRepositoryError, EntityRepository, GetEntitiesRepositoryError,
+        CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
+        DeleteDiagramEntityMembershipsRepositoryError, DeleteEntityRepositoryError,
+        EntityRepository, GetEntitiesRepositoryError,
         LoadActiveEntitiesByDiagramIdsRepositoryError, LoadActiveEntityIdsRepositoryError,
         LoadEntitiesByDiagramIdsRepositoryError, LoadSeedEntitiesRepositoryError,
         ProvidesEntityRepository, UpdateEntityRepositoryError, UsesEntityRepository,
@@ -68,21 +70,52 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         &self,
         body: CreateEntitySchema,
     ) -> Result<usize, CreateEntityRepositoryError> {
-        if let Some(shared_tx) = &self.tx {
+        let entity_id = if let Some(shared_tx) = &self.tx {
             let mut tx = shared_tx.lock().await;
 
             if let Some(tx) = tx.as_mut() {
-                return create_entity_with(tx.as_mut(), body)
+                create_entity_with(tx.as_mut(), body)
                     .await
-                    .map_err(CreateEntityRepositoryError::Db);
+                    .map_err(CreateEntityRepositoryError::Db)?
+            } else {
+                return Err(CreateEntityRepositoryError::Db(closed_transaction_error()));
             }
+        } else {
+            create_entity_with(&self.pool.0, body)
+                .await
+                .map_err(CreateEntityRepositoryError::Db)?
+        };
 
-            return Err(CreateEntityRepositoryError::Db(closed_transaction_error()));
+        entity_id.ok_or(CreateEntityRepositoryError::NotFound)
+    }
+
+    async fn create_diagram_entity_membership(
+        &self,
+        body: CreateDiagramEntityMembershipSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipRepositoryError> {
+        let created = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                create_diagram_entity_membership_with(tx.as_mut(), body)
+                    .await
+                    .map_err(CreateDiagramEntityMembershipRepositoryError::Db)?
+            } else {
+                return Err(CreateDiagramEntityMembershipRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            create_diagram_entity_membership_with(&self.pool.0, body)
+                .await
+                .map_err(CreateDiagramEntityMembershipRepositoryError::Db)?
+        };
+
+        if created {
+            Ok(())
+        } else {
+            Err(CreateDiagramEntityMembershipRepositoryError::NotFound)
         }
-
-        create_entity_with(&self.pool.0, body)
-            .await
-            .map_err(CreateEntityRepositoryError::Db)
     }
 
     async fn update_entity(
@@ -267,38 +300,63 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
 async fn create_entity_with<'e, E>(
     executor: E,
     body: CreateEntitySchema,
-) -> Result<usize, sqlx::Error>
+) -> Result<Option<usize>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
     let entity_id = sqlx::query_scalar::<_, i64>(
         r#"
-            WITH inserted_entity AS (
-                INSERT INTO entity
+            INSERT INTO entity
                 (world_id, kind, name, description)
-                SELECT d.world_id, $2, $3, $4
-                FROM diagram AS d
-                WHERE
-                    d.diagram_id = $1
-                    AND d.deleted_at IS NULL
-                RETURNING entity_id
-            ),
-            membership AS (
-                INSERT INTO diagram_entity
-                    (diagram_id, entity_id)
-                SELECT $1, entity_id FROM inserted_entity
-            )
-            SELECT entity_id FROM inserted_entity
+            SELECT world_id, $2, $3, $4
+            FROM world
+            WHERE
+                world_id = $1
+                AND deleted_at IS NULL
+            RETURNING entity_id
         "#,
     )
-    .bind(body.diagram_id as i64)
+    .bind(body.world_id as i64)
     .bind(body.kind)
     .bind(body.name)
     .bind(body.description)
-    .fetch_one(executor)
+    .fetch_optional(executor)
     .await?;
 
-    Ok(entity_id as usize)
+    Ok(entity_id.map(|entity_id| entity_id as usize))
+}
+
+async fn create_diagram_entity_membership_with<'e, E>(
+    executor: E,
+    body: CreateDiagramEntityMembershipSchema,
+) -> Result<bool, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let inserted = sqlx::query_scalar::<_, i64>(
+        r#"
+            INSERT INTO diagram_entity
+                (diagram_id, entity_id)
+            SELECT d.diagram_id, e.entity_id
+            FROM diagram AS d
+            INNER JOIN entity AS e
+                ON e.entity_id = $2
+                AND e.world_id = d.world_id
+                AND e.deleted_at IS NULL
+            WHERE
+                d.diagram_id = $1
+                AND d.deleted_at IS NULL
+            ON CONFLICT (diagram_id, entity_id)
+            DO UPDATE SET deleted_at = NULL
+            RETURNING entity_id
+        "#,
+    )
+    .bind(body.diagram_id as i64)
+    .bind(body.entity_id as i64)
+    .fetch_optional(executor)
+    .await?;
+
+    Ok(inserted.is_some())
 }
 
 async fn update_entity_with<'e, E>(
@@ -319,25 +377,12 @@ where
             WHERE
                 entity_id = $4
                 AND deleted_at IS NULL
-                AND EXISTS (
-                    SELECT 1
-                    FROM diagram_entity AS de
-                    INNER JOIN diagram AS d
-                        ON d.diagram_id = de.diagram_id
-                        AND d.deleted_at IS NULL
-                    WHERE
-                        de.diagram_id = $5
-                        AND de.entity_id = entity.entity_id
-                        AND de.deleted_at IS NULL
-                        AND d.world_id = entity.world_id
-                )
         "#,
     )
     .bind(body.kind)
     .bind(body.name)
     .bind(body.description)
     .bind(body.entity_id as i64)
-    .bind(body.diagram_id as i64)
     .execute(executor)
     .await?;
 

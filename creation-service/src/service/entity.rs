@@ -5,15 +5,15 @@ use super::{map_service_result, normalize_name, normalize_optional_text};
 
 use crate::{
     model::entity::{
-        CreateEntitySchema, DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity,
-        GetEntitiesSchema, LoadEntitiesByDiagramIdsSchema, UpdateEntitySchema,
-        ENTITY_NAME_MAX_CHARS,
+        CreateDiagramEntityMembershipSchema, CreateEntitySchema,
+        DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
+        LoadEntitiesByDiagramIdsSchema, UpdateEntitySchema, ENTITY_NAME_MAX_CHARS,
     },
     repository::entity::{
-        CreateEntityRepositoryError, DeleteDiagramEntityMembershipsRepositoryError,
-        DeleteEntityRepositoryError, GetEntitiesRepositoryError,
-        LoadEntitiesByDiagramIdsRepositoryError, ProvidesEntityRepository,
-        UpdateEntityRepositoryError, UsesEntityRepository,
+        CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
+        DeleteDiagramEntityMembershipsRepositoryError, DeleteEntityRepositoryError,
+        GetEntitiesRepositoryError, LoadEntitiesByDiagramIdsRepositoryError,
+        ProvidesEntityRepository, UpdateEntityRepositoryError, UsesEntityRepository,
     },
 };
 
@@ -26,6 +26,8 @@ pub enum EntityServiceError {
     GetEntitiesServiceError(#[from] GetEntitiesServiceError),
     #[error(transparent)]
     CreateEntityServiceError(#[from] CreateEntityServiceError),
+    #[error(transparent)]
+    CreateDiagramEntityMembershipServiceError(#[from] CreateDiagramEntityMembershipServiceError),
     #[error(transparent)]
     UpdateEntityServiceError(#[from] UpdateEntityServiceError),
     #[error(transparent)]
@@ -50,6 +52,18 @@ pub enum CreateEntityServiceError {
     CreateEntityRepositoryError(#[from] CreateEntityRepositoryError),
     #[error("invalid parameter")]
     InvalidParams,
+}
+
+#[derive(Debug, Error)]
+pub enum CreateDiagramEntityMembershipServiceError {
+    #[error(transparent)]
+    CreateDiagramEntityMembershipRepositoryError(
+        #[from] CreateDiagramEntityMembershipRepositoryError,
+    ),
+    #[error("invalid parameter")]
+    InvalidParams,
+    #[error("not found")]
+    NotFound,
 }
 
 #[derive(Debug, Error)]
@@ -100,6 +114,10 @@ pub trait UsesEntityService {
         &self,
         body: CreateEntitySchema,
     ) -> Result<usize, CreateEntityServiceError>;
+    async fn create_diagram_entity_membership(
+        &self,
+        body: CreateDiagramEntityMembershipSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipServiceError>;
     async fn update_entity(&self, body: UpdateEntitySchema)
         -> Result<(), UpdateEntityServiceError>;
     async fn delete_entity(
@@ -140,10 +158,38 @@ impl<T: EntityService> UsesEntityService for T {
             return Err(CreateEntityServiceError::InvalidParams);
         };
 
-        map_service_result!(
-            self.entity_repository().create_entity(body),
-            CreateEntityServiceError::CreateEntityRepositoryError
-        )
+        match self.entity_repository().create_entity(body).await {
+            Ok(entity_id) => Ok(entity_id),
+            Err(CreateEntityRepositoryError::NotFound) => {
+                Err(CreateEntityServiceError::InvalidParams)
+            }
+            Err(err) => Err(CreateEntityServiceError::CreateEntityRepositoryError(err)),
+        }
+    }
+
+    async fn create_diagram_entity_membership(
+        &self,
+        body: CreateDiagramEntityMembershipSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipServiceError> {
+        if body.diagram_id == 0 || body.entity_id == 0 {
+            return Err(CreateDiagramEntityMembershipServiceError::InvalidParams);
+        }
+
+        match self
+            .entity_repository()
+            .create_diagram_entity_membership(body)
+            .await
+        {
+            Ok(()) => Ok(()),
+            Err(CreateDiagramEntityMembershipRepositoryError::NotFound) => {
+                Err(CreateDiagramEntityMembershipServiceError::NotFound)
+            }
+            Err(err) => Err(
+                CreateDiagramEntityMembershipServiceError::CreateDiagramEntityMembershipRepositoryError(
+                    err,
+                ),
+            ),
+        }
     }
 
     async fn update_entity(
@@ -210,14 +256,14 @@ impl<T: EntityService> UsesEntityService for T {
 }
 
 pub fn prepare_create_entity(body: CreateEntitySchema) -> Option<CreateEntitySchema> {
-    if body.diagram_id == 0 {
+    if body.world_id == 0 {
         return None;
     }
 
     let name = normalize_name(&body.name, ENTITY_NAME_MAX_CHARS)?;
 
     Some(CreateEntitySchema {
-        diagram_id: body.diagram_id,
+        world_id: body.world_id,
         kind: body.kind,
         name,
         description: normalize_optional_text(body.description),
@@ -225,7 +271,7 @@ pub fn prepare_create_entity(body: CreateEntitySchema) -> Option<CreateEntitySch
 }
 
 pub fn prepare_update_entity(body: UpdateEntitySchema) -> Option<UpdateEntitySchema> {
-    if body.entity_id == 0 || body.diagram_id == 0 {
+    if body.entity_id == 0 {
         return None;
     }
 
@@ -233,7 +279,6 @@ pub fn prepare_update_entity(body: UpdateEntitySchema) -> Option<UpdateEntitySch
 
     Some(UpdateEntitySchema {
         entity_id: body.entity_id,
-        diagram_id: body.diagram_id,
         kind: body.kind,
         name,
         description: normalize_optional_text(body.description),

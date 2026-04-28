@@ -2,9 +2,10 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::model::entity::{
-    CreateEntitySchema, DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity,
-    GetEntitiesSchema, LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
-    LoadEntitiesByDiagramIdsSchema, LoadSeedEntitiesSchema, SeedEntity, UpdateEntitySchema,
+    CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteDiagramEntityMembershipsSchema,
+    DeleteEntitySchema, Entity, GetEntitiesSchema, LoadActiveEntitiesByDiagramIdsSchema,
+    LoadActiveEntityIdsSchema, LoadEntitiesByDiagramIdsSchema, LoadSeedEntitiesSchema, SeedEntity,
+    UpdateEntitySchema,
 };
 
 pub trait EntityRepository: Send + Sync + 'static {}
@@ -15,6 +16,10 @@ pub enum EntityRepositoryError {
     GetEntitiesRepositoryError(#[from] GetEntitiesRepositoryError),
     #[error(transparent)]
     CreateEntityRepositoryError(#[from] CreateEntityRepositoryError),
+    #[error(transparent)]
+    CreateDiagramEntityMembershipRepositoryError(
+        #[from] CreateDiagramEntityMembershipRepositoryError,
+    ),
     #[error(transparent)]
     UpdateEntityRepositoryError(#[from] UpdateEntityRepositoryError),
     #[error(transparent)]
@@ -45,6 +50,16 @@ pub enum GetEntitiesRepositoryError {
 pub enum CreateEntityRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
+    #[error("not found")]
+    NotFound,
+}
+
+#[derive(Debug, Error)]
+pub enum CreateDiagramEntityMembershipRepositoryError {
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+    #[error("not found")]
+    NotFound,
 }
 
 #[derive(Debug, Error)]
@@ -103,6 +118,10 @@ pub trait UsesEntityRepository: Send + Sync + 'static {
         &self,
         body: CreateEntitySchema,
     ) -> Result<usize, CreateEntityRepositoryError>;
+    async fn create_diagram_entity_membership(
+        &self,
+        body: CreateDiagramEntityMembershipSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipRepositoryError>;
     async fn update_entity(
         &self,
         body: UpdateEntitySchema,

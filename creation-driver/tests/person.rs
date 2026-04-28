@@ -82,6 +82,7 @@ async fn create_person_returns_ok(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "diagram_id": 1,
                         "name": "Created Person",
                         "description": "created from test",
@@ -128,6 +129,109 @@ async fn create_person_returns_ok(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("person"))]
+async fn create_person_without_diagram_creates_world_person_only(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/persons/create")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "world_id": 1,
+                        "name": "World Only Person"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = sqlx::query(
+        r#"
+            SELECT e.world_id, p.entity_id
+            FROM entity AS e
+            INNER JOIN person AS p ON p.entity_id = e.entity_id
+            WHERE e.name = $1
+        "#,
+    )
+    .bind("World Only Person")
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    let entity_id = row.get::<i64, _>("entity_id");
+    assert_eq!(row.get::<i64, _>("world_id"), 1);
+
+    let membership_count: i64 = sqlx::query_scalar(
+        r#"
+            SELECT COUNT(*)
+            FROM diagram_entity
+            WHERE entity_id = $1
+        "#,
+    )
+    .bind(entity_id)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(membership_count, 0);
+}
+
+#[sqlx::test(fixtures("person"))]
+async fn create_diagram_entity_membership_adds_existing_person_to_diagram(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/diagrams/entities/create")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "diagram_id": 1,
+                        "entity_id": 3
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let count: i64 = sqlx::query_scalar(
+        r#"
+            SELECT COUNT(*)
+            FROM diagram_entity
+            WHERE diagram_id = $1 AND entity_id = $2 AND deleted_at IS NULL
+        "#,
+    )
+    .bind(1_i64)
+    .bind(3_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(count, 1);
+}
+
+#[sqlx::test(fixtures("person"))]
 async fn create_person_normalizes_name_description_and_blank_optional_fields(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -143,6 +247,7 @@ async fn create_person_normalizes_name_description_and_blank_optional_fields(db:
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "diagram_id": 1,
                         "name": "  Normalized Person  ",
                         "description": "   ",
@@ -195,6 +300,7 @@ async fn create_person_rejects_empty_name(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "diagram_id": 1,
                         "name": "",
                         "description": "invalid"
@@ -226,6 +332,7 @@ async fn create_person_rejects_too_long_birthplace(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "diagram_id": 1,
                         "name": "Too Long Birthplace",
                         "birthplace": too_long_birthplace
@@ -256,7 +363,6 @@ async fn update_person_returns_ok(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "diagram_id": 1,
                         "name": "Updated Person",
                         "description": "updated from API",
                         "gender": "unknown",
@@ -300,35 +406,6 @@ async fn update_person_returns_ok(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("person"))]
-async fn update_person_returns_not_found_for_diagram_mismatch(db: PgPool) {
-    set_test_env();
-    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
-
-    let mut router = setup_router(db).await;
-    let resp = router
-        .borrow_mut()
-        .oneshot(
-            Request::builder()
-                .method(Method::PATCH)
-                .uri("/api/persons/update/1")
-                .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    serde_json::to_string(&json!({
-                        "diagram_id": 2,
-                        "name": "Moved Person"
-                    }))
-                    .unwrap(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
-}
-
-#[sqlx::test(fixtures("person"))]
 async fn update_person_rejects_empty_name(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -344,7 +421,6 @@ async fn update_person_rejects_empty_name(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "diagram_id": 1,
                         "name": ""
                     }))
                     .unwrap(),
@@ -373,7 +449,6 @@ async fn update_person_returns_not_found_for_deleted_entity(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "diagram_id": 1,
                         "name": "Missing Person"
                     }))
                     .unwrap(),
