@@ -35,7 +35,7 @@ use creation_service::{
 use creation_usecase::usecase::{
     diagram::{DiagramUsecase, ProvidesDiagramUsecase},
     entity::{EntityUsecase, ProvidesEntityUsecase},
-    family_tree::{FamilyTreeUsecase, ProvidesFamilyTreeUsecase},
+    genealogy_diagram::{GenealogyDiagramUsecase, ProvidesGenealogyDiagramUsecase},
     genealogy_overview::{GenealogyOverviewUsecase, ProvidesGenealogyOverviewUsecase},
     person::{PersonUsecase, ProvidesPersonUsecase},
     relationship::{ProvidesRelationshipUsecase, RelationshipUsecase},
@@ -297,7 +297,7 @@ impl UserUsecase for AppModule {}
 impl WorldUsecase for AppModule {}
 impl DiagramUsecase for AppModule {}
 impl EntityUsecase for AppModule {}
-impl FamilyTreeUsecase for AppModule {}
+impl GenealogyDiagramUsecase for AppModule {}
 impl GenealogyOverviewUsecase for AppModule {}
 impl PersonUsecase for AppModule {}
 impl RelationshipUsecase for AppModule {}
@@ -334,10 +334,10 @@ impl ProvidesEntityUsecase for AppModule {
     }
 }
 
-impl ProvidesFamilyTreeUsecase for AppModule {
+impl ProvidesGenealogyDiagramUsecase for AppModule {
     type T = Self;
 
-    fn family_tree_usecase(&self) -> &Self::T {
+    fn genealogy_diagram_usecase(&self) -> &Self::T {
         self
     }
 }
@@ -382,8 +382,9 @@ mod tests {
         },
     };
     use creation_usecase::usecase::{
-        diagram::UsesDiagramUsecase, entity::UsesEntityUsecase, family_tree::UsesFamilyTreeUsecase,
-        person::UsesPersonUsecase, relationship::UsesRelationshipUsecase, user::UsesUserUsecase,
+        diagram::UsesDiagramUsecase, entity::UsesEntityUsecase,
+        genealogy_diagram::UsesGenealogyDiagramUsecase, person::UsesPersonUsecase,
+        relationship::UsesRelationshipUsecase, user::UsesUserUsecase,
     };
 
     trait UsesMultipleRepositories:
@@ -429,7 +430,7 @@ mod tests {
             + UsesUserUsecase
             + UsesDiagramUsecase
             + UsesEntityUsecase
-            + UsesFamilyTreeUsecase
+            + UsesGenealogyDiagramUsecase
             + UsesPersonUsecase
             + UsesRelationshipUsecase,
     {

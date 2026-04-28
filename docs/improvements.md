@@ -40,13 +40,13 @@ Detailed proposals and decisions:
 
 ## Genealogy Merge And Visibility
 
-- Publication scope, entity-level hidden state, and centered merged-family-tree reads are not defined yet. Before extending merged genealogy views, review the aggregate boundary, naming, and visibility propagation policy in `docs/rfc/0008-world-aggregate-and-membership.md`.
+- Publication scope, entity-level hidden state, and centered genealogy reads are not defined yet. Before extending merged genealogy views, review the aggregate boundary, naming, and visibility propagation policy in `docs/rfc/0008-world-aggregate-and-membership.md`.
 - RFC 0015 の初期実装では `POST /api/genealogy/overview` は full overview を返し、`center_entity_id` / `ancestor_depth` / `descendant_depth` は request contract として受け取るだけにしている。center-relative subgraph の exact traversal rule と response metadata は RFC 0015 の未解決事項として詰める必要がある。See `docs/rfc/0015-genealogy-overview-api.md`.
 - Genealogy Overview は stored canonical relationship を統合して返すが、merged graph を入力にした derived kinship relation の公開形はまだ未実装。`KinshipDerivationService` の overview 用 input/output contract を決めてから response に derived edge または relation を追加する。See `docs/rfc/0012-kinship-derivation-service.md` and `docs/rfc/0015-genealogy-overview-api.md`.
 
-## Family Tree Derivation
+## Genealogy Derivation
 
-- 家系図の派生続柄は今後 `sibling` / `ancestor` / `cousin` / `in-law` まで広がる可能性があるが、その導出責務を `FamilyTreeUsecase` に載せ続けると orchestration と graph rule が混ざりやすい。`RelationshipService` は stored relationship row の lifecycle に限定し、read-only の kinship 導出は `KinshipDerivationService` のような別 service に分けた方が境界が明確になる。See `docs/rfc/0012-kinship-derivation-service.md`.
+- 家系図の派生続柄は今後 `sibling` / `ancestor` / `cousin` / `in-law` まで広がる可能性があるが、その導出責務を `GenealogyDiagramUsecase` に載せ続けると orchestration と graph rule が混ざりやすい。`RelationshipService` は stored relationship row の lifecycle に限定し、read-only の kinship 導出は `KinshipDerivationService` のような別 service に分けた方が境界が明確になる。See `docs/rfc/0012-kinship-derivation-service.md`.
 
 ## Tooling And Tests
 

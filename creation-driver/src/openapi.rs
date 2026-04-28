@@ -1,7 +1,9 @@
 use axum::{response::Html, Json};
 use creation_service::model::{
     diagram::{CreateDiagramSchema, Diagram, DiagramKind},
-    family_tree::{FamilyTree, FamilyTreeEdge, FamilyTreeNode, FamilyTreeStats},
+    genealogy_diagram::{
+        GenealogyDiagramEdge, GenealogyDiagramGraph, GenealogyDiagramNode, GenealogyDiagramStats,
+    },
     genealogy_overview::{
         GenealogyOverview, GenealogyOverviewEdge, GenealogyOverviewEdgeSource,
         GenealogyOverviewNode, GenealogyOverviewStats, GenealogyOverviewWorld,
@@ -25,7 +27,7 @@ use crate::{
         relationship::UpdateRelationshipRequest, world::UpdateWorldRequest,
     },
     response::{
-        DiagramListResponse, ErrorResponse, FamilyTreeResponse, GenealogyOverviewResponse,
+        DiagramListResponse, ErrorResponse, GenealogyDiagramResponse, GenealogyOverviewResponse,
         HealthCheckResponse, LoginUserResponse, PersonListResponse, RegisterUserResponse,
         RelationshipListResponse, StatusResponse, UserResponse, WorldListResponse, WorldResponse,
     },
@@ -70,7 +72,7 @@ impl Modify for SecurityAddon {
         crate::handler::world::get_world_by_id,
         crate::handler::world::update_world_by_id,
         crate::handler::world::delete_world_by_id,
-        crate::handler::family_tree::get_family_tree_by_diagram_id,
+        crate::handler::genealogy_diagram::get_genealogy_diagram_by_diagram_id,
         crate::handler::genealogy_overview::get_genealogy_overview,
         crate::handler::diagram::get_diagrams,
         crate::handler::diagram::create_diagram,
@@ -96,10 +98,10 @@ impl Modify for SecurityAddon {
         UpdateDiagramRequest,
         Diagram,
         DiagramKind,
-        FamilyTree,
-        FamilyTreeNode,
-        FamilyTreeEdge,
-        FamilyTreeStats,
+        GenealogyDiagramGraph,
+        GenealogyDiagramNode,
+        GenealogyDiagramEdge,
+        GenealogyDiagramStats,
         GetGenealogyOverviewSchema,
         GenealogyOverview,
         GenealogyOverviewWorld,
@@ -128,7 +130,7 @@ impl Modify for SecurityAddon {
         DiagramListResponse,
         PersonListResponse,
         RelationshipListResponse,
-        FamilyTreeResponse,
+        GenealogyDiagramResponse,
         GenealogyOverviewResponse
     )),
     modifiers(&SecurityAddon),
@@ -142,11 +144,7 @@ impl Modify for SecurityAddon {
         (name = "Auth", description = include_str!("openapi_docs/en/tags/auth.md")),
         (name = "Users", description = include_str!("openapi_docs/en/tags/users.md")),
         (name = "Worlds", description = "World workspace CRUD APIs."),
-        (
-            name = "FamilyTrees",
-            description = include_str!("openapi_docs/en/tags/family_trees.md")
-        ),
-        (name = "Genealogy", description = "World-scoped genealogy overview APIs."),
+        (name = "Genealogy", description = include_str!("openapi_docs/en/tags/genealogy.md")),
         (name = "Diagrams", description = include_str!("openapi_docs/en/tags/diagrams.md")),
         (name = "Persons", description = include_str!("openapi_docs/en/tags/persons.md")),
         (

@@ -6,17 +6,17 @@ use crate::model::{diagram::Diagram, person::GenderKind, relationship::Relations
 
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, ToSchema)]
-pub struct FamilyTree {
+pub struct GenealogyDiagramGraph {
     pub diagram: Diagram,
     pub root_entity_ids: Vec<usize>,
-    pub nodes: Vec<FamilyTreeNode>,
-    pub edges: Vec<FamilyTreeEdge>,
-    pub stats: FamilyTreeStats,
+    pub nodes: Vec<GenealogyDiagramNode>,
+    pub edges: Vec<GenealogyDiagramEdge>,
+    pub stats: GenealogyDiagramStats,
 }
 
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, ToSchema)]
-pub struct FamilyTreeNode {
+pub struct GenealogyDiagramNode {
     pub entity_id: usize,
     pub diagram_id: usize,
     pub name: String,
@@ -34,7 +34,7 @@ pub struct FamilyTreeNode {
 
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, ToSchema)]
-pub struct FamilyTreeEdge {
+pub struct GenealogyDiagramEdge {
     pub relationship_id: usize,
     pub parent_entity_id: usize,
     pub child_entity_id: usize,
@@ -47,13 +47,13 @@ pub struct FamilyTreeEdge {
 
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, ToSchema)]
-pub struct FamilyTreeStats {
+pub struct GenealogyDiagramStats {
     pub person_count: usize,
     pub edge_count: usize,
     pub root_count: usize,
 }
 
 #[derive(Debug, Clone)]
-pub struct GetFamilyTreeSchema {
+pub struct GetGenealogyDiagramSchema {
     pub diagram_id: usize,
 }

@@ -29,9 +29,9 @@ pub struct KinshipRelation {
     pub from_entity_id: usize,
     pub to_entity_id: usize,
     pub kind: KinshipRelationKind,
-    pub source: FamilyTreeRelationshipSource,
+    pub source: GenealogyRelationshipSource,
     pub explicit_relationship_id: Option<usize>,
-    pub sibling_kind: Option<FamilyTreeSiblingKind>,
+    pub sibling_kind: Option<GenealogySiblingKind>,
     pub generation_distance: Option<usize>,
 }
 
@@ -44,14 +44,14 @@ pub enum KinshipRelationKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FamilyTreeRelationshipSource {
+pub enum GenealogyRelationshipSource {
     Explicit,
     Derived,
     Suggested,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FamilyTreeSiblingKind {
+pub enum GenealogySiblingKind {
     Full,
     Half,
     Adoptive,

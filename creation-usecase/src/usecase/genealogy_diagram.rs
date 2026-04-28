@@ -5,8 +5,9 @@ use creation_service::{
     model::{
         diagram::{DiagramKind, GetDiagramSchema},
         entity::{EntityKind, GetEntitiesSchema},
-        family_tree::{
-            FamilyTree, FamilyTreeEdge, FamilyTreeNode, FamilyTreeStats, GetFamilyTreeSchema,
+        genealogy_diagram::{
+            GenealogyDiagramEdge, GenealogyDiagramGraph, GenealogyDiagramNode,
+            GenealogyDiagramStats, GetGenealogyDiagramSchema,
         },
         kinship_derivation::{CanonicalLineageEdge, DeriveKinshipInput},
         person::{GetPersonRecordsSchema, Person, PersonRecord},
@@ -27,7 +28,7 @@ use creation_service::{
 use thiserror::Error;
 
 #[async_trait]
-pub trait FamilyTreeUsecase:
+pub trait GenealogyDiagramUsecase:
     ProvidesDiagramRepository
     + ProvidesEntityService
     + ProvidesPersonService
@@ -37,7 +38,7 @@ pub trait FamilyTreeUsecase:
 }
 
 #[derive(Debug, Error)]
-pub enum GetFamilyTreeUsecaseError {
+pub enum GetGenealogyDiagramUsecaseError {
     #[error("invalid parameter")]
     InvalidParams,
     #[error(transparent)]
@@ -50,26 +51,26 @@ pub enum GetFamilyTreeUsecaseError {
     GetRelationshipsServiceError(#[from] GetRelationshipsServiceError),
     #[error("not found")]
     NotFound,
-    #[error("diagram kind must be family_tree")]
+    #[error("diagram kind must be genealogy-compatible family_tree")]
     InvalidDiagramKind,
 }
 
 #[async_trait]
-pub trait UsesGetFamilyTreeUsecase {
-    async fn get_family_tree(
+pub trait UsesGetGenealogyDiagramUsecase {
+    async fn get_genealogy_diagram(
         &self,
-        body: GetFamilyTreeSchema,
-    ) -> Result<FamilyTree, GetFamilyTreeUsecaseError>;
+        body: GetGenealogyDiagramSchema,
+    ) -> Result<GenealogyDiagramGraph, GetGenealogyDiagramUsecaseError>;
 }
 
 #[async_trait]
-impl<T: FamilyTreeUsecase> UsesGetFamilyTreeUsecase for T {
-    async fn get_family_tree(
+impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
+    async fn get_genealogy_diagram(
         &self,
-        body: GetFamilyTreeSchema,
-    ) -> Result<FamilyTree, GetFamilyTreeUsecaseError> {
+        body: GetGenealogyDiagramSchema,
+    ) -> Result<GenealogyDiagramGraph, GetGenealogyDiagramUsecaseError> {
         if body.diagram_id == 0 {
-            return Err(GetFamilyTreeUsecaseError::InvalidParams);
+            return Err(GetGenealogyDiagramUsecaseError::InvalidParams);
         }
 
         let Some(diagram) = self
@@ -79,11 +80,11 @@ impl<T: FamilyTreeUsecase> UsesGetFamilyTreeUsecase for T {
             })
             .await?
         else {
-            return Err(GetFamilyTreeUsecaseError::NotFound);
+            return Err(GetGenealogyDiagramUsecaseError::NotFound);
         };
 
         if diagram.kind != DiagramKind::FamilyTree {
-            return Err(GetFamilyTreeUsecaseError::InvalidDiagramKind);
+            return Err(GetGenealogyDiagramUsecaseError::InvalidDiagramKind);
         }
 
         let persons = load_persons_for_diagram(self, body.diagram_id).await?;
@@ -105,7 +106,7 @@ impl<T: FamilyTreeUsecase> UsesGetFamilyTreeUsecase for T {
                 explicit_relationships: relationships,
             })
             .await;
-        let edges = build_family_tree_edges(kinship_derivation.lineage_edges);
+        let edges = build_genealogy_diagram_edges(kinship_derivation.lineage_edges);
         let (parent_entity_ids_by_child, child_entity_ids_by_parent) = build_adjacency_maps(&edges);
 
         let mut root_entity_ids = Vec::new();
@@ -126,7 +127,7 @@ impl<T: FamilyTreeUsecase> UsesGetFamilyTreeUsecase for T {
                 root_entity_ids.push(person.entity_id);
             }
 
-            nodes.push(FamilyTreeNode {
+            nodes.push(GenealogyDiagramNode {
                 entity_id: person.entity_id,
                 diagram_id: person.diagram_id,
                 name: person.name,
@@ -145,9 +146,9 @@ impl<T: FamilyTreeUsecase> UsesGetFamilyTreeUsecase for T {
 
         root_entity_ids.sort_unstable();
 
-        Ok(FamilyTree {
+        Ok(GenealogyDiagramGraph {
             diagram,
-            stats: FamilyTreeStats {
+            stats: GenealogyDiagramStats {
                 person_count: nodes.len(),
                 edge_count: edges.len(),
                 root_count: root_entity_ids.len(),
@@ -160,26 +161,26 @@ impl<T: FamilyTreeUsecase> UsesGetFamilyTreeUsecase for T {
 }
 
 #[async_trait]
-pub trait UsesFamilyTreeUsecase: UsesGetFamilyTreeUsecase {
-    async fn get_family_tree(
+pub trait UsesGenealogyDiagramUsecase: UsesGetGenealogyDiagramUsecase {
+    async fn get_genealogy_diagram(
         &self,
-        body: GetFamilyTreeSchema,
-    ) -> Result<FamilyTree, GetFamilyTreeUsecaseError> {
-        UsesGetFamilyTreeUsecase::get_family_tree(self, body).await
+        body: GetGenealogyDiagramSchema,
+    ) -> Result<GenealogyDiagramGraph, GetGenealogyDiagramUsecaseError> {
+        UsesGetGenealogyDiagramUsecase::get_genealogy_diagram(self, body).await
     }
 }
 
-impl<T> UsesFamilyTreeUsecase for T where T: UsesGetFamilyTreeUsecase {}
+impl<T> UsesGenealogyDiagramUsecase for T where T: UsesGetGenealogyDiagramUsecase {}
 
-pub trait ProvidesFamilyTreeUsecase: Send + Sync + 'static {
-    type T: UsesFamilyTreeUsecase + Sized;
-    fn family_tree_usecase(&self) -> &Self::T;
+pub trait ProvidesGenealogyDiagramUsecase: Send + Sync + 'static {
+    type T: UsesGenealogyDiagramUsecase + Sized;
+    fn genealogy_diagram_usecase(&self) -> &Self::T;
 }
 
 async fn load_persons_for_diagram<T>(
     driver: &T,
     diagram_id: usize,
-) -> Result<Vec<Person>, GetFamilyTreeUsecaseError>
+) -> Result<Vec<Person>, GetGenealogyDiagramUsecaseError>
 where
     T: ProvidesEntityService + ProvidesPersonService,
 {
@@ -244,10 +245,12 @@ fn merge_persons(
     persons
 }
 
-fn build_family_tree_edges(lineage_edges: Vec<CanonicalLineageEdge>) -> Vec<FamilyTreeEdge> {
+fn build_genealogy_diagram_edges(
+    lineage_edges: Vec<CanonicalLineageEdge>,
+) -> Vec<GenealogyDiagramEdge> {
     lineage_edges
         .into_iter()
-        .map(|lineage_edge| FamilyTreeEdge {
+        .map(|lineage_edge| GenealogyDiagramEdge {
             relationship_id: lineage_edge.relationship_id,
             parent_entity_id: lineage_edge.parent_entity_id,
             child_entity_id: lineage_edge.child_entity_id,
@@ -261,7 +264,7 @@ fn build_family_tree_edges(lineage_edges: Vec<CanonicalLineageEdge>) -> Vec<Fami
 }
 
 fn build_adjacency_maps(
-    edges: &[FamilyTreeEdge],
+    edges: &[GenealogyDiagramEdge],
 ) -> (HashMap<usize, Vec<usize>>, HashMap<usize, Vec<usize>>) {
     let mut parent_entity_ids_by_child = HashMap::<usize, Vec<usize>>::new();
     let mut child_entity_ids_by_parent = HashMap::<usize, Vec<usize>>::new();
@@ -290,23 +293,31 @@ fn normalize_adjacency_lists(adjacency: &mut HashMap<usize, Vec<usize>>) {
     }
 }
 
-fn map_get_entities_error(err: GetEntitiesServiceError) -> GetFamilyTreeUsecaseError {
+fn map_get_entities_error(err: GetEntitiesServiceError) -> GetGenealogyDiagramUsecaseError {
     match err {
-        GetEntitiesServiceError::InvalidParams => GetFamilyTreeUsecaseError::InvalidParams,
-        err => GetFamilyTreeUsecaseError::GetEntitiesServiceError(err),
+        GetEntitiesServiceError::InvalidParams => GetGenealogyDiagramUsecaseError::InvalidParams,
+        err => GetGenealogyDiagramUsecaseError::GetEntitiesServiceError(err),
     }
 }
 
-fn map_get_person_records_error(err: GetPersonRecordsServiceError) -> GetFamilyTreeUsecaseError {
+fn map_get_person_records_error(
+    err: GetPersonRecordsServiceError,
+) -> GetGenealogyDiagramUsecaseError {
     match err {
-        GetPersonRecordsServiceError::InvalidParams => GetFamilyTreeUsecaseError::InvalidParams,
-        err => GetFamilyTreeUsecaseError::GetPersonRecordsServiceError(err),
+        GetPersonRecordsServiceError::InvalidParams => {
+            GetGenealogyDiagramUsecaseError::InvalidParams
+        }
+        err => GetGenealogyDiagramUsecaseError::GetPersonRecordsServiceError(err),
     }
 }
 
-fn map_get_relationships_error(err: GetRelationshipsServiceError) -> GetFamilyTreeUsecaseError {
+fn map_get_relationships_error(
+    err: GetRelationshipsServiceError,
+) -> GetGenealogyDiagramUsecaseError {
     match err {
-        GetRelationshipsServiceError::InvalidParams => GetFamilyTreeUsecaseError::InvalidParams,
-        err => GetFamilyTreeUsecaseError::GetRelationshipsServiceError(err),
+        GetRelationshipsServiceError::InvalidParams => {
+            GetGenealogyDiagramUsecaseError::InvalidParams
+        }
+        err => GetGenealogyDiagramUsecaseError::GetRelationshipsServiceError(err),
     }
 }

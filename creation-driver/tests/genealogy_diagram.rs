@@ -13,7 +13,7 @@ use tower::ServiceExt;
 use crate::common::setup_router;
 
 #[sqlx::test(fixtures("family_tree"))]
-async fn get_family_tree_returns_normalized_projection(db: PgPool) {
+async fn get_genealogy_diagram_returns_normalized_projection(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -23,7 +23,7 @@ async fn get_family_tree_returns_normalized_projection(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/family-trees/1")
+                .uri("/api/genealogy/diagram/1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -79,7 +79,7 @@ async fn get_family_tree_returns_normalized_projection(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("family_tree"))]
-async fn get_family_tree_returns_bad_request_for_zero_diagram_id(db: PgPool) {
+async fn get_genealogy_diagram_returns_bad_request_for_zero_diagram_id(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -89,7 +89,7 @@ async fn get_family_tree_returns_bad_request_for_zero_diagram_id(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/family-trees/0")
+                .uri("/api/genealogy/diagram/0")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -101,7 +101,7 @@ async fn get_family_tree_returns_bad_request_for_zero_diagram_id(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("family_tree"))]
-async fn get_family_tree_returns_bad_request_for_correlation_diagram(db: PgPool) {
+async fn get_genealogy_diagram_returns_bad_request_for_correlation_diagram(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -111,7 +111,7 @@ async fn get_family_tree_returns_bad_request_for_correlation_diagram(db: PgPool)
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/family-trees/2")
+                .uri("/api/genealogy/diagram/2")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -123,7 +123,7 @@ async fn get_family_tree_returns_bad_request_for_correlation_diagram(db: PgPool)
 }
 
 #[sqlx::test(fixtures("family_tree"))]
-async fn get_family_tree_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+async fn get_genealogy_diagram_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -133,7 +133,7 @@ async fn get_family_tree_returns_not_found_for_soft_deleted_diagram(db: PgPool) 
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/family-trees/3")
+                .uri("/api/genealogy/diagram/3")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -145,7 +145,7 @@ async fn get_family_tree_returns_not_found_for_soft_deleted_diagram(db: PgPool) 
 }
 
 #[sqlx::test(fixtures("family_tree"))]
-async fn get_family_tree_requires_authentication(db: PgPool) {
+async fn get_genealogy_diagram_requires_authentication(db: PgPool) {
     set_test_env();
 
     let mut router = setup_router(db).await;
@@ -154,7 +154,7 @@ async fn get_family_tree_requires_authentication(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/family-trees/1")
+                .uri("/api/genealogy/diagram/1")
                 .body(Body::empty())
                 .unwrap(),
         )

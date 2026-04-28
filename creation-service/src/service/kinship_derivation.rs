@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::model::{
     kinship_derivation::{
-        CanonicalLineageEdge, DeriveKinshipInput, FamilyTreeRelationshipSource, KinshipDerivation,
+        CanonicalLineageEdge, DeriveKinshipInput, GenealogyRelationshipSource, KinshipDerivation,
         KinshipRelation, KinshipRelationKind,
     },
     relationship::RelationshipKind,
@@ -77,7 +77,7 @@ fn expand_lineage_edge(edge: &CanonicalLineageEdge) -> [KinshipRelation; 2] {
             from_entity_id: edge.parent_entity_id,
             to_entity_id: edge.child_entity_id,
             kind: explicit_kind,
-            source: FamilyTreeRelationshipSource::Explicit,
+            source: GenealogyRelationshipSource::Explicit,
             explicit_relationship_id: Some(edge.relationship_id),
             sibling_kind: None,
             generation_distance: Some(1),
@@ -86,7 +86,7 @@ fn expand_lineage_edge(edge: &CanonicalLineageEdge) -> [KinshipRelation; 2] {
             from_entity_id: edge.child_entity_id,
             to_entity_id: edge.parent_entity_id,
             kind: inverse_kind,
-            source: FamilyTreeRelationshipSource::Derived,
+            source: GenealogyRelationshipSource::Derived,
             explicit_relationship_id: Some(edge.relationship_id),
             sibling_kind: None,
             generation_distance: Some(1),
@@ -134,12 +134,12 @@ mod tests {
         assert_eq!(ret.relations[0].kind, KinshipRelationKind::Parent);
         assert_eq!(
             ret.relations[0].source,
-            FamilyTreeRelationshipSource::Explicit
+            GenealogyRelationshipSource::Explicit
         );
         assert_eq!(ret.relations[1].kind, KinshipRelationKind::Child);
         assert_eq!(
             ret.relations[1].source,
-            FamilyTreeRelationshipSource::Derived
+            GenealogyRelationshipSource::Derived
         );
     }
 
