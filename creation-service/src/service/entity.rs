@@ -6,11 +6,13 @@ use super::{map_service_result, normalize_name, normalize_optional_text};
 use crate::{
     model::entity::{
         CreateEntitySchema, DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity,
-        GetEntitiesSchema, UpdateEntitySchema, ENTITY_NAME_MAX_CHARS,
+        GetEntitiesSchema, LoadEntitiesByDiagramIdsSchema, UpdateEntitySchema,
+        ENTITY_NAME_MAX_CHARS,
     },
     repository::entity::{
         CreateEntityRepositoryError, DeleteDiagramEntityMembershipsRepositoryError,
-        DeleteEntityRepositoryError, GetEntitiesRepositoryError, ProvidesEntityRepository,
+        DeleteEntityRepositoryError, GetEntitiesRepositoryError,
+        LoadEntitiesByDiagramIdsRepositoryError, ProvidesEntityRepository,
         UpdateEntityRepositoryError, UsesEntityRepository,
     },
 };
@@ -30,6 +32,8 @@ pub enum EntityServiceError {
     DeleteEntityServiceError(#[from] DeleteEntityServiceError),
     #[error(transparent)]
     DeleteDiagramEntityMembershipsServiceError(#[from] DeleteDiagramEntityMembershipsServiceError),
+    #[error(transparent)]
+    LoadEntitiesByDiagramIdsServiceError(#[from] LoadEntitiesByDiagramIdsServiceError),
 }
 
 #[derive(Debug, Error)]
@@ -78,6 +82,14 @@ pub enum DeleteDiagramEntityMembershipsServiceError {
     InvalidParams,
 }
 
+#[derive(Debug, Error)]
+pub enum LoadEntitiesByDiagramIdsServiceError {
+    #[error(transparent)]
+    LoadEntitiesByDiagramIdsRepositoryError(#[from] LoadEntitiesByDiagramIdsRepositoryError),
+    #[error("invalid parameter")]
+    InvalidParams,
+}
+
 #[async_trait]
 pub trait UsesEntityService {
     async fn get_entities(
@@ -98,6 +110,10 @@ pub trait UsesEntityService {
         &self,
         body: DeleteDiagramEntityMembershipsSchema,
     ) -> Result<Vec<usize>, DeleteDiagramEntityMembershipsServiceError>;
+    async fn load_entities_by_diagram_ids(
+        &self,
+        body: LoadEntitiesByDiagramIdsSchema,
+    ) -> Result<Vec<Entity>, LoadEntitiesByDiagramIdsServiceError>;
 }
 
 #[async_trait]
@@ -172,6 +188,24 @@ impl<T: EntityService> UsesEntityService for T {
             .delete_diagram_entity_memberships(body)
             .await
             .map_err(DeleteDiagramEntityMembershipsServiceError::DeleteDiagramEntityMembershipsRepositoryError)
+    }
+
+    async fn load_entities_by_diagram_ids(
+        &self,
+        body: LoadEntitiesByDiagramIdsSchema,
+    ) -> Result<Vec<Entity>, LoadEntitiesByDiagramIdsServiceError> {
+        if body.diagram_ids.iter().any(|diagram_id| *diagram_id == 0) {
+            return Err(LoadEntitiesByDiagramIdsServiceError::InvalidParams);
+        }
+
+        if body.diagram_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        self.entity_repository()
+            .load_entities_by_diagram_ids(body)
+            .await
+            .map_err(LoadEntitiesByDiagramIdsServiceError::LoadEntitiesByDiagramIdsRepositoryError)
     }
 }
 

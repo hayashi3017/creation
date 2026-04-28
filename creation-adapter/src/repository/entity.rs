@@ -3,14 +3,14 @@ use creation_service::{
     model::entity::{
         CreateEntitySchema, DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity,
         GetEntitiesSchema, LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
-        LoadSeedEntitiesSchema, SeedEntity, UpdateEntitySchema,
+        LoadEntitiesByDiagramIdsSchema, LoadSeedEntitiesSchema, SeedEntity, UpdateEntitySchema,
     },
     repository::entity::{
         CreateEntityRepositoryError, DeleteDiagramEntityMembershipsRepositoryError,
         DeleteEntityRepositoryError, EntityRepository, GetEntitiesRepositoryError,
         LoadActiveEntitiesByDiagramIdsRepositoryError, LoadActiveEntityIdsRepositoryError,
-        LoadSeedEntitiesRepositoryError, ProvidesEntityRepository, UpdateEntityRepositoryError,
-        UsesEntityRepository,
+        LoadEntitiesByDiagramIdsRepositoryError, LoadSeedEntitiesRepositoryError,
+        ProvidesEntityRepository, UpdateEntityRepositoryError, UsesEntityRepository,
     },
     service::entity::{EntityService, ProvidesEntityService},
 };
@@ -61,18 +61,7 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         .await
         .map_err(GetEntitiesRepositoryError::Db)?;
 
-        let ret: Vec<Entity> = entities
-            .iter()
-            .map(|entity| Entity {
-                entity_id: entity.entity_id as usize,
-                diagram_id: entity.diagram_id as usize,
-                kind: entity.kind.clone(),
-                name: entity.name.clone(),
-                description: entity.description.clone(),
-            })
-            .collect();
-
-        Ok(ret)
+        Ok(entities.into_iter().map(map_entity_table).collect())
     }
 
     async fn create_entity(
@@ -247,6 +236,31 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         };
 
         Ok(active_entities)
+    }
+
+    async fn load_entities_by_diagram_ids(
+        &self,
+        body: LoadEntitiesByDiagramIdsSchema,
+    ) -> Result<Vec<Entity>, LoadEntitiesByDiagramIdsRepositoryError> {
+        let entities = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                load_entities_by_diagram_ids_with(tx.as_mut(), body)
+                    .await
+                    .map_err(LoadEntitiesByDiagramIdsRepositoryError::Db)?
+            } else {
+                return Err(LoadEntitiesByDiagramIdsRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            load_entities_by_diagram_ids_with(&self.pool.0, body)
+                .await
+                .map_err(LoadEntitiesByDiagramIdsRepositoryError::Db)?
+        };
+
+        Ok(entities)
     }
 }
 
@@ -514,6 +528,66 @@ where
             diagram_id: diagram_id as usize,
         })
         .collect())
+}
+
+async fn load_entities_by_diagram_ids_with<'e, E>(
+    executor: E,
+    body: LoadEntitiesByDiagramIdsSchema,
+) -> Result<Vec<Entity>, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    if body.diagram_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let diagram_ids = body
+        .diagram_ids
+        .into_iter()
+        .map(|diagram_id| diagram_id as i64)
+        .collect::<Vec<_>>();
+
+    let entities = sqlx::query_as::<_, EntityTable>(
+        r#"
+            SELECT
+                e.entity_id,
+                de.diagram_id,
+                e.world_id,
+                e.kind,
+                e.name,
+                e.description,
+                e.created_at,
+                e.updated_at,
+                e.deleted_at
+            FROM diagram_entity AS de
+            INNER JOIN diagram AS d
+                ON d.diagram_id = de.diagram_id
+                AND d.deleted_at IS NULL
+            INNER JOIN entity AS e
+                ON e.entity_id = de.entity_id
+                AND e.world_id = d.world_id
+                AND e.deleted_at IS NULL
+            WHERE
+                de.diagram_id = ANY($1)
+                AND de.deleted_at IS NULL
+            ORDER BY de.diagram_id, e.entity_id
+        "#,
+    )
+    .bind(diagram_ids)
+    .fetch_all(executor)
+    .await?;
+
+    Ok(entities.into_iter().map(map_entity_table).collect())
+}
+
+fn map_entity_table(entity: EntityTable) -> Entity {
+    Entity {
+        entity_id: entity.entity_id as usize,
+        diagram_id: entity.diagram_id as usize,
+        kind: entity.kind,
+        name: entity.name,
+        description: entity.description,
+    }
 }
 
 impl_minimal_cake_bindings!(

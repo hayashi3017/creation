@@ -5,8 +5,9 @@ use crate::model::relationship::{
     CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForDiagramSchema,
     DeleteRelationshipsForEntitySchema, DiagramRelationshipEdge, GetRelationshipsSchema,
     LoadRelationshipDiagramIdSchema, LoadRelationshipEdgesByDiagramIdsSchema,
-    LoadRelationshipEdgesSchema, Relationship, RelationshipEdge, RelationshipEndpoints,
-    UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
+    LoadRelationshipEdgesSchema, LoadRelationshipsByDiagramIdsSchema, Relationship,
+    RelationshipEdge, RelationshipEndpoints, UpdateRelationshipSchema,
+    UpdatedRelationshipEndpoints,
 };
 
 pub trait RelationshipRepository: Send + Sync + 'static {}
@@ -66,6 +67,12 @@ pub enum LoadRelationshipEdgesByDiagramIdsRepositoryError {
 }
 
 #[derive(Debug, Error)]
+pub enum LoadRelationshipsByDiagramIdsRepositoryError {
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+}
+
+#[derive(Debug, Error)]
 pub enum LoadRelationshipDiagramIdRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
@@ -109,6 +116,10 @@ pub trait UsesRelationshipRepository: Send + Sync + 'static {
         &self,
         body: LoadRelationshipEdgesByDiagramIdsSchema,
     ) -> Result<Vec<DiagramRelationshipEdge>, LoadRelationshipEdgesByDiagramIdsRepositoryError>;
+    async fn load_relationships_by_diagram_ids(
+        &self,
+        body: LoadRelationshipsByDiagramIdsSchema,
+    ) -> Result<Vec<Relationship>, LoadRelationshipsByDiagramIdsRepositoryError>;
 }
 
 pub trait ProvidesRelationshipRepository: Send + Sync + 'static {

@@ -43,7 +43,9 @@ pub struct DiagramRelationshipEdge {
     pub descendant_id: usize,
 }
 
-#[derive(Debug, Deserialize, Serialize, Type, Clone, Copy, PartialEq, Eq, ToSchema)]
+#[derive(
+    Debug, Deserialize, Serialize, Type, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "relationship_kind")]
 #[sqlx(rename_all = "snake_case")]
@@ -136,6 +138,11 @@ pub struct LoadRelationshipEdgesSchema {
 
 #[derive(Debug, Clone)]
 pub struct LoadRelationshipEdgesByDiagramIdsSchema {
+    pub diagram_ids: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoadRelationshipsByDiagramIdsSchema {
     pub diagram_ids: Vec<usize>,
 }
 

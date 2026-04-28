@@ -4,16 +4,17 @@ use creation_service::{
         CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForDiagramSchema,
         DeleteRelationshipsForEntitySchema, DiagramRelationshipEdge, GetRelationshipsSchema,
         LoadRelationshipDiagramIdSchema, LoadRelationshipEdgesByDiagramIdsSchema,
-        LoadRelationshipEdgesSchema, Relationship, RelationshipEdge, RelationshipEndpoints,
-        RelationshipKind, UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
+        LoadRelationshipEdgesSchema, LoadRelationshipsByDiagramIdsSchema, Relationship,
+        RelationshipEdge, RelationshipEndpoints, RelationshipKind, UpdateRelationshipSchema,
+        UpdatedRelationshipEndpoints,
     },
     repository::relationship::{
         CreateRelationshipRepositoryError, DeleteRelationshipRepositoryError,
         DeleteRelationshipsForDiagramRepositoryError, DeleteRelationshipsForEntityRepositoryError,
         GetRelationshipsRepositoryError, LoadRelationshipDiagramIdRepositoryError,
         LoadRelationshipEdgesByDiagramIdsRepositoryError, LoadRelationshipEdgesRepositoryError,
-        ProvidesRelationshipRepository, RelationshipRepository, UpdateRelationshipRepositoryError,
-        UsesRelationshipRepository,
+        LoadRelationshipsByDiagramIdsRepositoryError, ProvidesRelationshipRepository,
+        RelationshipRepository, UpdateRelationshipRepositoryError, UsesRelationshipRepository,
     },
 };
 use sqlx::{Executor, Postgres};
@@ -61,17 +62,7 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
 
         Ok(relationships
             .into_iter()
-            .map(|relationship| Relationship {
-                relationship_id: relationship.relationship_id as usize,
-                diagram_id: relationship.diagram_id as usize,
-                source_entity_id: relationship.source_entity_id as usize,
-                target_entity_id: relationship.target_entity_id as usize,
-                kind: relationship.kind,
-                start_date: relationship.start_date,
-                end_date: relationship.end_date,
-                end_reason: relationship.end_reason,
-                notes: relationship.notes,
-            })
+            .map(map_relationship_table)
             .collect())
     }
 
@@ -284,6 +275,31 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
         };
 
         Ok(edges)
+    }
+
+    async fn load_relationships_by_diagram_ids(
+        &self,
+        body: LoadRelationshipsByDiagramIdsSchema,
+    ) -> Result<Vec<Relationship>, LoadRelationshipsByDiagramIdsRepositoryError> {
+        let relationships = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                load_relationships_by_diagram_ids_with(tx.as_mut(), body)
+                    .await
+                    .map_err(LoadRelationshipsByDiagramIdsRepositoryError::Db)?
+            } else {
+                return Err(LoadRelationshipsByDiagramIdsRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            load_relationships_by_diagram_ids_with(&self.pool.0, body)
+                .await
+                .map_err(LoadRelationshipsByDiagramIdsRepositoryError::Db)?
+        };
+
+        Ok(relationships)
     }
 }
 
@@ -689,6 +705,72 @@ where
             }
         })
         .collect())
+}
+
+async fn load_relationships_by_diagram_ids_with<'e, E>(
+    executor: E,
+    body: LoadRelationshipsByDiagramIdsSchema,
+) -> Result<Vec<Relationship>, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    if body.diagram_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let diagram_ids = body
+        .diagram_ids
+        .into_iter()
+        .map(|diagram_id| diagram_id as i64)
+        .collect::<Vec<_>>();
+
+    let relationships = sqlx::query_as::<_, RelationshipTable>(
+        r#"
+            SELECT
+                r.relationship_id,
+                r.diagram_id,
+                r.source_entity_id,
+                r.target_entity_id,
+                r.kind,
+                r.start_date,
+                r.end_date,
+                r.end_reason,
+                r.notes,
+                r.created_at,
+                r.updated_at,
+                r.deleted_at
+            FROM relationship AS r
+            INNER JOIN diagram AS d
+                ON d.diagram_id = r.diagram_id
+                AND d.deleted_at IS NULL
+            WHERE
+                r.diagram_id = ANY($1)
+                AND r.deleted_at IS NULL
+            ORDER BY r.diagram_id, r.relationship_id
+        "#,
+    )
+    .bind(diagram_ids)
+    .fetch_all(executor)
+    .await?;
+
+    Ok(relationships
+        .into_iter()
+        .map(map_relationship_table)
+        .collect())
+}
+
+fn map_relationship_table(relationship: RelationshipTable) -> Relationship {
+    Relationship {
+        relationship_id: relationship.relationship_id as usize,
+        diagram_id: relationship.diagram_id as usize,
+        source_entity_id: relationship.source_entity_id as usize,
+        target_entity_id: relationship.target_entity_id as usize,
+        kind: relationship.kind,
+        start_date: relationship.start_date,
+        end_date: relationship.end_date,
+        end_reason: relationship.end_reason,
+        notes: relationship.notes,
+    }
 }
 
 impl RelationshipRepository for RepositoryImpl<RelationshipTable> {}

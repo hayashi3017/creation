@@ -13,6 +13,7 @@ use crate::{
             update_diagram_by_diagram_id,
         },
         family_tree::get_family_tree_by_diagram_id,
+        genealogy_overview::get_genealogy_overview,
         health_check::health_checker_handler,
         person::{
             create_person, delete_person_by_entity_id, get_persons_by_diagram,
@@ -76,6 +77,11 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route(
             "/api/family-trees/:diagram_id",
             get(get_family_tree_by_diagram_id)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/genealogy/overview",
+            post(get_genealogy_overview)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(

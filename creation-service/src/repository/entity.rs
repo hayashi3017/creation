@@ -4,7 +4,7 @@ use thiserror::Error;
 use crate::model::entity::{
     CreateEntitySchema, DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity,
     GetEntitiesSchema, LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
-    LoadSeedEntitiesSchema, SeedEntity, UpdateEntitySchema,
+    LoadEntitiesByDiagramIdsSchema, LoadSeedEntitiesSchema, SeedEntity, UpdateEntitySchema,
 };
 
 pub trait EntityRepository: Send + Sync + 'static {}
@@ -31,6 +31,8 @@ pub enum EntityRepositoryError {
     LoadActiveEntitiesByDiagramIdsRepositoryError(
         #[from] LoadActiveEntitiesByDiagramIdsRepositoryError,
     ),
+    #[error(transparent)]
+    LoadEntitiesByDiagramIdsRepositoryError(#[from] LoadEntitiesByDiagramIdsRepositoryError),
 }
 
 #[derive(Debug, Error)]
@@ -85,6 +87,12 @@ pub enum LoadActiveEntitiesByDiagramIdsRepositoryError {
     Db(#[from] sqlx::Error),
 }
 
+#[derive(Debug, Error)]
+pub enum LoadEntitiesByDiagramIdsRepositoryError {
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+}
+
 #[async_trait]
 pub trait UsesEntityRepository: Send + Sync + 'static {
     async fn get_entities(
@@ -119,6 +127,10 @@ pub trait UsesEntityRepository: Send + Sync + 'static {
         &self,
         body: LoadActiveEntitiesByDiagramIdsSchema,
     ) -> Result<Vec<SeedEntity>, LoadActiveEntitiesByDiagramIdsRepositoryError>;
+    async fn load_entities_by_diagram_ids(
+        &self,
+        body: LoadEntitiesByDiagramIdsSchema,
+    ) -> Result<Vec<Entity>, LoadEntitiesByDiagramIdsRepositoryError>;
 }
 
 pub trait ProvidesEntityRepository: Send + Sync + 'static {

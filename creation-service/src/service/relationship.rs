@@ -6,14 +6,15 @@ use super::normalize_optional_text;
 use crate::{
     model::relationship::{
         CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForDiagramSchema,
-        GetRelationshipsSchema, Relationship, RelationshipEndpoints, RelationshipKind,
-        RelationshipTopology, UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
+        GetRelationshipsSchema, LoadRelationshipsByDiagramIdsSchema, Relationship,
+        RelationshipEndpoints, RelationshipKind, RelationshipTopology, UpdateRelationshipSchema,
+        UpdatedRelationshipEndpoints,
     },
     repository::relationship::{
         CreateRelationshipRepositoryError, DeleteRelationshipRepositoryError,
         DeleteRelationshipsForDiagramRepositoryError, GetRelationshipsRepositoryError,
-        ProvidesRelationshipRepository, UpdateRelationshipRepositoryError,
-        UsesRelationshipRepository,
+        LoadRelationshipsByDiagramIdsRepositoryError, ProvidesRelationshipRepository,
+        UpdateRelationshipRepositoryError, UsesRelationshipRepository,
     },
 };
 
@@ -24,6 +25,16 @@ pub trait RelationshipService: ProvidesRelationshipRepository {}
 pub enum GetRelationshipsServiceError {
     #[error(transparent)]
     GetRelationshipsRepositoryError(#[from] GetRelationshipsRepositoryError),
+    #[error("invalid parameter")]
+    InvalidParams,
+}
+
+#[derive(Debug, Error)]
+pub enum LoadRelationshipsByDiagramIdsServiceError {
+    #[error(transparent)]
+    LoadRelationshipsByDiagramIdsRepositoryError(
+        #[from] LoadRelationshipsByDiagramIdsRepositoryError,
+    ),
     #[error("invalid parameter")]
     InvalidParams,
 }
@@ -74,6 +85,10 @@ pub trait UsesRelationshipService {
         &self,
         body: GetRelationshipsSchema,
     ) -> Result<Vec<Relationship>, GetRelationshipsServiceError>;
+    async fn load_relationships_by_diagram_ids(
+        &self,
+        body: LoadRelationshipsByDiagramIdsSchema,
+    ) -> Result<Vec<Relationship>, LoadRelationshipsByDiagramIdsServiceError>;
     async fn create_relationship(
         &self,
         body: CreateRelationshipSchema,
@@ -106,6 +121,24 @@ impl<T: RelationshipService> UsesRelationshipService for T {
             .get_relationships(body)
             .await
             .map_err(GetRelationshipsServiceError::GetRelationshipsRepositoryError)
+    }
+
+    async fn load_relationships_by_diagram_ids(
+        &self,
+        body: LoadRelationshipsByDiagramIdsSchema,
+    ) -> Result<Vec<Relationship>, LoadRelationshipsByDiagramIdsServiceError> {
+        if body.diagram_ids.iter().any(|diagram_id| *diagram_id == 0) {
+            return Err(LoadRelationshipsByDiagramIdsServiceError::InvalidParams);
+        }
+
+        if body.diagram_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        self.relationship_repository()
+            .load_relationships_by_diagram_ids(body)
+            .await
+            .map_err(LoadRelationshipsByDiagramIdsServiceError::LoadRelationshipsByDiagramIdsRepositoryError)
     }
 
     async fn create_relationship(

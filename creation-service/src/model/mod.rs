@@ -1,6 +1,7 @@
 pub mod diagram;
 pub mod entity;
 pub mod family_tree;
+pub mod genealogy_overview;
 pub mod kinship_derivation;
 pub mod person;
 pub mod relationship;

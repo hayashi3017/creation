@@ -1,6 +1,6 @@
 use creation_service::model::{
-    diagram::Diagram, family_tree::FamilyTree, person::Person, relationship::Relationship,
-    user::FilteredUser, world::World,
+    diagram::Diagram, family_tree::FamilyTree, genealogy_overview::GenealogyOverview,
+    person::Person, relationship::Relationship, user::FilteredUser, world::World,
 };
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -84,4 +84,10 @@ pub struct RelationshipListResponse {
 pub struct FamilyTreeResponse {
     pub status: String,
     pub data: FamilyTree,
+}
+
+#[derive(Serialize, Debug, ToSchema)]
+pub struct GenealogyOverviewResponse {
+    pub status: String,
+    pub data: GenealogyOverview,
 }

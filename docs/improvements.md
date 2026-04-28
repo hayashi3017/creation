@@ -40,7 +40,9 @@ Detailed proposals and decisions:
 
 ## Genealogy Merge And Visibility
 
-- Cross-diagram merge, publication scope, entity-level hidden state, and centered merged-family-tree reads are not defined yet. Before implementing merged genealogy views, review the aggregate boundary, naming, and visibility propagation policy in `docs/rfc/0008-world-aggregate-and-membership.md`.
+- Publication scope, entity-level hidden state, and centered merged-family-tree reads are not defined yet. Before extending merged genealogy views, review the aggregate boundary, naming, and visibility propagation policy in `docs/rfc/0008-world-aggregate-and-membership.md`.
+- RFC 0015 の初期実装では `POST /api/genealogy/overview` は full overview を返し、`center_entity_id` / `ancestor_depth` / `descendant_depth` は request contract として受け取るだけにしている。center-relative subgraph の exact traversal rule と response metadata は RFC 0015 の未解決事項として詰める必要がある。See `docs/rfc/0015-genealogy-overview-api.md`.
+- Genealogy Overview は stored canonical relationship を統合して返すが、merged graph を入力にした derived kinship relation の公開形はまだ未実装。`KinshipDerivationService` の overview 用 input/output contract を決めてから response に derived edge または relation を追加する。See `docs/rfc/0012-kinship-derivation-service.md` and `docs/rfc/0015-genealogy-overview-api.md`.
 
 ## Family Tree Derivation
 
