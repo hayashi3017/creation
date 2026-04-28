@@ -76,6 +76,50 @@ async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
     assert!(edges
         .iter()
         .all(|edge| edge["source_diagram_ids"] != serde_json::json!([4])));
+    assert!(edges.iter().all(|edge| {
+        edge["source_relationship_ids"]
+            .as_array()
+            .is_some_and(|ids| ids.iter().all(|id| id != 9))
+    }));
+}
+
+#[sqlx::test(fixtures("genealogy_overview"))]
+async fn get_genealogy_overview_applies_center_depth_filters(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/genealogy/overview")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    r#"{"world_id":1,"center_entity_id":3,"ancestor_depth":1,"descendant_depth":1}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let node_ids = json["data"]["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|node| node["entity_id"].as_i64().unwrap())
+        .collect::<Vec<_>>();
+
+    assert_eq!(node_ids, vec![2, 3]);
+    assert_eq!(json["data"]["stats"]["node_count"], 2);
+    assert_eq!(json["data"]["stats"]["edge_count"], 1);
+    assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([2]));
 }
 
 #[sqlx::test(fixtures("genealogy_overview"))]

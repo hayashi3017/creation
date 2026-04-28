@@ -166,4 +166,5 @@ VALUES
   (5, 3, 5, 1, 'parent', NULL, NULL, NULL, 'disabled diagram edge', NULL),
   (6, 4, 6, 1, 'parent', NULL, NULL, NULL, 'other world edge', NULL),
   (7, 1, 1, 7, 'parent', NULL, NULL, NULL, 'deleted endpoint edge', NULL),
-  (8, 2, 1, 4, 'spouse', NULL, NULL, NULL, 'symmetric edge', NULL);
+  (8, 2, 1, 4, 'spouse', NULL, NULL, NULL, 'symmetric edge', NULL),
+  (9, 1, 1, 4, 'parent', NULL, NULL, NULL, 'target is not a member of diagram 1', NULL);

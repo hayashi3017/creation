@@ -743,6 +743,22 @@ where
             INNER JOIN diagram AS d
                 ON d.diagram_id = r.diagram_id
                 AND d.deleted_at IS NULL
+            INNER JOIN diagram_entity AS source_member
+                ON source_member.diagram_id = r.diagram_id
+                AND source_member.entity_id = r.source_entity_id
+                AND source_member.deleted_at IS NULL
+            INNER JOIN entity AS source
+                ON source.entity_id = source_member.entity_id
+                AND source.world_id = d.world_id
+                AND source.deleted_at IS NULL
+            INNER JOIN diagram_entity AS target_member
+                ON target_member.diagram_id = r.diagram_id
+                AND target_member.entity_id = r.target_entity_id
+                AND target_member.deleted_at IS NULL
+            INNER JOIN entity AS target
+                ON target.entity_id = target_member.entity_id
+                AND target.world_id = d.world_id
+                AND target.deleted_at IS NULL
             WHERE
                 r.diagram_id = ANY($1)
                 AND r.deleted_at IS NULL
