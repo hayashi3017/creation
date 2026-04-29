@@ -26,14 +26,14 @@ World CRUD は単純な resource CRUD に見えるが、diagram、entity/person�
 
 ## 提案 API
 
-World resource endpoint を追加する。
+既存 API 形に合わせ、World resource endpoint は write 系を action-style route として追加する。
 
 ```http
-POST /api/worlds
 GET /api/worlds
+POST /api/worlds/create
 GET /api/worlds/{world_id}
-PATCH /api/worlds/{world_id}
-DELETE /api/worlds/{world_id}
+PATCH /api/worlds/update/{world_id}
+DELETE /api/worlds/delete/{world_id}
 ```
 
 Create request:

@@ -65,7 +65,7 @@ pub async fn get_worlds(State(data): State<Arc<AppState>>) -> Result<impl IntoRe
 
 #[utoipa::path(
     post,
-    path = "/api/worlds",
+    path = "/api/worlds/create",
     tag = "Worlds",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
     request_body = CreateWorldSchema,
@@ -130,7 +130,7 @@ pub async fn get_world_by_id(
 
 #[utoipa::path(
     patch,
-    path = "/api/worlds/{world_id}",
+    path = "/api/worlds/update/{world_id}",
     tag = "Worlds",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
     params(("world_id" = usize, Path, description = "World identifier.")),
@@ -177,7 +177,7 @@ pub async fn update_world_by_id(
 
 #[utoipa::path(
     delete,
-    path = "/api/worlds/{world_id}",
+    path = "/api/worlds/delete/{world_id}",
     tag = "Worlds",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
     params(("world_id" = usize, Path, description = "World identifier.")),

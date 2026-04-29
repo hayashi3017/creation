@@ -53,15 +53,11 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         )
         .route(
             "/api/worlds",
-            get(get_worlds)
-                .post(create_world)
-                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+            get(get_worlds).route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(
             "/api/worlds/:world_id",
             get(get_world_by_id)
-                .patch(update_world_by_id)
-                .delete(delete_world_by_id)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(

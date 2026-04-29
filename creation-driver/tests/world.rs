@@ -24,7 +24,7 @@ async fn create_world_normalizes_name_and_blank_description(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::POST)
-                .uri("/api/worlds")
+                .uri("/api/worlds/create")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
@@ -133,7 +133,7 @@ async fn update_world_updates_name_and_description(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::PATCH)
-                .uri("/api/worlds/1")
+                .uri("/api/worlds/update/1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
@@ -173,7 +173,7 @@ async fn delete_world_soft_deletes_owned_records_and_removes_tree_paths(db: PgPo
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
-                .uri("/api/worlds/1")
+                .uri("/api/worlds/delete/1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
