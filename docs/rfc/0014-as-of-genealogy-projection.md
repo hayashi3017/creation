@@ -1,11 +1,11 @@
-# RFC 0014: As-Of Family Tree Projection
+# RFC 0014: As-Of Genealogy Projection
 
 - 状態: `下書き`
-- 最終更新: `2026-04-25`
+- 最終更新: `2026-04-29`
 
 ## 背景
 
-Family tree relationships は時点に依存する。
+Genealogy relationships は時点に依存する。
 
 例:
 
@@ -13,13 +13,22 @@ Family tree relationships は時点に依存する。
 - cohabitant や partner relationship は限られた期間にだけ適用される可能性がある。
 - adoptive parent や step-parent relationship は出生後に始まる可能性がある。
 - person は要求された時点より後に生まれている可能性がある。
-- person は要求された時点より前に死亡していても、historical family tree には表示され続けるべき場合がある。
+- person は要求された時点より前に死亡していても、historical genealogy diagram には表示され続けるべき場合がある。
 
 現在の schema には既に `relationship.start_date` と `relationship.end_date` があるが、現在の read path は要求された historical date なしに relationships を active rows として扱っている。
 
-そのため `GET /api/family-trees/{diagram_id}` は現在保存されている graph を表示できるが、次の質問には答えられない。
+RFC 0008 により entity は world-scoped になり、diagram は `diagram_entity` を通じて world 内 entity を参照する表示・編集単位になった。さらに RFC 0015 により、単一 diagram の read projection だけでなく、world 内の複数 diagram を統合する Genealogy Overview が導入された。
 
-- "1995-01-01 時点でこの family tree はどう見えていたか"
+そのため現行の read API は次の 2 系統で as-of 対応が必要になる。
+
+```http
+GET /api/genealogy/diagram/{diagram_id}
+GET /api/genealogy/overview
+```
+
+これらは現在保存されている graph を表示できるが、次の質問には答えられない。
+
+- "1995-01-01 時点でこの genealogy diagram はどう見えていたか"
 - "その時点で spouse とみなされていたのは誰か"
 - "どの parent / child / sibling / ancestor relationships がその時点で有効だったか"
 - "その時点で center person から見た kinship は何か"
@@ -28,7 +37,7 @@ Family tree relationships は時点に依存する。
 
 ## 目標
 
-- 特定の historical date に対する family-tree read を support する。
+- 特定の historical date に対する genealogy read を support する。
 - 全 storage を event sourcing に書き換えず、まず read-side の temporal behavior として扱う。
 - relationship `start_date` と `end_date` が explicit / derived kinship に与える影響を定義する。
 - as-of read で `tree_path` をどう使うべきか明確にする。
@@ -57,10 +66,12 @@ Family tree relationships は時点に依存する。
 
 ## 提案 API
 
-Family-tree read endpoint に任意 query parameter を追加する。
+### Diagram Projection
+
+単一 diagram の read endpoint に任意 query parameter を追加する。
 
 ```http
-GET /api/family-trees/{diagram_id}?as_of=1995-01-01
+GET /api/genealogy/diagram/{diagram_id}?as_of=1995-01-01
 ```
 
 Semantics:
@@ -69,6 +80,31 @@ Semantics:
 - `as_of` 指定時は、その date に有効な projection を返す。
 - `as_of` は ISO `YYYY-MM-DD` date とする。
 - invalid date は `400 BAD_REQUEST` を返す。
+- diagram は active で、所属 world も active である必要がある。
+- node は対象 diagram の active `diagram_entity` membership に限定する。
+
+### Overview Projection
+
+RFC 0015 の overview endpoint は query string に `as_of` を追加済みの形で扱う。
+
+```http
+GET /api/genealogy/overview
+```
+
+Query:
+
+```http
+GET /api/genealogy/overview?world_id=1&diagram_ids=1,2&center_entity_id=10&ancestor_depth=3&descendant_depth=2&as_of=1995-01-01
+```
+
+Semantics:
+
+- `world_id` は必須で、active world を指す必要がある。
+- 対象 diagram は RFC 0015 と同じく world 内 active `family_tree` かつ `genealogy_overview_enabled = true` に限定する。
+- `diagram_ids` が指定された場合も、world 外 diagram と disabled diagram は含めない。
+- node は対象 diagram 群の active `diagram_entity` membership を統合し、同じ `entity_id` を 1 node に dedupe する。
+- `as_of` は relationship validity と person birth-date visibility に適用する。
+- `center_entity_id` / depth 指定がある場合、as-of 適用後の graph に対して中心人物範囲を filter する。
 
 推奨 response metadata:
 
@@ -88,6 +124,8 @@ Semantics:
 ```
 
 API churn を最小にしたい場合、初期 response は `temporal_mode` を省略してもよい。ただし `as_of` を返すと cache key と client state が明示的になるため有用である。
+
+Overview response では RFC 0015 の response shape を維持し、`data.as_of` に request の `as_of` を返す。
 
 ## 時点有効性ルール
 
@@ -114,35 +152,56 @@ deleted_at IS NULL
 
 ## Person 可視性ルール
 
-初期実装では、historical family tree から deceased persons を隠さない。
+初期実装では、historical genealogy diagram から deceased persons を隠さない。
 
 推奨 baseline:
 
-- diagram 内の active, non-deleted person/entity rows を含める。
+- diagram projection では、対象 diagram の active `diagram_entity` membership に紐づく active, non-deleted person/entity rows を含める。
+- overview projection では、対象 world 内かつ対象 diagram 群の active `diagram_entity` membership に紐づく active, non-deleted person/entity rows を含める。
 - `person.birth_date` が既知で `birth_date > as_of` の場合、その person を as-of projection から除外する。
 - `person.death_date` が既知で `death_date < as_of` の場合、その person は表示し続け、既存 field で deceased として示す。
 
 理由:
 
-- family tree は通常、既に亡くなった ancestors を含む。
+- genealogy diagram は通常、既に亡くなった ancestors を含む。
 - historical ancestry には deceased persons の表示が必要である。
 - まだ生まれていない人を除外することで、出生前の不可能な edge を防ぐ。
 
 未決ポリシー:
 
-- 将来「date 時点の living household」view が必要な場合、family-tree ancestry view とは別の projection mode とする。
+- 将来「date 時点の living household」view が必要な場合、genealogy ancestry view とは別の projection mode とする。
 
 ## Relationship Projection ルール
 
-As-of read では次の順序で処理する。
+Diagram projection では次の順序で処理する。
 
-1. diagram 内の active persons/entities を load する。
-2. birth-date visibility で persons を filter する。
-3. `as_of` で有効な canonical relationship rows を load する。
-4. endpoint が as-of person set に含まれない relationships を filter する。
-5. explicit rows を canonical graph input に normalize する。
-6. filter 済み graph から lineage closure と kinship を derive する。
-7. response を assemble する。
+1. active diagram と active world を確認する。
+2. diagram 内の active `diagram_entity` membership から active persons/entities を load する。
+3. birth-date visibility で persons を filter する。
+4. `as_of` で有効な canonical relationship rows を load する。
+5. relationship endpoint が対象 diagram の active membership かつ as-of person set に含まれることを確認する。
+6. explicit rows を canonical graph input に normalize する。
+7. filter 済み graph から lineage closure と kinship を derive する。
+8. response を assemble する。
+
+Overview projection では RFC 0015 の順序を維持し、relationship と person loading 後に as-of filtering を適用する。
+
+1. active world を load する。
+2. world 内の active `family_tree` diagram を load し、`diagram_ids` と `genealogy_overview_enabled` で filter する。
+3. 対象 diagram 群の active `diagram_entity` と entity/person attributes を load する。
+4. birth-date visibility で persons を filter する。
+5. `as_of` で有効な canonical relationship rows を load する。
+6. relationship endpoint が同じ world 内 entity であり、relationship の diagram に active `diagram_entity` として登録されていることを確認する。
+7. endpoint が as-of person set に含まれない relationships を filter する。
+8. 同じ entity pair / kind / validity range の edge を統合し、source provenance を維持する。
+9. center/depth 指定がある場合は as-of graph に対して範囲 filter する。
+10. roots、stats、provenance を assemble する。
+
+どちらの projection でも:
+
+- `source_entity_id = target_entity_id` の relationship は除外する。
+- `spouse` / `partner` / `cohabitant` は symmetric rule に従って endpoint を正規化する。
+- `parent` / `adoptive_parent` は tree-edge として roots と lineage derivation に使う。
 
 例:
 
@@ -170,7 +229,7 @@ As-of closure の source of truth として現在の `tree_path` table を使わ
 - as-of graph に対して cycle を detect する。
 - request-local closure を derived kinship に使う。
 
-Diagram-scoped family tree は request-local graph derivation で扱える程度に小さい想定のため、初期実装としては許容できる。
+Diagram projection は request-local graph derivation で扱える程度に小さい想定のため、初期実装としては許容できる。Overview projection は複数 diagram を統合するため diagram projection より大きくなるが、RFC 0015 の対象 diagram filter と optional center/depth filter により初期実装では request-local derivation を採用する。
 
 性能問題が出た場合は、後で dedicated temporal closure table を追加する。
 
@@ -178,15 +237,18 @@ Diagram-scoped family tree は request-local graph derivation で扱える程度
 
 ```sql
 CREATE TABLE temporal_tree_path (
+  world_id BIGINT NOT NULL,
   diagram_id BIGINT NOT NULL,
   ancestor_id BIGINT NOT NULL,
   descendant_id BIGINT NOT NULL,
   depth INT NOT NULL,
   valid_from DATE,
   valid_to DATE,
-  PRIMARY KEY (diagram_id, ancestor_id, descendant_id, valid_from)
+  PRIMARY KEY (world_id, diagram_id, ancestor_id, descendant_id, valid_from)
 );
 ```
+
+Overview 用の temporal cache が必要になった場合は、diagram 単位の closure cache だけでは不十分である。同一 `entity_id` が複数 diagram に存在するため、world-scoped projection key と diagram set / visibility policy を含めた別設計が必要になる。
 
 Temporal closure の正しい維持は current-state closure よりかなり複雑なため、明確な必要性が出るまでこの future table は導入しない。
 
@@ -233,19 +295,41 @@ UI が end date 後に "former spouse" を表示したい場合、それは as-o
 
 ## Query と Repository の変更
 
-`as_of` を持つ read schema を追加する。
+Diagram projection 用に `as_of` を持つ read schema を追加する。
 
 ```rust
-struct GetFamilyTreeSchema {
+struct GetGenealogyDiagramSchema {
     diagram_id: usize,
     as_of: Option<NaiveDate>,
 }
 ```
 
-Relationship repository は date-filtered read path を support する。
+Overview projection は RFC 0015 の request schema に `as_of` を持つ。
 
 ```rust
-struct GetRelationshipsAtDateSchema {
+struct GetGenealogyOverviewSchema {
+    world_id: usize,
+    center_entity_id: Option<usize>,
+    ancestor_depth: Option<usize>,
+    descendant_depth: Option<usize>,
+    diagram_ids: Option<Vec<usize>>,
+    as_of: Option<NaiveDate>,
+}
+```
+
+Relationship repository は date-filtered read path を support する。Diagram projection では single diagram、overview projection では複数 diagram を 1 query で取得する。
+
+```rust
+struct LoadRelationshipsByDiagramIdsSchema {
+    diagram_ids: Vec<usize>,
+}
+
+struct LoadRelationshipsByDiagramIdsAtDateSchema {
+    diagram_ids: Vec<usize>,
+    as_of: NaiveDate,
+}
+
+struct GetRelationshipsForDiagramAtDateSchema {
     diagram_id: usize,
     as_of: NaiveDate,
 }
@@ -255,10 +339,34 @@ struct GetRelationshipsAtDateSchema {
 
 ```sql
 WHERE
-  r.diagram_id = $1
+  r.diagram_id = ANY($1)
   AND r.deleted_at IS NULL
   AND (r.start_date IS NULL OR r.start_date <= $2)
   AND (r.end_date IS NULL OR $2 <= r.end_date)
+```
+
+Relationship loading は RFC 0008 の membership invariant も SQL で満たす必要がある。
+
+```sql
+INNER JOIN diagram AS d
+  ON d.diagram_id = r.diagram_id
+  AND d.deleted_at IS NULL
+INNER JOIN diagram_entity AS source_member
+  ON source_member.diagram_id = r.diagram_id
+  AND source_member.entity_id = r.source_entity_id
+  AND source_member.deleted_at IS NULL
+INNER JOIN entity AS source
+  ON source.entity_id = source_member.entity_id
+  AND source.world_id = d.world_id
+  AND source.deleted_at IS NULL
+INNER JOIN diagram_entity AS target_member
+  ON target_member.diagram_id = r.diagram_id
+  AND target_member.entity_id = r.target_entity_id
+  AND target_member.deleted_at IS NULL
+INNER JOIN entity AS target
+  ON target.entity_id = target_member.entity_id
+  AND target.world_id = d.world_id
+  AND target.deleted_at IS NULL
 ```
 
 Person loading は初期状態では現在の person list query を再利用し、usecase で `birth_date` filter を行ってよい。非効率になった場合は、同じ visibility rule を SQL で適用する repository query を追加する。
@@ -278,7 +386,7 @@ As-of read 中に `tree_path` を mutate しない。Historical date 用に `tre
 
 ### Phase 1
 
-`GET /api/family-trees/{diagram_id}` に `as_of` を追加する。
+`GET /api/genealogy/diagram/{diagram_id}` に `as_of` を追加する。
 
 この phase では次を行う。
 
@@ -290,6 +398,17 @@ As-of read 中に `tree_path` を mutate しない。Historical date 用に `tre
 
 ### Phase 2
 
+`GET /api/genealogy/overview` の as-of behavior を RFC 0015 の projection に接続する。
+
+この phase では次を行う。
+
+- overview の対象 diagram 群に対して relationship date filtering を適用する。
+- world-scoped entity dedupe と source provenance を維持する。
+- `center_entity_id` / depth filter は as-of graph 構築後に適用する。
+- `birth_date > as_of` の node と、その node に接続する edge を除外する。
+
+### Phase 3
+
 `KinshipDerivationService` が as-of input を受け取れるように接続する。
 
 この phase では次を行う。
@@ -298,23 +417,25 @@ As-of read 中に `tree_path` を mutate しない。Historical date 用に `tre
 - source metadata を内部的に含める。
 - 別 response contract が accepted されるまで public response を安定させる。
 
-### Phase 3
+### Phase 4
 
 必要に応じて richer temporal kinship endpoint を追加する。
 
 ```http
-GET /api/family-trees/{diagram_id}/kinships?as_of=1995-01-01&center_entity_id=10
+GET /api/genealogy/diagram/{diagram_id}/kinships?as_of=1995-01-01&center_entity_id=10
 ```
 
-この endpoint は現在の family-tree projection を過負荷にせず、richer labels と center-person-relative kinship を expose できる。
+この endpoint は現在の genealogy projection を過負荷にせず、richer labels と center-person-relative kinship を expose できる。
 
-### Phase 4
+Overview 用に richer temporal kinship を出す場合は、既存の `GET /api/genealogy/overview` に response field を追加するか、別 endpoint を追加するかを別 RFC で決める。
+
+### Phase 5
 
 Profiling により request-local derivation が遅いと分かった場合にのみ、temporal closure caching を検討する。
 
 ## 利点
 
-- event sourcing なしに historical family-tree rendering を support できる。
+- event sourcing なしに historical genealogy rendering を support できる。
 - 既存の `start_date` と `end_date` を再利用できる。
 - `tree_path` semantics を clean に保てる。
 - RFC 0013 の canonical relationship storage と整合する。
@@ -333,8 +454,11 @@ Profiling により request-local derivation が遅いと分かった場合に�
 
 最小 coverage:
 
-- `as_of` 省略時、現在の family-tree response behavior が維持される。
-- invalid `as_of` は `400 BAD_REQUEST` を返す。
+- `GET /api/genealogy/diagram/{diagram_id}` で `as_of` 省略時、現在の diagram response behavior が維持される。
+- `GET /api/genealogy/diagram/{diagram_id}?as_of=...` が date-filtered projection を返す。
+- `GET /api/genealogy/overview` で `as_of` 省略時、現在の overview response behavior が維持される。
+- `GET /api/genealogy/overview` の query `as_of` が date-filtered overview projection を返す。
+- invalid `as_of` は diagram / overview ともに `400 BAD_REQUEST` を返す。
 - `start_date` より前の relationship は除外される。
 - `start_date` 当日の relationship は含まれる。
 - `end_date` 当日の relationship は含まれる。
@@ -342,6 +466,9 @@ Profiling により request-local derivation が遅いと分かった場合に�
 - `birth_date > as_of` の person は除外される。
 - deceased person は `death_date` 後も visible のままである。
 - roots と adjacency が as-of graph から再計算される。
+- overview では同じ `entity_id` が複数 diagram に存在しても 1 node に統合され、`source_diagram_ids` が維持される。
+- overview では relationship endpoint が relationship の diagram に `diagram_entity` として登録されていない場合に除外される。
+- overview の `center_entity_id` / depth filter は as-of filtering 後の graph に適用される。
 - as-of projection は `tree_path` を mutate しない。
 - cycle detection は as-of lineage graph に対して走る。
 

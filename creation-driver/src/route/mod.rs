@@ -81,7 +81,7 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         )
         .route(
             "/api/genealogy/overview",
-            post(get_genealogy_overview)
+            get(get_genealogy_overview)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(

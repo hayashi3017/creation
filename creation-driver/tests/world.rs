@@ -227,11 +227,10 @@ async fn delete_world_soft_deletes_owned_records_and_removes_tree_paths(db: PgPo
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/genealogy/overview")
+                .method(Method::GET)
+                .uri("/api/genealogy/overview?world_id=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"world_id":1}"#))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await

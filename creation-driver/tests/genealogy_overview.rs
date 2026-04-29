@@ -22,11 +22,10 @@ async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/genealogy/overview")
+                .method(Method::GET)
+                .uri("/api/genealogy/overview?world_id=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"world_id":1}"#))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -93,13 +92,10 @@ async fn get_genealogy_overview_applies_center_depth_filters(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/genealogy/overview")
+                .method(Method::GET)
+                .uri("/api/genealogy/overview?world_id=1&center_entity_id=3&ancestor_depth=1&descendant_depth=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    r#"{"world_id":1,"center_entity_id":3,"ancestor_depth":1,"descendant_depth":1}"#,
-                ))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -132,11 +128,10 @@ async fn get_genealogy_overview_returns_conflict_when_requested_diagrams_are_dis
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/genealogy/overview")
+                .method(Method::GET)
+                .uri("/api/genealogy/overview?world_id=1&diagram_ids=3")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"world_id":1,"diagram_ids":[3]}"#))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -159,11 +154,10 @@ async fn get_genealogy_overview_applies_as_of_filters(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/genealogy/overview")
+                .method(Method::GET)
+                .uri("/api/genealogy/overview?world_id=1&as_of=2000-01-01")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"world_id":1,"as_of":"2000-01-01"}"#))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -194,10 +188,9 @@ async fn get_genealogy_overview_requires_authentication(db: PgPool) {
         .borrow_mut()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri("/api/genealogy/overview")
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"world_id":1}"#))
+                .method(Method::GET)
+                .uri("/api/genealogy/overview?world_id=1")
+                .body(Body::empty())
                 .unwrap(),
         )
         .await

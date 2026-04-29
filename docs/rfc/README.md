@@ -21,7 +21,7 @@
 - `docs/rfc/0011-rust-workspace-build-time.md`: Rust workspace の local build / check loop 高速化方針
 - `docs/rfc/0012-kinship-derivation-service.md`: stored relationship と read-side kinship derivation の MECE な service boundary
 - `docs/rfc/0013-canonical-relationship-kinds-and-tree-path.md`: canonical stored relationship kind と tree-path maintenance policy
-- `docs/rfc/0014-as-of-family-tree-projection.md`: as-of date 指定による family-tree / kinship projection policy
+- `docs/rfc/0014-as-of-genealogy-projection.md`: as-of date 指定による genealogy diagram / overview / kinship projection policy
 - `docs/rfc/0015-genealogy-overview-api.md`: world 内 diagram を統合する Genealogy Overview API
 - `docs/rfc/0016-world-crud-api.md`: world CRUD API と lifecycle semantics
 - `docs/rfc/0017-familytree-to-genealogy-naming.md`: FamilyTree から Genealogy への命名変更方針

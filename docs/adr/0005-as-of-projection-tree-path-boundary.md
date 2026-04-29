@@ -1,7 +1,7 @@
 # ADR 0005: As-Of Projection と Current TreePath の役割分離
 
 - 状態: `採用`
-- 最終更新: `2026-04-25`
+- 最終更新: `2026-04-29`
 
 ## 背景
 
@@ -29,7 +29,7 @@ RFC 0013 では、保存する relationship を canonical relationship に寄せ
 - `partner`
 - `cohabitant`
 
-RFC 0014 では、`GET /api/family-trees/{diagram_id}?as_of=1995-01-01` のような as-of family-tree projection を提案している。
+RFC 0014 では、`GET /api/genealogy/diagram/{diagram_id}?as_of=1995-01-01` と `GET /api/genealogy/overview` のような as-of genealogy projection を提案している。
 
 この ADR では、その as-of projection が current-state の `tree_path` を historical source of truth として使うべきかどうかを決定する。
 
@@ -221,7 +221,7 @@ as-of projection の active relation 判定には `end_date` を使う。
 
 ### Phase 1
 
-`GET /api/family-trees/{diagram_id}?as_of=YYYY-MM-DD` の read path を追加する。
+`GET /api/genealogy/diagram/{diagram_id}?as_of=YYYY-MM-DD` の read path と、`GET /api/genealogy/overview` の query `as_of` を追加する。
 
 この段階では次だけを行う。
 

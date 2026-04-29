@@ -7,7 +7,7 @@
 
 Genealogy Overview は、world 内の複数 genealogy diagram を統合した家系図を返す read API である。
 
-単一 diagram の既存 `GET /api/family-trees/{diagram_id}` は移行前 API として diagram-local projection を返す。一方、overview では world-scoped `entity_id` を primary node とし、複数 diagram に登録された同じ entity を 1 つの人物 node として扱う。
+単一 diagram の `GET /api/genealogy/diagram/{diagram_id}` は diagram-local projection を返す。一方、overview では world-scoped `entity_id` を primary node とし、複数 diagram に登録された同じ entity を 1 つの人物 node として扱う。
 
 この RFC は Genealogy Overview の API contract と projection rule を定義する。familytree から genealogy への repository-wide 命名変更方針は RFC 0017 で定義する。
 
@@ -30,24 +30,16 @@ Genealogy Overview は、world 内の複数 genealogy diagram を統合した家
 
 ## 提案 API
 
-World の overview を返す endpoint を追加する。`world_id` は path parameter ではなく JSON body で受け取る。
+World の overview を返す endpoint を追加する。`world_id` は path parameter ではなく query string で受け取る。
 
 ```http
-POST /api/genealogy/overview
+GET /api/genealogy/overview
 ```
 
-Request:
+Query:
 
-```json
-{
-  "world_id": 1,
-  "center_entity_id": 10,
-  "ancestor_depth": 3,
-  "descendant_depth": 2,
-  "diagram_ids": [1, 2],
-  "as_of": "1995-01-01",
-  "include_hidden": false
-}
+```http
+GET /api/genealogy/overview?world_id=1&diagram_ids=1,2&center_entity_id=10&ancestor_depth=3&descendant_depth=2&as_of=1995-01-01&include_hidden=false
 ```
 
 初期実装ではこの 1 endpoint に統一する。全体 overview が必要な場合は `center_entity_id`、`ancestor_depth`、`descendant_depth` を省略する。

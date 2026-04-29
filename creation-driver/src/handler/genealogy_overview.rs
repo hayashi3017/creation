@@ -1,11 +1,17 @@
 use std::sync::Arc;
 
-use axum::{extract::State, response::IntoResponse, Json};
+use axum::{
+    extract::{Query, State},
+    response::IntoResponse,
+    Json,
+};
 use creation_service::model::genealogy_overview::GetGenealogyOverviewSchema;
 use creation_usecase::usecase::genealogy_overview::{
     GetGenealogyOverviewUsecaseError, UsesGenealogyOverviewUsecase,
 };
 use http::StatusCode;
+use serde::Deserialize;
+use utoipa::IntoParams;
 
 use crate::{
     response::{ErrorResponse, GenealogyOverviewResponse},
@@ -14,12 +20,37 @@ use crate::{
 
 type JsonError = (StatusCode, Json<ErrorResponse>);
 
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct GetGenealogyOverviewQuery {
+    pub world_id: usize,
+    #[serde(default)]
+    pub center_entity_id: Option<usize>,
+    #[serde(default)]
+    pub ancestor_depth: Option<usize>,
+    #[serde(default)]
+    pub descendant_depth: Option<usize>,
+    #[serde(default)]
+    pub diagram_ids: Option<String>,
+    #[serde(default)]
+    pub as_of: Option<chrono::NaiveDate>,
+    #[serde(default)]
+    pub include_hidden: bool,
+}
+
 #[utoipa::path(
-    post,
+    get,
     path = "/api/genealogy/overview",
     tag = "Genealogy",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
-    request_body = GetGenealogyOverviewSchema,
+    params(
+        ("world_id" = usize, Query, description = "World identifier."),
+        ("center_entity_id" = Option<usize>, Query, description = "Optional center entity for a scoped overview."),
+        ("ancestor_depth" = Option<usize>, Query, description = "Optional ancestor depth when center_entity_id is set."),
+        ("descendant_depth" = Option<usize>, Query, description = "Optional descendant depth when center_entity_id is set."),
+        ("diagram_ids" = Option<String>, Query, description = "Optional comma-separated diagram filter, e.g. diagram_ids=1,2."),
+        ("as_of" = Option<chrono::NaiveDate>, Query, description = "Optional as-of date in YYYY-MM-DD format."),
+        ("include_hidden" = bool, Query, description = "Reserved visibility flag. Currently false by default.")
+    ),
     responses(
         (status = 200, description = "Merged world-scoped genealogy overview.", body = GenealogyOverviewResponse),
         (status = 400, description = "The request parameters were invalid.", body = ErrorResponse),
@@ -31,8 +62,10 @@ type JsonError = (StatusCode, Json<ErrorResponse>);
 )]
 pub async fn get_genealogy_overview(
     State(data): State<Arc<AppState>>,
-    Json(body): Json<GetGenealogyOverviewSchema>,
+    Query(query): Query<GetGenealogyOverviewQuery>,
 ) -> Result<impl IntoResponse, JsonError> {
+    let body = query.try_into_schema()?;
+
     match data.driver.get_genealogy_overview(body).await {
         Ok(ret) => Ok(Json(GenealogyOverviewResponse {
             status: "success".to_string(),
@@ -52,6 +85,41 @@ pub async fn get_genealogy_overview(
             format!("Internal error: {}", err),
         )),
     }
+}
+
+impl GetGenealogyOverviewQuery {
+    fn try_into_schema(self) -> Result<GetGenealogyOverviewSchema, JsonError> {
+        Ok(GetGenealogyOverviewSchema {
+            world_id: self.world_id,
+            center_entity_id: self.center_entity_id,
+            ancestor_depth: self.ancestor_depth,
+            descendant_depth: self.descendant_depth,
+            diagram_ids: parse_diagram_ids(self.diagram_ids)?,
+            as_of: self.as_of,
+            include_hidden: self.include_hidden,
+        })
+    }
+}
+
+fn parse_diagram_ids(diagram_ids: Option<String>) -> Result<Option<Vec<usize>>, JsonError> {
+    let Some(diagram_ids) = diagram_ids else {
+        return Ok(None);
+    };
+
+    if diagram_ids.trim().is_empty() {
+        return Ok(None);
+    }
+
+    diagram_ids
+        .split(',')
+        .map(|diagram_id| {
+            diagram_id
+                .trim()
+                .parse::<usize>()
+                .map_err(|_| error(StatusCode::BAD_REQUEST, "Invalid Parameter"))
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map(Some)
 }
 
 fn error(status: StatusCode, message: impl Into<String>) -> JsonError {
