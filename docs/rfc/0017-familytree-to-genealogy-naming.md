@@ -9,13 +9,13 @@
 
 World と overview の導入後は、単一 diagram の家系図だけでなく、world 内の複数 diagram を統合した genealogy graph を扱う。今後の API と code の中心概念は `family tree` より `genealogy` の方が適切である。
 
-また、overview API は path に `world_id` を含めるより、`/api/genealogy/overview` に対して query string で `world_id` や filter 条件を渡す方が拡張しやすい。
+また、overview API は world-scoped graph を返すため、`world_id` を path parameter として表現し、filter 条件だけを query string で渡す。
 
 ## 目標
 
 - repository 全体で familytree / family_tree / family-tree の public-facing 命名を genealogy に寄せる。
-- Overview API を `/api/genealogy/overview` に統一する。
-- `world_id` は path parameter ではなく query string で渡す。
+- Overview API を `/api/genealogy/world/{world_id}` に統一する。
+- `world_id` は path parameter で渡す。
 - 既存実装から段階的に rename できる対象範囲を定義する。
 - DB enum value と API path の互換性をどう扱うか明確にする。
 
@@ -32,7 +32,7 @@ World と overview の導入後は、単一 diagram の家系図だけでなく�
 
 - Domain/API concept: `Genealogy`
 - Overview read model: `GenealogyOverview`
-- Endpoint: `/api/genealogy/overview`
+- Endpoint: `/api/genealogy/world/{world_id}`
 - World-scoped graph: `genealogy graph`
 
 避ける語彙:
@@ -48,18 +48,18 @@ World と overview の導入後は、単一 diagram の家系図だけでなく�
 Overview endpoint:
 
 ```http
-GET /api/genealogy/overview
+GET /api/genealogy/world/{world_id}
 ```
 
 Query:
 
 ```http
-GET /api/genealogy/overview?world_id=1&diagram_ids=10,11&center_entity_id=100&ancestor_depth=3&descendant_depth=2&as_of=1995-01-01&include_hidden=false
+GET /api/genealogy/world/1?diagram_ids=10,11&center_entity_id=100&ancestor_depth=3&descendant_depth=2&as_of=1995-01-01
 ```
 
 Response の data object は RFC 0015 に従う。
 
-`GET /api/genealogy/overview?world_id=...` を採用する。read API として cache、共有URL、debug を扱いやすくするため。
+`GET /api/genealogy/world/{world_id}` を採用する。world resource の read API として path で scope を明示し、cache、共有URL、debug を扱いやすくするため。
 
 ## Rename 対象
 
@@ -94,7 +94,7 @@ CREATE TYPE diagram_kind AS ENUM (
 ## 移行方針
 
 1. 新規 API は `/api/genealogy/...` のみで追加する。
-2. Overview は `/api/genealogy/overview` とし、`world_id` は query parameter で受け取る。
+2. Overview は `/api/genealogy/world/{world_id}` とし、`world_id` は path parameter で受け取る。
 3. 既存 `/api/family-trees/{diagram_id}` は互換用として残すか、未リリース前提で削除する。
 4. Rust type / module / tests を `Genealogy*` に rename する。
 5. docs と RFC の新規記述では genealogy を使う。
@@ -104,9 +104,9 @@ CREATE TYPE diagram_kind AS ENUM (
 
 最小 coverage:
 
-- `/api/genealogy/overview` が query string の `world_id` を要求する。
-- `world_id` なし request は validation error になる。
-- path に world_id を持つ overview endpoint を追加しない。
+- `/api/genealogy/world/{world_id}` が world-scoped overview を返す。
+- filter query なし request は全体 overview を返す。
+- query string の `world_id` は要求しない。
 - 新規 DTO / response type は `Genealogy*` 命名を使う。
 - 既存 family-tree endpoint を残す場合、deprecated 扱いであることを docs に明記する。
 

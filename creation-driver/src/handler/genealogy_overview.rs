@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     response::IntoResponse,
     Json,
 };
@@ -22,7 +22,6 @@ type JsonError = (StatusCode, Json<ErrorResponse>);
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct GetGenealogyOverviewQuery {
-    pub world_id: usize,
     #[serde(default)]
     pub center_entity_id: Option<usize>,
     #[serde(default)]
@@ -33,23 +32,20 @@ pub struct GetGenealogyOverviewQuery {
     pub diagram_ids: Option<String>,
     #[serde(default)]
     pub as_of: Option<chrono::NaiveDate>,
-    #[serde(default)]
-    pub include_hidden: bool,
 }
 
 #[utoipa::path(
     get,
-    path = "/api/genealogy/overview",
+    path = "/api/genealogy/world/{world_id}",
     tag = "Genealogy",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
     params(
-        ("world_id" = usize, Query, description = "World identifier."),
+        ("world_id" = usize, Path, description = "World identifier."),
         ("center_entity_id" = Option<usize>, Query, description = "Optional center entity for a scoped overview."),
         ("ancestor_depth" = Option<usize>, Query, description = "Optional ancestor depth when center_entity_id is set."),
         ("descendant_depth" = Option<usize>, Query, description = "Optional descendant depth when center_entity_id is set."),
         ("diagram_ids" = Option<String>, Query, description = "Optional comma-separated diagram filter, e.g. diagram_ids=1,2."),
-        ("as_of" = Option<chrono::NaiveDate>, Query, description = "Optional as-of date in YYYY-MM-DD format."),
-        ("include_hidden" = bool, Query, description = "Reserved visibility flag. Currently false by default.")
+        ("as_of" = Option<chrono::NaiveDate>, Query, description = "Optional as-of date in YYYY-MM-DD format.")
     ),
     responses(
         (status = 200, description = "Merged world-scoped genealogy overview.", body = GenealogyOverviewResponse),
@@ -62,9 +58,10 @@ pub struct GetGenealogyOverviewQuery {
 )]
 pub async fn get_genealogy_overview(
     State(data): State<Arc<AppState>>,
+    Path(world_id): Path<usize>,
     Query(query): Query<GetGenealogyOverviewQuery>,
 ) -> Result<impl IntoResponse, JsonError> {
-    let body = query.try_into_schema()?;
+    let body = query.try_into_schema(world_id)?;
 
     match data.driver.get_genealogy_overview(body).await {
         Ok(ret) => Ok(Json(GenealogyOverviewResponse {
@@ -88,15 +85,14 @@ pub async fn get_genealogy_overview(
 }
 
 impl GetGenealogyOverviewQuery {
-    fn try_into_schema(self) -> Result<GetGenealogyOverviewSchema, JsonError> {
+    fn try_into_schema(self, world_id: usize) -> Result<GetGenealogyOverviewSchema, JsonError> {
         Ok(GetGenealogyOverviewSchema {
-            world_id: self.world_id,
+            world_id,
             center_entity_id: self.center_entity_id,
             ancestor_depth: self.ancestor_depth,
             descendant_depth: self.descendant_depth,
             diagram_ids: parse_diagram_ids(self.diagram_ids)?,
             as_of: self.as_of,
-            include_hidden: self.include_hidden,
         })
     }
 }

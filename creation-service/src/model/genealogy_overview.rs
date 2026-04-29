@@ -88,6 +88,4 @@ pub struct GetGenealogyOverviewSchema {
     pub diagram_ids: Option<Vec<usize>>,
     #[serde(default)]
     pub as_of: Option<NaiveDate>,
-    #[serde(default)]
-    pub include_hidden: bool,
 }

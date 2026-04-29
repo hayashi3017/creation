@@ -30,16 +30,16 @@ Genealogy Overview は、world 内の複数 genealogy diagram を統合した家
 
 ## 提案 API
 
-World の overview を返す endpoint を追加する。`world_id` は path parameter ではなく query string で受け取る。
+World の overview を返す endpoint を追加する。`world_id` は path parameter で受け取る。
 
 ```http
-GET /api/genealogy/overview
+GET /api/genealogy/world/{world_id}
 ```
 
 Query:
 
 ```http
-GET /api/genealogy/overview?world_id=1&diagram_ids=1,2&center_entity_id=10&ancestor_depth=3&descendant_depth=2&as_of=1995-01-01&include_hidden=false
+GET /api/genealogy/world/1?diagram_ids=1,2&center_entity_id=10&ancestor_depth=3&descendant_depth=2&as_of=1995-01-01
 ```
 
 初期実装ではこの 1 endpoint に統一する。全体 overview が必要な場合は `center_entity_id`、`ancestor_depth`、`descendant_depth` を省略する。

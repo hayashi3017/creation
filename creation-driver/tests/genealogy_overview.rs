@@ -23,7 +23,7 @@ async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/genealogy/overview?world_id=1")
+                .uri("/api/genealogy/world/1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -93,7 +93,9 @@ async fn get_genealogy_overview_applies_center_depth_filters(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/genealogy/overview?world_id=1&center_entity_id=3&ancestor_depth=1&descendant_depth=1")
+                .uri(
+                    "/api/genealogy/world/1?center_entity_id=3&ancestor_depth=1&descendant_depth=1",
+                )
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -129,7 +131,7 @@ async fn get_genealogy_overview_returns_conflict_when_requested_diagrams_are_dis
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/genealogy/overview?world_id=1&diagram_ids=3")
+                .uri("/api/genealogy/world/1?diagram_ids=3")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -155,7 +157,7 @@ async fn get_genealogy_overview_applies_as_of_filters(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/genealogy/overview?world_id=1&as_of=2000-01-01")
+                .uri("/api/genealogy/world/1?as_of=2000-01-01")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -189,7 +191,7 @@ async fn get_genealogy_overview_requires_authentication(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/genealogy/overview?world_id=1")
+                .uri("/api/genealogy/world/1")
                 .body(Body::empty())
                 .unwrap(),
         )

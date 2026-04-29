@@ -23,7 +23,7 @@ RFC 0008 により entity は world-scoped になり、diagram は `diagram_enti
 
 ```http
 GET /api/genealogy/diagram/{diagram_id}
-GET /api/genealogy/overview
+GET /api/genealogy/world/{world_id}
 ```
 
 これらは現在保存されている graph を表示できるが、次の質問には答えられない。
@@ -88,18 +88,18 @@ Semantics:
 RFC 0015 の overview endpoint は query string に `as_of` を追加済みの形で扱う。
 
 ```http
-GET /api/genealogy/overview
+GET /api/genealogy/world/{world_id}
 ```
 
 Query:
 
 ```http
-GET /api/genealogy/overview?world_id=1&diagram_ids=1,2&center_entity_id=10&ancestor_depth=3&descendant_depth=2&as_of=1995-01-01
+GET /api/genealogy/world/1?diagram_ids=1,2&center_entity_id=10&ancestor_depth=3&descendant_depth=2&as_of=1995-01-01
 ```
 
 Semantics:
 
-- `world_id` は必須で、active world を指す必要がある。
+- path の `world_id` は必須で、active world を指す必要がある。
 - 対象 diagram は RFC 0015 と同じく world 内 active `family_tree` かつ `genealogy_overview_enabled = true` に限定する。
 - `diagram_ids` が指定された場合も、world 外 diagram と disabled diagram は含めない。
 - node は対象 diagram 群の active `diagram_entity` membership を統合し、同じ `entity_id` を 1 node に dedupe する。
@@ -398,7 +398,7 @@ As-of read 中に `tree_path` を mutate しない。Historical date 用に `tre
 
 ### Phase 2
 
-`GET /api/genealogy/overview` の as-of behavior を RFC 0015 の projection に接続する。
+`GET /api/genealogy/world/{world_id}` の as-of behavior を RFC 0015 の projection に接続する。
 
 この phase では次を行う。
 
@@ -427,7 +427,7 @@ GET /api/genealogy/diagram/{diagram_id}/kinships?as_of=1995-01-01&center_entity_
 
 この endpoint は現在の genealogy projection を過負荷にせず、richer labels と center-person-relative kinship を expose できる。
 
-Overview 用に richer temporal kinship を出す場合は、既存の `GET /api/genealogy/overview` に response field を追加するか、別 endpoint を追加するかを別 RFC で決める。
+Overview 用に richer temporal kinship を出す場合は、既存の `GET /api/genealogy/world/{world_id}` に response field を追加するか、別 endpoint を追加するかを別 RFC で決める。
 
 ### Phase 5
 
@@ -456,8 +456,8 @@ Profiling により request-local derivation が遅いと分かった場合に�
 
 - `GET /api/genealogy/diagram/{diagram_id}` で `as_of` 省略時、現在の diagram response behavior が維持される。
 - `GET /api/genealogy/diagram/{diagram_id}?as_of=...` が date-filtered projection を返す。
-- `GET /api/genealogy/overview` で `as_of` 省略時、現在の overview response behavior が維持される。
-- `GET /api/genealogy/overview` の query `as_of` が date-filtered overview projection を返す。
+- `GET /api/genealogy/world/{world_id}` で `as_of` 省略時、現在の overview response behavior が維持される。
+- `GET /api/genealogy/world/{world_id}` の query `as_of` が date-filtered overview projection を返す。
 - invalid `as_of` は diagram / overview ともに `400 BAD_REQUEST` を返す。
 - `start_date` より前の relationship は除外される。
 - `start_date` 当日の relationship は含まれる。
