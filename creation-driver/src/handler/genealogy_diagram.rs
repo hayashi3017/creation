@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::IntoResponse,
     Json,
 };
@@ -10,6 +10,7 @@ use creation_usecase::usecase::genealogy_diagram::{
     GetGenealogyDiagramUsecaseError, UsesGenealogyDiagramUsecase,
 };
 use http::StatusCode;
+use serde::Deserialize;
 
 use crate::{
     response::{ErrorResponse, GenealogyDiagramResponse},
@@ -18,13 +19,22 @@ use crate::{
 
 type JsonError = (StatusCode, Json<ErrorResponse>);
 
+#[derive(Debug, Deserialize)]
+pub struct GetGenealogyDiagramQuery {
+    #[serde(default)]
+    pub as_of: Option<chrono::NaiveDate>,
+}
+
 #[doc = include_str!("../openapi_docs/en/operations/get_genealogy_diagram_by_diagram_id.md")]
 #[utoipa::path(
     get,
     path = "/api/genealogy/diagram/{diagram_id}",
     tag = "Genealogy",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
-    params(("diagram_id" = usize, Path, description = "Diagram identifier.")),
+    params(
+        ("diagram_id" = usize, Path, description = "Diagram identifier."),
+        ("as_of" = Option<chrono::NaiveDate>, Query, description = "Optional as-of date in YYYY-MM-DD format.")
+    ),
     responses(
         (status = 200, description = "Normalized genealogy projection for the requested diagram.", body = GenealogyDiagramResponse),
         (status = 400, description = "The diagram id was invalid or the diagram kind cannot be rendered as genealogy.", body = ErrorResponse),
@@ -35,11 +45,15 @@ type JsonError = (StatusCode, Json<ErrorResponse>);
 )]
 pub async fn get_genealogy_diagram_by_diagram_id(
     Path(diagram_id): Path<usize>,
+    Query(query): Query<GetGenealogyDiagramQuery>,
     State(data): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, JsonError> {
     match data
         .driver
-        .get_genealogy_diagram(GetGenealogyDiagramSchema { diagram_id })
+        .get_genealogy_diagram(GetGenealogyDiagramSchema {
+            diagram_id,
+            as_of: query.as_of,
+        })
         .await
     {
         Ok(ret) => Ok(Json(GenealogyDiagramResponse {

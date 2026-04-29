@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use creation_service::{
     model::{
         diagram::{DiagramKind, GetDiagramSchema},
@@ -87,11 +88,12 @@ impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
             return Err(GetGenealogyDiagramUsecaseError::InvalidDiagramKind);
         }
 
-        let persons = load_persons_for_diagram(self, body.diagram_id).await?;
+        let persons = load_persons_for_diagram(self, body.diagram_id, body.as_of).await?;
         let active_person_ids = persons
             .iter()
             .map(|person| person.entity_id)
             .collect::<Vec<_>>();
+        let active_person_id_set = active_person_ids.iter().copied().collect::<HashSet<_>>();
         let relationships = self
             .relationship_service()
             .get_relationships(GetRelationshipsSchema {
@@ -99,6 +101,7 @@ impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
             })
             .await
             .map_err(map_get_relationships_error)?;
+        let relationships = filter_relationships(relationships, &active_person_id_set, body.as_of);
         let kinship_derivation = self
             .kinship_derivation_service()
             .derive_kinship(DeriveKinshipInput {
@@ -148,6 +151,7 @@ impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
 
         Ok(GenealogyDiagramGraph {
             diagram,
+            as_of: body.as_of,
             stats: GenealogyDiagramStats {
                 person_count: nodes.len(),
                 edge_count: edges.len(),
@@ -180,6 +184,7 @@ pub trait ProvidesGenealogyDiagramUsecase: Send + Sync + 'static {
 async fn load_persons_for_diagram<T>(
     driver: &T,
     diagram_id: usize,
+    as_of: Option<NaiveDate>,
 ) -> Result<Vec<Person>, GetGenealogyDiagramUsecaseError>
 where
     T: ProvidesEntityService + ProvidesPersonService,
@@ -209,7 +214,12 @@ where
         .await
         .map_err(map_get_person_records_error)?;
 
-    Ok(merge_persons(person_entities, person_records))
+    let persons = merge_persons(person_entities, person_records)
+        .into_iter()
+        .filter(|person| is_person_visible_as_of(person, as_of))
+        .collect();
+
+    Ok(persons)
 }
 
 fn merge_persons(
@@ -243,6 +253,47 @@ fn merge_persons(
 
     persons.sort_unstable_by_key(|person| person.entity_id);
     persons
+}
+
+fn is_person_visible_as_of(person: &Person, as_of: Option<NaiveDate>) -> bool {
+    let Some(as_of) = as_of else {
+        return true;
+    };
+
+    person
+        .birth_date
+        .is_none_or(|birth_date| birth_date <= as_of)
+}
+
+fn filter_relationships(
+    relationships: Vec<creation_service::model::relationship::Relationship>,
+    active_person_ids: &HashSet<usize>,
+    as_of: Option<NaiveDate>,
+) -> Vec<creation_service::model::relationship::Relationship> {
+    relationships
+        .into_iter()
+        .filter(|relationship| {
+            active_person_ids.contains(&relationship.source_entity_id)
+                && active_person_ids.contains(&relationship.target_entity_id)
+                && is_relationship_visible_as_of(relationship, as_of)
+        })
+        .collect()
+}
+
+fn is_relationship_visible_as_of(
+    relationship: &creation_service::model::relationship::Relationship,
+    as_of: Option<NaiveDate>,
+) -> bool {
+    let Some(as_of) = as_of else {
+        return true;
+    };
+
+    relationship
+        .start_date
+        .is_none_or(|start_date| start_date <= as_of)
+        && relationship
+            .end_date
+            .is_none_or(|end_date| as_of <= end_date)
 }
 
 fn build_genealogy_diagram_edges(

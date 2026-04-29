@@ -8,6 +8,7 @@ use crate::model::{diagram::Diagram, person::GenderKind, relationship::Relations
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct GenealogyDiagramGraph {
     pub diagram: Diagram,
+    pub as_of: Option<NaiveDate>,
     pub root_entity_ids: Vec<usize>,
     pub nodes: Vec<GenealogyDiagramNode>,
     pub edges: Vec<GenealogyDiagramEdge>,
@@ -56,4 +57,5 @@ pub struct GenealogyDiagramStats {
 #[derive(Debug, Clone)]
 pub struct GetGenealogyDiagramSchema {
     pub diagram_id: usize,
+    pub as_of: Option<NaiveDate>,
 }

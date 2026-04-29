@@ -38,6 +38,7 @@ async fn get_genealogy_diagram_returns_normalized_projection(db: PgPool) {
 
     assert_eq!(json["status"], "success");
     assert_eq!(json["data"]["diagram"]["diagram_id"], 1);
+    assert!(json["data"]["as_of"].is_null());
     assert!(json["data"]["diagram"]["id"].is_null());
     assert_eq!(json["data"]["diagram"]["kind"], "family_tree");
     assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1, 4]));
@@ -76,6 +77,52 @@ async fn get_genealogy_diagram_returns_normalized_projection(db: PgPool) {
     assert!(nodes.iter().all(|node| node["entity_id"] != 6));
     assert!(edges.iter().all(|edge| edge["relationship_id"] != 4));
     assert!(edges.iter().all(|edge| edge["relationship_id"] != 5));
+}
+
+#[sqlx::test(fixtures("family_tree"))]
+async fn get_genealogy_diagram_applies_as_of_projection(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/genealogy/diagram/1?as_of=1995-01-01")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["data"]["as_of"], "1995-01-01");
+    assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1, 4]));
+    assert_eq!(json["data"]["stats"]["person_count"], 4);
+    assert_eq!(json["data"]["stats"]["edge_count"], 2);
+    assert_eq!(json["data"]["stats"]["root_count"], 2);
+
+    let nodes = json["data"]["nodes"].as_array().unwrap();
+    assert!(nodes.iter().all(|node| node["entity_id"] != 3));
+    let other_root_child = nodes
+        .iter()
+        .find(|node| node["entity_id"] == 5)
+        .expect("other root child remains visible before death");
+    assert_eq!(
+        other_root_child["parent_entity_ids"],
+        serde_json::json!([4])
+    );
+
+    let edges = json["data"]["edges"].as_array().unwrap();
+    assert!(edges.iter().all(|edge| edge["relationship_id"] != 2));
+    assert!(edges.iter().any(|edge| edge["relationship_id"] == 3));
 }
 
 #[sqlx::test(fixtures("family_tree"))]
