@@ -78,12 +78,23 @@ CREATE TABLE diagram_entity (
 
 CREATE TABLE person (
     entity_id BIGINT PRIMARY KEY REFERENCES entity(entity_id) ON DELETE CASCADE,
+    first_name VARCHAR(255),
+    middle_name VARCHAR(255),
+    last_name VARCHAR(255),
+    first_name_kana VARCHAR(255),
+    middle_name_kana VARCHAR(255),
+    last_name_kana VARCHAR(255),
+    first_name_romaji VARCHAR(255),
+    middle_name_romaji VARCHAR(255),
+    last_name_romaji VARCHAR(255),
     gender gender_kind DEFAULT 'unknown',
     birth_date DATE,
     death_date DATE,
     birthplace VARCHAR(255),
+    deathplace VARCHAR(255),
     residence VARCHAR(255),
     photo_url VARCHAR(512),
+    profile_text TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ
@@ -119,6 +130,12 @@ CREATE INDEX idx_entity_kind ON entity(kind);
 CREATE INDEX idx_entity_world ON entity(world_id);
 CREATE INDEX idx_diagram_entity_diagram ON diagram_entity(diagram_id);
 CREATE INDEX idx_diagram_entity_entity ON diagram_entity(entity_id);
+CREATE INDEX idx_person_last_name ON person(last_name);
+CREATE INDEX idx_person_first_name ON person(first_name);
+CREATE INDEX idx_person_last_name_kana ON person(last_name_kana);
+CREATE INDEX idx_person_last_name_romaji ON person(last_name_romaji);
+CREATE INDEX idx_person_birth_date ON person(birth_date);
+CREATE INDEX idx_person_death_date ON person(death_date);
 CREATE INDEX idx_relationship_source_entity ON relationship(source_entity_id);
 CREATE INDEX idx_relationship_target_entity ON relationship(target_entity_id);
 CREATE INDEX idx_relationship_kind ON relationship(kind);
