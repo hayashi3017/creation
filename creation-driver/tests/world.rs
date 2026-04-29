@@ -24,7 +24,7 @@ async fn create_world_normalizes_name_and_blank_description(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::POST)
-                .uri("/api/worlds/create")
+                .uri("/api/worlds")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
@@ -133,7 +133,7 @@ async fn update_world_updates_name_and_description(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::PATCH)
-                .uri("/api/worlds/update/1")
+                .uri("/api/worlds/1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
@@ -173,7 +173,7 @@ async fn delete_world_soft_deletes_owned_records_and_removes_tree_paths(db: PgPo
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
-                .uri("/api/worlds/delete/1")
+                .uri("/api/worlds/1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -222,6 +222,22 @@ async fn delete_world_soft_deletes_owned_records_and_removes_tree_paths(db: PgPo
         .unwrap();
 
     assert_eq!(get_deleted.status(), StatusCode::NOT_FOUND);
+
+    let overview_deleted = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/genealogy/overview")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(r#"{"world_id":1}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(overview_deleted.status(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(fixtures("world"))]
