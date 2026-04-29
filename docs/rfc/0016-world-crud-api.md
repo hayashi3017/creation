@@ -164,4 +164,4 @@ Diagram create は `WorldRepository.exists_active_world(world_id)` を使って 
 - world restore API を初期実装に含めるか。
 - world list に pagination を初期実装で入れるか。
 - diagram create endpoint を `/api/worlds/{world_id}/diagrams` に一本化するか。
-- ACL 導入時に world ownership をどの table で表現するか。
+- ACL 導入時に world ownership をどの table で表現するか。認可境界の詳細は RFC 0018 で扱う。

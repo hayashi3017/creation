@@ -25,3 +25,9 @@
 - `docs/rfc/0015-genealogy-overview-api.md`: world 内 diagram を統合する Genealogy Overview API
 - `docs/rfc/0016-world-crud-api.md`: world CRUD API と lifecycle semantics
 - `docs/rfc/0017-familytree-to-genealogy-naming.md`: FamilyTree から Genealogy への命名変更方針
+- `docs/rfc/0018-resource-authorization-boundary.md`: world / diagram / entity / relationship の認可境界と外部 authorization 連携方針
+- `docs/rfc/0019-session-and-jwt-hardening.md`: session cookie / JWT transport / revocation の hardening 方針
+- `docs/rfc/0020-csrf-and-state-changing-requests.md`: cookie auth 利用時の CSRF と state-changing request policy
+- `docs/rfc/0021-auth-abuse-and-account-enumeration.md`: login / register abuse protection と account enumeration 対策
+- `docs/rfc/0022-error-response-and-observability-boundary.md`: client-facing error と server-side observability の境界
+- `docs/rfc/0023-request-size-and-public-docs-hardening.md`: request body size limit と public docs / Swagger UI hardening 方針
