@@ -12,7 +12,7 @@ use creation_service::{
         },
         kinship_derivation::{CanonicalLineageEdge, DeriveKinshipInput},
         person::{GetPersonRecordsSchema, Person, PersonRecord},
-        relationship::GetRelationshipsSchema,
+        relationship::{GetRelationshipsSchema, Relationship, RelationshipTopology},
     },
     repository::diagram::{
         GetDiagramRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
@@ -106,11 +106,12 @@ impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
             .kinship_derivation_service()
             .derive_kinship(DeriveKinshipInput {
                 active_person_ids,
-                explicit_relationships: relationships,
+                explicit_relationships: relationships.clone(),
             })
             .await;
-        let edges = build_genealogy_diagram_edges(kinship_derivation.lineage_edges);
-        let (parent_entity_ids_by_child, child_entity_ids_by_parent) = build_adjacency_maps(&edges);
+        let edges = build_genealogy_diagram_edges(relationships);
+        let (parent_entity_ids_by_child, child_entity_ids_by_parent) =
+            build_adjacency_maps(&kinship_derivation.lineage_edges);
 
         let mut root_entity_ids = Vec::new();
         let mut nodes = Vec::with_capacity(persons.len());
@@ -307,26 +308,53 @@ fn is_relationship_visible_as_of(
             .is_none_or(|end_date| as_of <= end_date)
 }
 
-fn build_genealogy_diagram_edges(
-    lineage_edges: Vec<CanonicalLineageEdge>,
-) -> Vec<GenealogyDiagramEdge> {
-    lineage_edges
+fn build_genealogy_diagram_edges(relationships: Vec<Relationship>) -> Vec<GenealogyDiagramEdge> {
+    let mut edges = relationships
         .into_iter()
-        .map(|lineage_edge| GenealogyDiagramEdge {
-            relationship_id: lineage_edge.relationship_id,
-            parent_entity_id: lineage_edge.parent_entity_id,
-            child_entity_id: lineage_edge.child_entity_id,
-            kind: lineage_edge.kind,
-            start_date: lineage_edge.start_date,
-            end_date: lineage_edge.end_date,
-            end_reason: lineage_edge.end_reason,
-            notes: lineage_edge.notes,
+        .map(|relationship| {
+            let (source_entity_id, target_entity_id) = normalize_edge_endpoints(&relationship);
+
+            GenealogyDiagramEdge {
+                relationship_id: relationship.relationship_id,
+                source_entity_id,
+                target_entity_id,
+                kind: relationship.kind,
+                start_date: relationship.start_date,
+                end_date: relationship.end_date,
+                end_reason: relationship.end_reason,
+                notes: relationship.notes,
+            }
         })
-        .collect()
+        .collect::<Vec<_>>();
+
+    edges.sort_unstable_by_key(|edge| {
+        (
+            edge.source_entity_id,
+            edge.target_entity_id,
+            edge.kind,
+            edge.relationship_id,
+        )
+    });
+    edges
+}
+
+fn normalize_edge_endpoints(relationship: &Relationship) -> (usize, usize) {
+    if relationship.kind.topology() == RelationshipTopology::Symmetric {
+        (
+            relationship
+                .source_entity_id
+                .min(relationship.target_entity_id),
+            relationship
+                .source_entity_id
+                .max(relationship.target_entity_id),
+        )
+    } else {
+        (relationship.source_entity_id, relationship.target_entity_id)
+    }
 }
 
 fn build_adjacency_maps(
-    edges: &[GenealogyDiagramEdge],
+    edges: &[CanonicalLineageEdge],
 ) -> (HashMap<usize, Vec<usize>>, HashMap<usize, Vec<usize>>) {
     let mut parent_entity_ids_by_child = HashMap::<usize, Vec<usize>>::new();
     let mut child_entity_ids_by_parent = HashMap::<usize, Vec<usize>>::new();

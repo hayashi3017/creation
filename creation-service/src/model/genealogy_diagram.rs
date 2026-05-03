@@ -37,8 +37,8 @@ pub struct GenealogyDiagramNode {
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct GenealogyDiagramEdge {
     pub relationship_id: usize,
-    pub parent_entity_id: usize,
-    pub child_entity_id: usize,
+    pub source_entity_id: usize,
+    pub target_entity_id: usize,
     pub kind: RelationshipKind,
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,

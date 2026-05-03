@@ -70,8 +70,8 @@ GET /api/genealogy/world/1?diagram_ids=1,2&center_entity_id=10&ancestor_depth=3&
     ],
     "edges": [
       {
-        "from_entity_id": 10,
-        "to_entity_id": 11,
+        "source_entity_id": 10,
+        "target_entity_id": 11,
         "kind": "parent",
         "source": "explicit",
         "source_relationship_ids": [30, 42],

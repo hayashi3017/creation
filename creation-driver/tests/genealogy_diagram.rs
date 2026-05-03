@@ -43,7 +43,7 @@ async fn get_genealogy_diagram_returns_normalized_projection(db: PgPool) {
     assert_eq!(json["data"]["diagram"]["kind"], "family_tree");
     assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1, 4]));
     assert_eq!(json["data"]["stats"]["person_count"], 5);
-    assert_eq!(json["data"]["stats"]["edge_count"], 3);
+    assert_eq!(json["data"]["stats"]["edge_count"], 4);
     assert_eq!(json["data"]["stats"]["root_count"], 2);
 
     let nodes = json["data"]["nodes"].as_array().unwrap();
@@ -62,21 +62,24 @@ async fn get_genealogy_diagram_returns_normalized_projection(db: PgPool) {
     assert_eq!(nodes[3]["is_root"], true);
 
     let edges = json["data"]["edges"].as_array().unwrap();
-    assert_eq!(edges.len(), 3);
+    assert_eq!(edges.len(), 4);
     assert_eq!(edges[0]["relationship_id"], 1);
-    assert_eq!(edges[0]["parent_entity_id"], 1);
-    assert_eq!(edges[0]["child_entity_id"], 2);
+    assert_eq!(edges[0]["source_entity_id"], 1);
+    assert_eq!(edges[0]["target_entity_id"], 2);
     assert_eq!(edges[1]["relationship_id"], 2);
-    assert_eq!(edges[1]["parent_entity_id"], 2);
-    assert_eq!(edges[1]["child_entity_id"], 3);
+    assert_eq!(edges[1]["source_entity_id"], 2);
+    assert_eq!(edges[1]["target_entity_id"], 3);
     assert_eq!(edges[1]["kind"], "parent");
-    assert_eq!(edges[2]["relationship_id"], 3);
-    assert_eq!(edges[2]["parent_entity_id"], 4);
-    assert_eq!(edges[2]["child_entity_id"], 5);
+    assert_eq!(edges[2]["relationship_id"], 5);
+    assert_eq!(edges[2]["source_entity_id"], 2);
+    assert_eq!(edges[2]["target_entity_id"], 5);
+    assert_eq!(edges[2]["kind"], "spouse");
+    assert_eq!(edges[3]["relationship_id"], 3);
+    assert_eq!(edges[3]["source_entity_id"], 4);
+    assert_eq!(edges[3]["target_entity_id"], 5);
 
     assert!(nodes.iter().all(|node| node["entity_id"] != 6));
     assert!(edges.iter().all(|edge| edge["relationship_id"] != 4));
-    assert!(edges.iter().all(|edge| edge["relationship_id"] != 5));
 }
 
 #[sqlx::test(fixtures("family_tree"))]
@@ -106,7 +109,7 @@ async fn get_genealogy_diagram_applies_as_of_projection(db: PgPool) {
     assert_eq!(json["data"]["as_of"], "1995-01-01");
     assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1, 4]));
     assert_eq!(json["data"]["stats"]["person_count"], 4);
-    assert_eq!(json["data"]["stats"]["edge_count"], 2);
+    assert_eq!(json["data"]["stats"]["edge_count"], 3);
     assert_eq!(json["data"]["stats"]["root_count"], 2);
 
     let nodes = json["data"]["nodes"].as_array().unwrap();
@@ -123,6 +126,7 @@ async fn get_genealogy_diagram_applies_as_of_projection(db: PgPool) {
     let edges = json["data"]["edges"].as_array().unwrap();
     assert!(edges.iter().all(|edge| edge["relationship_id"] != 2));
     assert!(edges.iter().any(|edge| edge["relationship_id"] == 3));
+    assert!(edges.iter().any(|edge| edge["relationship_id"] == 5));
 }
 
 #[sqlx::test(fixtures("family_tree"))]

@@ -274,8 +274,8 @@ fn build_nodes(
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct EdgeKey {
-    from_entity_id: usize,
-    to_entity_id: usize,
+    source_entity_id: usize,
+    target_entity_id: usize,
     kind: RelationshipKind,
     start_date: Option<NaiveDate>,
     end_date: Option<NaiveDate>,
@@ -303,10 +303,10 @@ fn build_edges(
             continue;
         }
 
-        let (from_entity_id, to_entity_id) = normalize_edge_endpoints(&relationship);
+        let (source_entity_id, target_entity_id) = normalize_edge_endpoints(&relationship);
         let key = EdgeKey {
-            from_entity_id,
-            to_entity_id,
+            source_entity_id,
+            target_entity_id,
             kind: relationship.kind,
             start_date: relationship.start_date,
             end_date: relationship.end_date,
@@ -321,8 +321,8 @@ fn build_edges(
                 edge.source_diagram_ids.push(relationship.diagram_id);
             })
             .or_insert_with(|| GenealogyOverviewEdge {
-                from_entity_id,
-                to_entity_id,
+                source_entity_id,
+                target_entity_id,
                 kind: relationship.kind,
                 source: GenealogyOverviewEdgeSource::Explicit,
                 start_date: relationship.start_date,
@@ -340,7 +340,7 @@ fn build_edges(
         edge.source_diagram_ids.sort_unstable();
         edge.source_diagram_ids.dedup();
     }
-    edges.sort_unstable_by_key(|edge| (edge.from_entity_id, edge.to_entity_id, edge.kind));
+    edges.sort_unstable_by_key(|edge| (edge.source_entity_id, edge.target_entity_id, edge.kind));
     edges
 }
 
@@ -409,8 +409,8 @@ fn filter_centered_overview(
     let edges = edges
         .into_iter()
         .filter(|edge| {
-            visible_entity_ids.contains(&edge.from_entity_id)
-                && visible_entity_ids.contains(&edge.to_entity_id)
+            visible_entity_ids.contains(&edge.source_entity_id)
+                && visible_entity_ids.contains(&edge.target_entity_id)
         })
         .collect::<Vec<_>>();
 
@@ -438,8 +438,12 @@ fn collect_tree_neighborhood(
         .iter()
         .filter(|edge| edge.kind.is_tree_edge())
         .filter_map(|edge| match direction {
-            Direction::Ancestor if edge.to_entity_id == entity_id => Some(edge.from_entity_id),
-            Direction::Descendant if edge.from_entity_id == entity_id => Some(edge.to_entity_id),
+            Direction::Ancestor if edge.target_entity_id == entity_id => {
+                Some(edge.source_entity_id)
+            }
+            Direction::Descendant if edge.source_entity_id == entity_id => {
+                Some(edge.target_entity_id)
+            }
             _ => None,
         })
         .collect::<Vec<_>>();
@@ -464,7 +468,7 @@ fn build_root_entity_ids(
     let mut incoming_tree_edge_entity_ids = HashSet::new();
     for edge in edges {
         if edge.kind.is_tree_edge() {
-            incoming_tree_edge_entity_ids.insert(edge.to_entity_id);
+            incoming_tree_edge_entity_ids.insert(edge.target_entity_id);
         }
     }
 

@@ -58,7 +58,9 @@ async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
     let deduped_parent = edges
         .iter()
         .find(|edge| {
-            edge["from_entity_id"] == 1 && edge["to_entity_id"] == 2 && edge["kind"] == "parent"
+            edge["source_entity_id"] == 1
+                && edge["target_entity_id"] == 2
+                && edge["kind"] == "parent"
         })
         .expect("deduped parent edge");
     assert_eq!(
@@ -175,10 +177,10 @@ async fn get_genealogy_overview_applies_as_of_filters(db: PgPool) {
     assert!(nodes.iter().all(|node| node["entity_id"] != 3));
     assert!(edges
         .iter()
-        .all(|edge| { edge["from_entity_id"] != 2 || edge["to_entity_id"] != 3 }));
+        .all(|edge| { edge["source_entity_id"] != 2 || edge["target_entity_id"] != 3 }));
     assert!(edges
         .iter()
-        .all(|edge| { edge["from_entity_id"] != 4 || edge["to_entity_id"] != 2 }));
+        .all(|edge| { edge["source_entity_id"] != 4 || edge["target_entity_id"] != 2 }));
 }
 
 #[sqlx::test(fixtures("genealogy_overview"))]

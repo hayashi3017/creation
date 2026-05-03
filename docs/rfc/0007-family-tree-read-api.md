@@ -72,8 +72,8 @@ workspace は lineage-only closure table として `tree_path` を維持して�
     "edges": [
       {
         "relationship_id": 10,
-        "parent_entity_id": 1,
-        "child_entity_id": 2,
+        "source_entity_id": 1,
+        "target_entity_id": 2,
         "kind": "parent",
         "start_date": null,
         "end_date": null,
@@ -100,18 +100,18 @@ workspace は lineage-only closure table として `tree_path` を維持して�
 
 ## エッジ契約
 
-各 `edge` は UI で扱いやすい lineage-oriented な形にする。
+各 `edge` は stored relationship と同じ source / target oriented な形にする。
 
 - `relationship_id`
-- `parent_entity_id`
-- `child_entity_id`
+- `source_entity_id`
+- `target_entity_id`
 - `kind`
 - `start_date`
 - `end_date`
 - `end_reason`
 - `notes`
 
-RFC 0013 以降、stored tree-edge kind は `parent` と `adoptive_parent` を基本とする。response は常に `parent_entity_id -> child_entity_id` を表す。
+RFC 0013 以降、stored tree-edge kind は `parent` と `adoptive_parent` を基本とする。tree-edge の場合は `source_entity_id -> target_entity_id` が parent-to-child を表す。`spouse` / `partner` / `cohabitant` のような symmetric edge も同じ `edges` に含め、endpoint は symmetric rule に従って正規化する。
 
 ## Validation と error mapping
 

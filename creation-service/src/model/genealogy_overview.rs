@@ -50,8 +50,8 @@ pub struct GenealogyOverviewNode {
 #[allow(non_snake_case)]
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct GenealogyOverviewEdge {
-    pub from_entity_id: usize,
-    pub to_entity_id: usize,
+    pub source_entity_id: usize,
+    pub target_entity_id: usize,
     pub kind: RelationshipKind,
     pub source: GenealogyOverviewEdgeSource,
     pub start_date: Option<NaiveDate>,
