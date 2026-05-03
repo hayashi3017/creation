@@ -86,11 +86,17 @@ async fn create_person_returns_ok(db: PgPool) {
                         "diagram_id": 1,
                         "name": "Created Person",
                         "description": "created from test",
+                        "first_name": "Created",
+                        "last_name": "Person",
+                        "first_name_kana": "CreatedKana",
+                        "last_name_romaji": "Person",
                         "gender": "male",
                         "birth_date": "2001-01-01",
                         "birthplace": "Yokohama",
+                        "deathplace": "Naha",
                         "residence": "Kobe",
-                        "photo_url": "https://example.com/create.png"
+                        "photo_url": "https://example.com/create.png",
+                        "profile_text": "created profile"
                     }))
                     .unwrap(),
                 ))
@@ -103,7 +109,7 @@ async fn create_person_returns_ok(db: PgPool) {
 
     let row = sqlx::query(
         r#"
-            SELECT de.diagram_id, e.name, e.description, p.gender, p.birthplace
+            SELECT de.diagram_id, e.name, e.description, p.first_name, p.last_name, p.first_name_kana, p.last_name_romaji, p.gender, p.birthplace, p.deathplace, p.profile_text
             FROM entity AS e
             INNER JOIN diagram_entity AS de
                 ON de.entity_id = e.entity_id
@@ -121,10 +127,34 @@ async fn create_person_returns_ok(db: PgPool) {
         row.get::<Option<String>, _>("description").as_deref(),
         Some("created from test")
     );
+    assert_eq!(
+        row.get::<Option<String>, _>("first_name").as_deref(),
+        Some("Created")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("last_name").as_deref(),
+        Some("Person")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("first_name_kana").as_deref(),
+        Some("CreatedKana")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("last_name_romaji").as_deref(),
+        Some("Person")
+    );
     assert_eq!(row.get::<GenderKind, _>("gender"), GenderKind::Male);
     assert_eq!(
         row.get::<Option<String>, _>("birthplace").as_deref(),
         Some("Yokohama")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("deathplace").as_deref(),
+        Some("Naha")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("profile_text").as_deref(),
+        Some("created profile")
     );
 }
 
@@ -251,9 +281,13 @@ async fn create_person_normalizes_name_description_and_blank_optional_fields(db:
                         "diagram_id": 1,
                         "name": "  Normalized Person  ",
                         "description": "   ",
+                        "first_name": "  Normalized  ",
+                        "last_name": " ",
                         "birthplace": "  ",
+                        "deathplace": "",
                         "residence": "",
-                        "photo_url": " "
+                        "photo_url": " ",
+                        "profile_text": "  "
                     }))
                     .unwrap(),
                 ))
@@ -266,7 +300,7 @@ async fn create_person_normalizes_name_description_and_blank_optional_fields(db:
 
     let row = sqlx::query(
         r#"
-            SELECT e.name, e.description, p.birthplace, p.residence, p.photo_url
+            SELECT e.name, e.description, p.first_name, p.last_name, p.birthplace, p.deathplace, p.residence, p.photo_url, p.profile_text
             FROM entity AS e
             INNER JOIN person AS p ON p.entity_id = e.entity_id
             WHERE e.name = $1
@@ -279,9 +313,16 @@ async fn create_person_normalizes_name_description_and_blank_optional_fields(db:
 
     assert_eq!(row.get::<String, _>("name"), "Normalized Person");
     assert!(row.get::<Option<String>, _>("description").is_none());
+    assert_eq!(
+        row.get::<Option<String>, _>("first_name").as_deref(),
+        Some("Normalized")
+    );
+    assert!(row.get::<Option<String>, _>("last_name").is_none());
     assert!(row.get::<Option<String>, _>("birthplace").is_none());
+    assert!(row.get::<Option<String>, _>("deathplace").is_none());
     assert!(row.get::<Option<String>, _>("residence").is_none());
     assert!(row.get::<Option<String>, _>("photo_url").is_none());
+    assert!(row.get::<Option<String>, _>("profile_text").is_none());
 }
 
 #[sqlx::test(fixtures("person"))]
@@ -365,12 +406,18 @@ async fn update_person_returns_ok(db: PgPool) {
                     serde_json::to_string(&json!({
                         "name": "Updated Person",
                         "description": "updated from API",
+                        "first_name": "Updated",
+                        "last_name": "Person",
+                        "first_name_romaji": "Updated",
+                        "last_name_romaji": "Person",
                         "gender": "unknown",
                         "birth_date": "1996-04-01",
                         "death_date": "2024-04-01",
                         "birthplace": "Fukuoka",
+                        "deathplace": "Nagasaki",
                         "residence": "Sendai",
-                        "photo_url": "https://example.com/update.png"
+                        "photo_url": "https://example.com/update.png",
+                        "profile_text": "updated profile"
                     }))
                     .unwrap(),
                 ))
@@ -383,7 +430,7 @@ async fn update_person_returns_ok(db: PgPool) {
 
     let row = sqlx::query(
         r#"
-            SELECT de.diagram_id, e.name, e.description, p.gender, p.death_date, p.birthplace, p.residence
+            SELECT de.diagram_id, e.name, e.description, p.first_name, p.last_name, p.first_name_romaji, p.last_name_romaji, p.gender, p.death_date, p.birthplace, p.deathplace, p.residence, p.profile_text
             FROM entity AS e
             INNER JOIN diagram_entity AS de
                 ON de.entity_id = e.entity_id
@@ -398,10 +445,30 @@ async fn update_person_returns_ok(db: PgPool) {
 
     assert_eq!(row.get::<i64, _>("diagram_id"), 1);
     assert_eq!(row.get::<String, _>("name"), "Updated Person");
+    assert_eq!(
+        row.get::<Option<String>, _>("first_name").as_deref(),
+        Some("Updated")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("last_name").as_deref(),
+        Some("Person")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("first_name_romaji").as_deref(),
+        Some("Updated")
+    );
     assert_eq!(row.get::<GenderKind, _>("gender"), GenderKind::Unknown);
     assert_eq!(
         row.get::<Option<chrono::NaiveDate>, _>("death_date"),
         Some("2024-04-01".parse().unwrap())
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("deathplace").as_deref(),
+        Some("Nagasaki")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("profile_text").as_deref(),
+        Some("updated profile")
     );
 }
 

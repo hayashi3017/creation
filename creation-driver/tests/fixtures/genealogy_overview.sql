@@ -65,12 +65,23 @@ CREATE TABLE IF NOT EXISTS diagram_entity (
 
 CREATE TABLE IF NOT EXISTS person (
     entity_id BIGINT PRIMARY KEY REFERENCES entity(entity_id) ON DELETE CASCADE,
+    first_name VARCHAR(255),
+    middle_name VARCHAR(255),
+    last_name VARCHAR(255),
+    first_name_kana VARCHAR(255),
+    middle_name_kana VARCHAR(255),
+    last_name_kana VARCHAR(255),
+    first_name_romaji VARCHAR(255),
+    middle_name_romaji VARCHAR(255),
+    last_name_romaji VARCHAR(255),
     gender gender_kind DEFAULT 'unknown',
     birth_date DATE,
     death_date DATE,
     birthplace VARCHAR(255),
+    deathplace VARCHAR(255),
     residence VARCHAR(255),
     photo_url VARCHAR(512),
+    profile_text TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ

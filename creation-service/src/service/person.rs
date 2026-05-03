@@ -3,7 +3,8 @@ use thiserror::Error;
 
 use super::{
     entity::{prepare_create_entity, prepare_delete_entity, prepare_update_entity},
-    map_service_result, map_service_result_unit, normalize_optional_text_with_max_chars,
+    map_service_result, map_service_result_unit, normalize_optional_text,
+    normalize_optional_text_with_max_chars,
 };
 
 use crate::{
@@ -12,7 +13,8 @@ use crate::{
         person::{
             CreatePersonRecordSchema, CreatePersonSchema, DeletePersonSchema,
             GetPersonRecordsSchema, PersonRecord, UpdatePersonRecordSchema, UpdatePersonSchema,
-            PERSON_BIRTHPLACE_MAX_CHARS, PERSON_PHOTO_URL_MAX_CHARS, PERSON_RESIDENCE_MAX_CHARS,
+            PERSON_BIRTHPLACE_MAX_CHARS, PERSON_DEATHPLACE_MAX_CHARS, PERSON_NAME_PART_MAX_CHARS,
+            PERSON_PHOTO_URL_MAX_CHARS, PERSON_RESIDENCE_MAX_CHARS,
         },
     },
     repository::person::{
@@ -173,20 +175,45 @@ pub fn prepare_create_person(body: CreatePersonSchema) -> Option<CreatePersonSch
         description: body.description,
     })?;
 
-    let (birthplace, residence, photo_url) =
-        normalize_person_text_fields(body.birthplace, body.residence, body.photo_url)?;
+    let text_fields = normalize_person_text_fields(PersonTextFields {
+        first_name: body.first_name,
+        middle_name: body.middle_name,
+        last_name: body.last_name,
+        first_name_kana: body.first_name_kana,
+        middle_name_kana: body.middle_name_kana,
+        last_name_kana: body.last_name_kana,
+        first_name_romaji: body.first_name_romaji,
+        middle_name_romaji: body.middle_name_romaji,
+        last_name_romaji: body.last_name_romaji,
+        birthplace: body.birthplace,
+        deathplace: body.deathplace,
+        residence: body.residence,
+        photo_url: body.photo_url,
+        profile_text: body.profile_text,
+    })?;
 
     Some(CreatePersonSchema {
         world_id: entity.world_id,
         diagram_id: body.diagram_id,
         name: entity.name,
         description: entity.description,
+        first_name: text_fields.first_name,
+        middle_name: text_fields.middle_name,
+        last_name: text_fields.last_name,
+        first_name_kana: text_fields.first_name_kana,
+        middle_name_kana: text_fields.middle_name_kana,
+        last_name_kana: text_fields.last_name_kana,
+        first_name_romaji: text_fields.first_name_romaji,
+        middle_name_romaji: text_fields.middle_name_romaji,
+        last_name_romaji: text_fields.last_name_romaji,
         gender: body.gender,
         birth_date: body.birth_date,
         death_date: body.death_date,
-        birthplace,
-        residence,
-        photo_url,
+        birthplace: text_fields.birthplace,
+        deathplace: text_fields.deathplace,
+        residence: text_fields.residence,
+        photo_url: text_fields.photo_url,
+        profile_text: text_fields.profile_text,
     })
 }
 
@@ -198,19 +225,44 @@ pub fn prepare_update_person(body: UpdatePersonSchema) -> Option<UpdatePersonSch
         description: body.description,
     })?;
 
-    let (birthplace, residence, photo_url) =
-        normalize_person_text_fields(body.birthplace, body.residence, body.photo_url)?;
+    let text_fields = normalize_person_text_fields(PersonTextFields {
+        first_name: body.first_name,
+        middle_name: body.middle_name,
+        last_name: body.last_name,
+        first_name_kana: body.first_name_kana,
+        middle_name_kana: body.middle_name_kana,
+        last_name_kana: body.last_name_kana,
+        first_name_romaji: body.first_name_romaji,
+        middle_name_romaji: body.middle_name_romaji,
+        last_name_romaji: body.last_name_romaji,
+        birthplace: body.birthplace,
+        deathplace: body.deathplace,
+        residence: body.residence,
+        photo_url: body.photo_url,
+        profile_text: body.profile_text,
+    })?;
 
     Some(UpdatePersonSchema {
         entity_id: entity.entity_id,
         name: entity.name,
         description: entity.description,
+        first_name: text_fields.first_name,
+        middle_name: text_fields.middle_name,
+        last_name: text_fields.last_name,
+        first_name_kana: text_fields.first_name_kana,
+        middle_name_kana: text_fields.middle_name_kana,
+        last_name_kana: text_fields.last_name_kana,
+        first_name_romaji: text_fields.first_name_romaji,
+        middle_name_romaji: text_fields.middle_name_romaji,
+        last_name_romaji: text_fields.last_name_romaji,
         gender: body.gender,
         birth_date: body.birth_date,
         death_date: body.death_date,
-        birthplace,
-        residence,
-        photo_url,
+        birthplace: text_fields.birthplace,
+        deathplace: text_fields.deathplace,
+        residence: text_fields.residence,
+        photo_url: text_fields.photo_url,
+        profile_text: text_fields.profile_text,
     })
 }
 
@@ -221,17 +273,42 @@ pub fn prepare_create_person_record(
         return None;
     }
 
-    let (birthplace, residence, photo_url) =
-        normalize_person_text_fields(body.birthplace, body.residence, body.photo_url)?;
+    let text_fields = normalize_person_text_fields(PersonTextFields {
+        first_name: body.first_name,
+        middle_name: body.middle_name,
+        last_name: body.last_name,
+        first_name_kana: body.first_name_kana,
+        middle_name_kana: body.middle_name_kana,
+        last_name_kana: body.last_name_kana,
+        first_name_romaji: body.first_name_romaji,
+        middle_name_romaji: body.middle_name_romaji,
+        last_name_romaji: body.last_name_romaji,
+        birthplace: body.birthplace,
+        deathplace: body.deathplace,
+        residence: body.residence,
+        photo_url: body.photo_url,
+        profile_text: body.profile_text,
+    })?;
 
     Some(CreatePersonRecordSchema {
         entity_id: body.entity_id,
+        first_name: text_fields.first_name,
+        middle_name: text_fields.middle_name,
+        last_name: text_fields.last_name,
+        first_name_kana: text_fields.first_name_kana,
+        middle_name_kana: text_fields.middle_name_kana,
+        last_name_kana: text_fields.last_name_kana,
+        first_name_romaji: text_fields.first_name_romaji,
+        middle_name_romaji: text_fields.middle_name_romaji,
+        last_name_romaji: text_fields.last_name_romaji,
         gender: body.gender,
         birth_date: body.birth_date,
         death_date: body.death_date,
-        birthplace,
-        residence,
-        photo_url,
+        birthplace: text_fields.birthplace,
+        deathplace: text_fields.deathplace,
+        residence: text_fields.residence,
+        photo_url: text_fields.photo_url,
+        profile_text: text_fields.profile_text,
     })
 }
 
@@ -242,17 +319,42 @@ pub fn prepare_update_person_record(
         return None;
     }
 
-    let (birthplace, residence, photo_url) =
-        normalize_person_text_fields(body.birthplace, body.residence, body.photo_url)?;
+    let text_fields = normalize_person_text_fields(PersonTextFields {
+        first_name: body.first_name,
+        middle_name: body.middle_name,
+        last_name: body.last_name,
+        first_name_kana: body.first_name_kana,
+        middle_name_kana: body.middle_name_kana,
+        last_name_kana: body.last_name_kana,
+        first_name_romaji: body.first_name_romaji,
+        middle_name_romaji: body.middle_name_romaji,
+        last_name_romaji: body.last_name_romaji,
+        birthplace: body.birthplace,
+        deathplace: body.deathplace,
+        residence: body.residence,
+        photo_url: body.photo_url,
+        profile_text: body.profile_text,
+    })?;
 
     Some(UpdatePersonRecordSchema {
         entity_id: body.entity_id,
+        first_name: text_fields.first_name,
+        middle_name: text_fields.middle_name,
+        last_name: text_fields.last_name,
+        first_name_kana: text_fields.first_name_kana,
+        middle_name_kana: text_fields.middle_name_kana,
+        last_name_kana: text_fields.last_name_kana,
+        first_name_romaji: text_fields.first_name_romaji,
+        middle_name_romaji: text_fields.middle_name_romaji,
+        last_name_romaji: text_fields.last_name_romaji,
         gender: body.gender,
         birth_date: body.birth_date,
         death_date: body.death_date,
-        birthplace,
-        residence,
-        photo_url,
+        birthplace: text_fields.birthplace,
+        deathplace: text_fields.deathplace,
+        residence: text_fields.residence,
+        photo_url: text_fields.photo_url,
+        profile_text: text_fields.profile_text,
     })
 }
 
@@ -265,17 +367,80 @@ pub fn prepare_delete_person(body: DeletePersonSchema) -> Option<DeletePersonSch
     })
 }
 
-fn normalize_person_text_fields(
+#[derive(Debug)]
+struct PersonTextFields {
+    first_name: Option<String>,
+    middle_name: Option<String>,
+    last_name: Option<String>,
+    first_name_kana: Option<String>,
+    middle_name_kana: Option<String>,
+    last_name_kana: Option<String>,
+    first_name_romaji: Option<String>,
+    middle_name_romaji: Option<String>,
+    last_name_romaji: Option<String>,
     birthplace: Option<String>,
+    deathplace: Option<String>,
     residence: Option<String>,
     photo_url: Option<String>,
-) -> Option<(Option<String>, Option<String>, Option<String>)> {
-    let birthplace =
-        normalize_optional_text_with_max_chars(birthplace, PERSON_BIRTHPLACE_MAX_CHARS)?;
-    let residence = normalize_optional_text_with_max_chars(residence, PERSON_RESIDENCE_MAX_CHARS)?;
-    let photo_url = normalize_optional_text_with_max_chars(photo_url, PERSON_PHOTO_URL_MAX_CHARS)?;
+    profile_text: Option<String>,
+}
 
-    Some((birthplace, residence, photo_url))
+fn normalize_person_text_fields(fields: PersonTextFields) -> Option<PersonTextFields> {
+    Some(PersonTextFields {
+        first_name: normalize_optional_text_with_max_chars(
+            fields.first_name,
+            PERSON_NAME_PART_MAX_CHARS,
+        )?,
+        middle_name: normalize_optional_text_with_max_chars(
+            fields.middle_name,
+            PERSON_NAME_PART_MAX_CHARS,
+        )?,
+        last_name: normalize_optional_text_with_max_chars(
+            fields.last_name,
+            PERSON_NAME_PART_MAX_CHARS,
+        )?,
+        first_name_kana: normalize_optional_text_with_max_chars(
+            fields.first_name_kana,
+            PERSON_NAME_PART_MAX_CHARS,
+        )?,
+        middle_name_kana: normalize_optional_text_with_max_chars(
+            fields.middle_name_kana,
+            PERSON_NAME_PART_MAX_CHARS,
+        )?,
+        last_name_kana: normalize_optional_text_with_max_chars(
+            fields.last_name_kana,
+            PERSON_NAME_PART_MAX_CHARS,
+        )?,
+        first_name_romaji: normalize_optional_text_with_max_chars(
+            fields.first_name_romaji,
+            PERSON_NAME_PART_MAX_CHARS,
+        )?,
+        middle_name_romaji: normalize_optional_text_with_max_chars(
+            fields.middle_name_romaji,
+            PERSON_NAME_PART_MAX_CHARS,
+        )?,
+        last_name_romaji: normalize_optional_text_with_max_chars(
+            fields.last_name_romaji,
+            PERSON_NAME_PART_MAX_CHARS,
+        )?,
+        birthplace: normalize_optional_text_with_max_chars(
+            fields.birthplace,
+            PERSON_BIRTHPLACE_MAX_CHARS,
+        )?,
+        deathplace: normalize_optional_text_with_max_chars(
+            fields.deathplace,
+            PERSON_DEATHPLACE_MAX_CHARS,
+        )?,
+        residence: normalize_optional_text_with_max_chars(
+            fields.residence,
+            PERSON_RESIDENCE_MAX_CHARS,
+        )?,
+        photo_url: normalize_optional_text_with_max_chars(
+            fields.photo_url,
+            PERSON_PHOTO_URL_MAX_CHARS,
+        )?,
+        profile_text: normalize_optional_text(fields.profile_text),
+    })
 }
 
 pub trait ProvidesPersonService: Send + Sync + 'static {

@@ -34,12 +34,23 @@ impl UsesPersonRepository for RepositoryImpl<PersonTable> {
             r#"
                 SELECT
                     entity_id,
+                    first_name,
+                    middle_name,
+                    last_name,
+                    first_name_kana,
+                    middle_name_kana,
+                    last_name_kana,
+                    first_name_romaji,
+                    middle_name_romaji,
+                    last_name_romaji,
                     gender,
                     birth_date,
                     death_date,
                     birthplace,
+                    deathplace,
                     residence,
                     photo_url,
+                    profile_text,
                     created_at,
                     updated_at,
                     deleted_at
@@ -59,12 +70,23 @@ impl UsesPersonRepository for RepositoryImpl<PersonTable> {
             .into_iter()
             .map(|person| PersonRecord {
                 entity_id: person.entity_id as usize,
+                first_name: person.first_name,
+                middle_name: person.middle_name,
+                last_name: person.last_name,
+                first_name_kana: person.first_name_kana,
+                middle_name_kana: person.middle_name_kana,
+                last_name_kana: person.last_name_kana,
+                first_name_romaji: person.first_name_romaji,
+                middle_name_romaji: person.middle_name_romaji,
+                last_name_romaji: person.last_name_romaji,
                 gender: person.gender,
                 birth_date: person.birth_date,
                 death_date: person.death_date,
                 birthplace: person.birthplace,
+                deathplace: person.deathplace,
                 residence: person.residence,
                 photo_url: person.photo_url,
+                profile_text: person.profile_text,
             })
             .collect())
     }
@@ -155,17 +177,50 @@ where
     sqlx::query(
         r#"
             INSERT INTO person
-                (entity_id, gender, birth_date, death_date, birthplace, residence, photo_url)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (
+                    entity_id,
+                    first_name,
+                    middle_name,
+                    last_name,
+                    first_name_kana,
+                    middle_name_kana,
+                    last_name_kana,
+                    first_name_romaji,
+                    middle_name_romaji,
+                    last_name_romaji,
+                    gender,
+                    birth_date,
+                    death_date,
+                    birthplace,
+                    deathplace,
+                    residence,
+                    photo_url,
+                    profile_text
+                )
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9,
+                $10, $11, $12, $13, $14, $15, $16, $17, $18
+            )
         "#,
     )
     .bind(body.entity_id as i64)
+    .bind(body.first_name)
+    .bind(body.middle_name)
+    .bind(body.last_name)
+    .bind(body.first_name_kana)
+    .bind(body.middle_name_kana)
+    .bind(body.last_name_kana)
+    .bind(body.first_name_romaji)
+    .bind(body.middle_name_romaji)
+    .bind(body.last_name_romaji)
     .bind(body.gender)
     .bind(body.birth_date)
     .bind(body.death_date)
     .bind(body.birthplace)
+    .bind(body.deathplace)
     .bind(body.residence)
     .bind(body.photo_url)
+    .bind(body.profile_text)
     .execute(executor)
     .await?;
 
@@ -183,24 +238,46 @@ where
         r#"
             UPDATE person
             SET
-                gender = $1,
-                birth_date = $2,
-                death_date = $3,
-                birthplace = $4,
-                residence = $5,
-                photo_url = $6,
+                first_name = $1,
+                middle_name = $2,
+                last_name = $3,
+                first_name_kana = $4,
+                middle_name_kana = $5,
+                last_name_kana = $6,
+                first_name_romaji = $7,
+                middle_name_romaji = $8,
+                last_name_romaji = $9,
+                gender = $10,
+                birth_date = $11,
+                death_date = $12,
+                birthplace = $13,
+                deathplace = $14,
+                residence = $15,
+                photo_url = $16,
+                profile_text = $17,
                 updated_at = now()
             WHERE
-                entity_id = $7
+                entity_id = $18
                 AND deleted_at IS NULL
         "#,
     )
+    .bind(body.first_name)
+    .bind(body.middle_name)
+    .bind(body.last_name)
+    .bind(body.first_name_kana)
+    .bind(body.middle_name_kana)
+    .bind(body.last_name_kana)
+    .bind(body.first_name_romaji)
+    .bind(body.middle_name_romaji)
+    .bind(body.last_name_romaji)
     .bind(body.gender)
     .bind(body.birth_date)
     .bind(body.death_date)
     .bind(body.birthplace)
+    .bind(body.deathplace)
     .bind(body.residence)
     .bind(body.photo_url)
+    .bind(body.profile_text)
     .bind(body.entity_id as i64)
     .execute(executor)
     .await?;

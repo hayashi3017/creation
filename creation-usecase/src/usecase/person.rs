@@ -225,12 +225,23 @@ where
         tx.person_service()
             .create_person_record(CreatePersonRecordSchema {
                 entity_id,
+                first_name: body.first_name,
+                middle_name: body.middle_name,
+                last_name: body.last_name,
+                first_name_kana: body.first_name_kana,
+                middle_name_kana: body.middle_name_kana,
+                last_name_kana: body.last_name_kana,
+                first_name_romaji: body.first_name_romaji,
+                middle_name_romaji: body.middle_name_romaji,
+                last_name_romaji: body.last_name_romaji,
                 gender: body.gender,
                 birth_date: body.birth_date,
                 death_date: body.death_date,
                 birthplace: body.birthplace,
+                deathplace: body.deathplace,
                 residence: body.residence,
                 photo_url: body.photo_url,
+                profile_text: body.profile_text,
             })
             .await
             .map_err(map_create_person_record_error)?;
@@ -278,12 +289,23 @@ where
         tx.person_service()
             .update_person_record(UpdatePersonRecordSchema {
                 entity_id: body.entity_id,
+                first_name: body.first_name,
+                middle_name: body.middle_name,
+                last_name: body.last_name,
+                first_name_kana: body.first_name_kana,
+                middle_name_kana: body.middle_name_kana,
+                last_name_kana: body.last_name_kana,
+                first_name_romaji: body.first_name_romaji,
+                middle_name_romaji: body.middle_name_romaji,
+                last_name_romaji: body.last_name_romaji,
                 gender: body.gender,
                 birth_date: body.birth_date,
                 death_date: body.death_date,
                 birthplace: body.birthplace,
+                deathplace: body.deathplace,
                 residence: body.residence,
                 photo_url: body.photo_url,
+                profile_text: body.profile_text,
             })
             .await
             .map_err(map_update_person_record_error)?;
@@ -374,12 +396,23 @@ fn merge_persons(
                     diagram_id: entity.diagram_id,
                     name: entity.name,
                     description: entity.description,
+                    first_name: record.first_name,
+                    middle_name: record.middle_name,
+                    last_name: record.last_name,
+                    first_name_kana: record.first_name_kana,
+                    middle_name_kana: record.middle_name_kana,
+                    last_name_kana: record.last_name_kana,
+                    first_name_romaji: record.first_name_romaji,
+                    middle_name_romaji: record.middle_name_romaji,
+                    last_name_romaji: record.last_name_romaji,
                     gender: record.gender,
                     birth_date: record.birth_date,
                     death_date: record.death_date,
                     birthplace: record.birthplace,
+                    deathplace: record.deathplace,
                     residence: record.residence,
                     photo_url: record.photo_url,
+                    profile_text: record.profile_text,
                 })
         })
         .collect()

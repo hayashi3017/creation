@@ -241,12 +241,23 @@ fn merge_persons(
                     diagram_id: entity.diagram_id,
                     name: entity.name,
                     description: entity.description,
+                    first_name: record.first_name,
+                    middle_name: record.middle_name,
+                    last_name: record.last_name,
+                    first_name_kana: record.first_name_kana,
+                    middle_name_kana: record.middle_name_kana,
+                    last_name_kana: record.last_name_kana,
+                    first_name_romaji: record.first_name_romaji,
+                    middle_name_romaji: record.middle_name_romaji,
+                    last_name_romaji: record.last_name_romaji,
                     gender: record.gender,
                     birth_date: record.birth_date,
                     death_date: record.death_date,
                     birthplace: record.birthplace,
+                    deathplace: record.deathplace,
                     residence: record.residence,
                     photo_url: record.photo_url,
+                    profile_text: record.profile_text,
                 })
         })
         .collect::<Vec<_>>();

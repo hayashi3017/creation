@@ -54,19 +54,30 @@ async fn create_person_record_inserts_person_row_only(db: PgPool) {
 
     repo.create_person_record(CreatePersonRecordSchema {
         entity_id: 6,
+        first_name: Some("Created".to_string()),
+        middle_name: None,
+        last_name: Some("Person".to_string()),
+        first_name_kana: None,
+        middle_name_kana: None,
+        last_name_kana: None,
+        first_name_romaji: None,
+        middle_name_romaji: None,
+        last_name_romaji: None,
         gender: Some(GenderKind::Unknown),
         birth_date: Some("2000-02-02".parse().unwrap()),
         death_date: None,
         birthplace: Some("Yokohama".to_string()),
+        deathplace: None,
         residence: Some("Kobe".to_string()),
         photo_url: Some("https://example.com/new.png".to_string()),
+        profile_text: Some("created profile".to_string()),
     })
     .await
     .unwrap();
 
     let row = sqlx::query(
         r#"
-            SELECT gender, birth_date, birthplace, residence, photo_url
+            SELECT first_name, last_name, gender, birth_date, birthplace, residence, photo_url, profile_text
             FROM person
             WHERE entity_id = $1
         "#,
@@ -76,6 +87,14 @@ async fn create_person_record_inserts_person_row_only(db: PgPool) {
     .await
     .unwrap();
 
+    assert_eq!(
+        row.get::<Option<String>, _>("first_name").as_deref(),
+        Some("Created")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("last_name").as_deref(),
+        Some("Person")
+    );
     assert_eq!(row.get::<GenderKind, _>("gender"), GenderKind::Unknown);
     assert_eq!(
         row.get::<Option<chrono::NaiveDate>, _>("birth_date"),
@@ -97,19 +116,30 @@ async fn update_person_record_updates_person_row_only(db: PgPool) {
 
     repo.update_person_record(UpdatePersonRecordSchema {
         entity_id: 1,
+        first_name: Some("Updated".to_string()),
+        middle_name: None,
+        last_name: Some("Record".to_string()),
+        first_name_kana: None,
+        middle_name_kana: None,
+        last_name_kana: None,
+        first_name_romaji: Some("Updated".to_string()),
+        middle_name_romaji: None,
+        last_name_romaji: Some("Record".to_string()),
         gender: Some(GenderKind::Other),
         birth_date: Some("1991-01-01".parse().unwrap()),
         death_date: Some("2020-01-01".parse().unwrap()),
         birthplace: Some("Fukuoka".to_string()),
+        deathplace: Some("Naha".to_string()),
         residence: None,
         photo_url: Some("https://example.com/updated.png".to_string()),
+        profile_text: Some("updated profile".to_string()),
     })
     .await
     .unwrap();
 
     let person_row = sqlx::query(
         r#"
-            SELECT gender, birth_date, death_date, birthplace, residence, photo_url
+            SELECT first_name, last_name_romaji, gender, birth_date, death_date, birthplace, deathplace, residence, photo_url, profile_text
             FROM person
             WHERE entity_id = $1
         "#,
@@ -132,12 +162,26 @@ async fn update_person_record_updates_person_row_only(db: PgPool) {
     .await
     .unwrap();
 
+    assert_eq!(
+        person_row.get::<Option<String>, _>("first_name").as_deref(),
+        Some("Updated")
+    );
+    assert_eq!(
+        person_row
+            .get::<Option<String>, _>("last_name_romaji")
+            .as_deref(),
+        Some("Record")
+    );
     assert_eq!(person_row.get::<GenderKind, _>("gender"), GenderKind::Other);
     assert_eq!(
         person_row.get::<Option<chrono::NaiveDate>, _>("death_date"),
         Some("2020-01-01".parse().unwrap())
     );
     assert!(person_row.get::<Option<String>, _>("residence").is_none());
+    assert_eq!(
+        person_row.get::<Option<String>, _>("deathplace").as_deref(),
+        Some("Naha")
+    );
     assert_eq!(entity_row.get::<i64, _>("diagram_id"), 1);
     assert_eq!(entity_row.get::<String, _>("name"), "Active Person 1");
 }
@@ -178,12 +222,23 @@ async fn update_person_record_returns_not_found_for_deleted_person_row(db: PgPoo
     let err = repo
         .update_person_record(UpdatePersonRecordSchema {
             entity_id: 5,
+            first_name: None,
+            middle_name: None,
+            last_name: None,
+            first_name_kana: None,
+            middle_name_kana: None,
+            last_name_kana: None,
+            first_name_romaji: None,
+            middle_name_romaji: None,
+            last_name_romaji: None,
             gender: None,
             birth_date: None,
             death_date: None,
             birthplace: None,
+            deathplace: None,
             residence: None,
             photo_url: None,
+            profile_text: None,
         })
         .await
         .unwrap_err();

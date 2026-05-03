@@ -29,6 +29,24 @@ pub struct UpdatePersonRequest {
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
+    pub first_name: Option<String>,
+    #[serde(default)]
+    pub middle_name: Option<String>,
+    #[serde(default)]
+    pub last_name: Option<String>,
+    #[serde(default)]
+    pub first_name_kana: Option<String>,
+    #[serde(default)]
+    pub middle_name_kana: Option<String>,
+    #[serde(default)]
+    pub last_name_kana: Option<String>,
+    #[serde(default)]
+    pub first_name_romaji: Option<String>,
+    #[serde(default)]
+    pub middle_name_romaji: Option<String>,
+    #[serde(default)]
+    pub last_name_romaji: Option<String>,
+    #[serde(default)]
     pub gender: Option<GenderKind>,
     #[serde(default)]
     pub birth_date: Option<chrono::NaiveDate>,
@@ -37,9 +55,13 @@ pub struct UpdatePersonRequest {
     #[serde(default)]
     pub birthplace: Option<String>,
     #[serde(default)]
+    pub deathplace: Option<String>,
+    #[serde(default)]
     pub residence: Option<String>,
     #[serde(default)]
     pub photo_url: Option<String>,
+    #[serde(default)]
+    pub profile_text: Option<String>,
 }
 
 #[doc = include_str!("../openapi_docs/en/operations/get_persons_by_diagram.md")]
@@ -122,12 +144,23 @@ pub async fn update_person_by_entity_id(
             entity_id,
             name: body.name,
             description: body.description,
+            first_name: body.first_name,
+            middle_name: body.middle_name,
+            last_name: body.last_name,
+            first_name_kana: body.first_name_kana,
+            middle_name_kana: body.middle_name_kana,
+            last_name_kana: body.last_name_kana,
+            first_name_romaji: body.first_name_romaji,
+            middle_name_romaji: body.middle_name_romaji,
+            last_name_romaji: body.last_name_romaji,
             gender: body.gender,
             birth_date: body.birth_date,
             death_date: body.death_date,
             birthplace: body.birthplace,
+            deathplace: body.deathplace,
             residence: body.residence,
             photo_url: body.photo_url,
+            profile_text: body.profile_text,
         })
         .await
     {

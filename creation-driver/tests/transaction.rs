@@ -31,12 +31,23 @@ async fn transaction_commit_persists_entity_and_person(db: PgPool) {
     tx.person_service()
         .create_person_record(CreatePersonRecordSchema {
             entity_id,
+            first_name: None,
+            middle_name: None,
+            last_name: None,
+            first_name_kana: None,
+            middle_name_kana: None,
+            last_name_kana: None,
+            first_name_romaji: None,
+            middle_name_romaji: None,
+            last_name_romaji: None,
             gender: None,
             birth_date: None,
             death_date: None,
             birthplace: Some("Tokyo".to_string()),
+            deathplace: None,
             residence: None,
             photo_url: None,
+            profile_text: None,
         })
         .await
         .unwrap();
@@ -83,12 +94,23 @@ async fn transaction_rolls_back_when_followup_service_fails(db: PgPool) {
         .person_service()
         .create_person_record(CreatePersonRecordSchema {
             entity_id: entity_id + 10_000,
+            first_name: None,
+            middle_name: None,
+            last_name: None,
+            first_name_kana: None,
+            middle_name_kana: None,
+            last_name_kana: None,
+            first_name_romaji: None,
+            middle_name_romaji: None,
+            last_name_romaji: None,
             gender: None,
             birth_date: None,
             death_date: None,
             birthplace: None,
+            deathplace: None,
             residence: None,
             photo_url: None,
+            profile_text: None,
         })
         .await;
 
