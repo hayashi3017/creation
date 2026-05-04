@@ -140,7 +140,7 @@ impl<T: EntityService> UsesEntityService for T {
         &self,
         body: GetEntitiesSchema,
     ) -> Result<Vec<Entity>, GetEntitiesServiceError> {
-        if body.diagram_id == 0 {
+        if body.world_id == 0 || body.diagram_id == 0 {
             return Err(GetEntitiesServiceError::InvalidParams);
         }
 
@@ -271,7 +271,7 @@ pub fn prepare_create_entity(body: CreateEntitySchema) -> Option<CreateEntitySch
 }
 
 pub fn prepare_update_entity(body: UpdateEntitySchema) -> Option<UpdateEntitySchema> {
-    if body.entity_id == 0 {
+    if body.entity_id == 0 || body.world_id == 0 {
         return None;
     }
 
@@ -279,6 +279,7 @@ pub fn prepare_update_entity(body: UpdateEntitySchema) -> Option<UpdateEntitySch
 
     Some(UpdateEntitySchema {
         entity_id: body.entity_id,
+        world_id: body.world_id,
         kind: body.kind,
         name,
         description: normalize_optional_text(body.description),
@@ -286,7 +287,7 @@ pub fn prepare_update_entity(body: UpdateEntitySchema) -> Option<UpdateEntitySch
 }
 
 pub fn prepare_delete_entity(body: DeleteEntitySchema) -> Option<DeleteEntitySchema> {
-    if body.entity_id == 0 {
+    if body.entity_id == 0 || body.world_id == 0 {
         None
     } else {
         Some(body)

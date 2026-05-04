@@ -88,7 +88,8 @@ impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
             return Err(GetGenealogyDiagramUsecaseError::InvalidDiagramKind);
         }
 
-        let mut persons = load_persons_for_diagram(self, body.diagram_id, body.as_of).await?;
+        let mut persons =
+            load_persons_for_diagram(self, diagram.world_id, body.diagram_id, body.as_of).await?;
         let active_person_ids = persons
             .iter()
             .map(|person| person.entity_id)
@@ -200,6 +201,7 @@ pub trait ProvidesGenealogyDiagramUsecase: Send + Sync + 'static {
 
 async fn load_persons_for_diagram<T>(
     driver: &T,
+    world_id: usize,
     diagram_id: usize,
     as_of: Option<NaiveDate>,
 ) -> Result<Vec<Person>, GetGenealogyDiagramUsecaseError>
@@ -208,7 +210,10 @@ where
 {
     let entities = driver
         .entity_service()
-        .get_entities(GetEntitiesSchema { diagram_id })
+        .get_entities(GetEntitiesSchema {
+            world_id,
+            diagram_id,
+        })
         .await
         .map_err(map_get_entities_error)?;
 

@@ -55,10 +55,12 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
                 WHERE
                     de.deleted_at IS NULL
                     AND de.diagram_id = $1
+                    AND d.world_id = $2
                 ORDER BY e.entity_id
             "#,
         )
         .bind(body.diagram_id as i64)
+        .bind(body.world_id as i64)
         .fetch_all(&self.pool.0)
         .await
         .map_err(GetEntitiesRepositoryError::Db)?;
@@ -376,6 +378,7 @@ where
                 updated_at = now()
             WHERE
                 entity_id = $4
+                AND world_id = $5
                 AND deleted_at IS NULL
         "#,
     )
@@ -383,6 +386,7 @@ where
     .bind(body.name)
     .bind(body.description)
     .bind(body.entity_id as i64)
+    .bind(body.world_id as i64)
     .execute(executor)
     .await?;
 
@@ -414,6 +418,7 @@ where
                     updated_at = now()
                 WHERE
                     entity_id = $1
+                    AND world_id = $2
                     AND deleted_at IS NULL
                 RETURNING entity_id
             ),
@@ -430,6 +435,7 @@ where
         "#,
     )
     .bind(body.entity_id as i64)
+    .bind(body.world_id as i64)
     .fetch_optional(executor)
     .await?;
 

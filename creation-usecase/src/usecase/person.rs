@@ -129,13 +129,14 @@ where
         &self,
         body: GetPersonsSchema,
     ) -> Result<Vec<Person>, GetPersonsUsecaseError> {
-        if body.diagram_id == 0 {
+        if body.world_id == 0 || body.diagram_id == 0 {
             return Err(GetPersonsUsecaseError::InvalidParams);
         }
 
         let entities = match self
             .entity_service()
             .get_entities(GetEntitiesSchema {
+                world_id: body.world_id,
                 diagram_id: body.diagram_id,
             })
             .await
@@ -279,6 +280,7 @@ where
         tx.entity_service()
             .update_entity(UpdateEntitySchema {
                 entity_id: body.entity_id,
+                world_id: body.world_id,
                 kind: EntityKind::Person,
                 name: body.name,
                 description: body.description,
@@ -344,7 +346,10 @@ where
         let tx = self.begin_transaction().await?;
 
         tx.entity_service()
-            .delete_entity(DeleteEntitySchema { entity_id })
+            .delete_entity(DeleteEntitySchema {
+                entity_id,
+                world_id: body.world_id,
+            })
             .await
             .map_err(map_delete_person_entity_error)?;
 

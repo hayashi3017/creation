@@ -48,6 +48,7 @@ pub enum GenderKind {
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct GetPersonsSchema {
+    pub world_id: usize,
     pub diagram_id: usize,
 }
 
@@ -147,6 +148,7 @@ pub struct CreatePersonRecordSchema {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdatePersonSchema {
     pub entity_id: usize,
+    pub world_id: usize,
     pub name: String,
     #[serde(default)]
     pub description: Option<String>,
@@ -211,4 +213,5 @@ pub struct UpdatePersonRecordSchema {
 #[derive(Debug, Deserialize)]
 pub struct DeletePersonSchema {
     pub entity_id: usize,
+    pub world_id: usize,
 }

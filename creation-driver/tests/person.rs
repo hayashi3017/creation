@@ -27,7 +27,7 @@ async fn get_persons_returns_list(db: PgPool) {
                 .uri("/api/persons")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"diagram_id":1}"#))
+                .body(Body::from(r#"{"world_id":1,"diagram_id":1}"#))
                 .unwrap(),
         )
         .await
@@ -57,7 +57,30 @@ async fn get_persons_rejects_zero_diagram_id(db: PgPool) {
                 .uri("/api/persons")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"diagram_id":0}"#))
+                .body(Body::from(r#"{"world_id":1,"diagram_id":0}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test(fixtures("person"))]
+async fn get_persons_rejects_zero_world_id(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/persons")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(r#"{"world_id":0,"diagram_id":1}"#))
                 .unwrap(),
         )
         .await
@@ -404,6 +427,7 @@ async fn update_person_returns_ok(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": "Updated Person",
                         "description": "updated from API",
                         "first_name": "Updated",
@@ -488,6 +512,7 @@ async fn update_person_rejects_empty_name(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": ""
                     }))
                     .unwrap(),
@@ -516,7 +541,37 @@ async fn update_person_returns_not_found_for_deleted_entity(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": "Missing Person"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(fixtures("person"))]
+async fn update_person_returns_not_found_for_wrong_world(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri("/api/persons/update/1")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "world_id": 999,
+                        "name": "Wrong World Person"
                     }))
                     .unwrap(),
                 ))
@@ -539,7 +594,7 @@ async fn delete_person_returns_ok(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
-                .uri("/api/persons/delete/2")
+                .uri("/api/persons/delete/2?world_id=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -599,6 +654,48 @@ async fn delete_person_returns_ok(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("person"))]
+async fn delete_person_returns_not_found_for_wrong_world(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri("/api/persons/delete/2?world_id=999")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+    let row = sqlx::query(
+        r#"
+            SELECT e.deleted_at AS entity_deleted_at, p.deleted_at AS person_deleted_at
+            FROM entity AS e
+            INNER JOIN person AS p ON p.entity_id = e.entity_id
+            WHERE e.entity_id = $1
+        "#,
+    )
+    .bind(2_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert!(row
+        .get::<Option<chrono::DateTime<chrono::Utc>>, _>("entity_deleted_at")
+        .is_none());
+    assert!(row
+        .get::<Option<chrono::DateTime<chrono::Utc>>, _>("person_deleted_at")
+        .is_none());
+}
+
+#[sqlx::test(fixtures("person"))]
 async fn delete_person_returns_not_found_for_deleted_person_row(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -609,7 +706,7 @@ async fn delete_person_returns_not_found_for_deleted_person_row(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
-                .uri("/api/persons/delete/5")
+                .uri("/api/persons/delete/5?world_id=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),

@@ -190,9 +190,12 @@ async fn update_person_record_updates_person_row_only(db: PgPool) {
 async fn delete_person_record_marks_only_person_deleted(db: PgPool) {
     let repo = RepositoryImpl::<PersonTable>::new_test(db.clone()).await;
 
-    repo.delete_person_record(DeletePersonSchema { entity_id: 2 })
-        .await
-        .unwrap();
+    repo.delete_person_record(DeletePersonSchema {
+        entity_id: 2,
+        world_id: 1,
+    })
+    .await
+    .unwrap();
 
     let row = sqlx::query(
         r#"
@@ -251,7 +254,10 @@ async fn delete_person_record_returns_not_found_for_deleted_person_row(db: PgPoo
     let repo = RepositoryImpl::<PersonTable>::new_test(db).await;
 
     let err = repo
-        .delete_person_record(DeletePersonSchema { entity_id: 5 })
+        .delete_person_record(DeletePersonSchema {
+            entity_id: 5,
+            world_id: 1,
+        })
         .await
         .unwrap_err();
 

@@ -287,6 +287,7 @@ or
 
 ```json
 {
+  "world_id": 1,
   "diagram_id": 1
 }
 ```
@@ -313,7 +314,7 @@ or
 }
 ```
 
-- `400 BAD_REQUEST`: invalid `diagram_id`
+- `400 BAD_REQUEST`: invalid `world_id` or `diagram_id`
 - `500 INTERNAL_SERVER_ERROR`: DB failure
 
 ### POST `/api/persons/create`
@@ -323,6 +324,7 @@ or
 
 ```json
 {
+  "world_id": 1,
   "diagram_id": 1,
   "name": "Alice",
   "description": "created from API",
@@ -345,7 +347,7 @@ or
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`diagram_id` is `0` or `name` empty)
+  - invalid params (`world_id` is `0`, `diagram_id` is `0`, or `name` empty)
   - DB failures
 
 ### PATCH `/api/persons/update/{entity_id}`
@@ -355,7 +357,7 @@ or
 
 ```json
 {
-  "diagram_id": 1,
+  "world_id": 1,
   "name": "Alice Updated",
   "description": "updated from API",
   "gender": "unknown",
@@ -376,7 +378,7 @@ or
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`entity_id` or `diagram_id` is `0`, `name` empty)
+  - invalid params (`entity_id` or `world_id` is `0`, `name` empty)
 - `404 NOT_FOUND`:
   - target person aggregate does not exist
   - target entity or person row is already soft-deleted
@@ -386,12 +388,14 @@ or
 ### DELETE `/api/persons/delete/{entity_id}`
 
 - Auth required
+- Query parameters:
+  - `world_id` (required)
 - Request body: none
 
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`entity_id` is `0`)
+  - invalid params (`entity_id` is `0` or `world_id` is `0`)
 - `404 NOT_FOUND`:
   - target person aggregate does not exist
   - target entity or person row is already soft-deleted

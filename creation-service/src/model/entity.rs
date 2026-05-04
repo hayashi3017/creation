@@ -48,6 +48,7 @@ impl Clone for EntityKind {
 
 #[derive(Debug, Deserialize)]
 pub struct GetEntitiesSchema {
+    pub world_id: usize,
     pub diagram_id: usize,
 }
 
@@ -69,6 +70,7 @@ impl Display for CreateEntitySchema {
 #[derive(Debug, Deserialize)]
 pub struct UpdateEntitySchema {
     pub entity_id: usize,
+    pub world_id: usize,
     pub kind: EntityKind,
     pub name: String,
     #[serde(default)]
@@ -78,6 +80,7 @@ pub struct UpdateEntitySchema {
 #[derive(Debug, Deserialize)]
 pub struct DeleteEntitySchema {
     pub entity_id: usize,
+    pub world_id: usize,
 }
 
 #[derive(Debug, Clone)]

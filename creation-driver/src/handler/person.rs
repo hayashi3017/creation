@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::IntoResponse,
     Json,
 };
@@ -25,6 +25,7 @@ type JsonError = (StatusCode, Json<ErrorResponse>);
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdatePersonRequest {
+    pub world_id: usize,
     pub name: String,
     #[serde(default)]
     pub description: Option<String>,
@@ -62,6 +63,11 @@ pub struct UpdatePersonRequest {
     pub photo_url: Option<String>,
     #[serde(default)]
     pub profile_text: Option<String>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct DeletePersonQuery {
+    pub world_id: usize,
 }
 
 #[doc = include_str!("../openapi_docs/en/operations/get_persons_by_diagram.md")]
@@ -142,6 +148,7 @@ pub async fn update_person_by_entity_id(
         .driver
         .update_person(UpdatePersonSchema {
             entity_id,
+            world_id: body.world_id,
             name: body.name,
             description: body.description,
             first_name: body.first_name,
@@ -177,7 +184,10 @@ pub async fn update_person_by_entity_id(
     path = "/api/persons/delete/{entity_id}",
     tag = "Persons",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
-    params(("entity_id" = usize, Path, description = "Entity identifier of the person.")),
+    params(
+        ("entity_id" = usize, Path, description = "Entity identifier of the person."),
+        ("world_id" = usize, Query, description = "World identifier.")
+    ),
     responses(
         (status = 200, description = "The person was deleted successfully."),
         (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
@@ -188,11 +198,15 @@ pub async fn update_person_by_entity_id(
 )]
 pub async fn delete_person_by_entity_id(
     Path(entity_id): Path<usize>,
+    Query(query): Query<DeletePersonQuery>,
     State(data): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, JsonError> {
     match data
         .driver
-        .delete_person(DeletePersonSchema { entity_id })
+        .delete_person(DeletePersonSchema {
+            entity_id,
+            world_id: query.world_id,
+        })
         .await
     {
         Ok(()) => Ok(()),

@@ -185,8 +185,8 @@ Handler: `creation-driver/src/handler/person.rs::get_persons_by_diagram`
 
 1. Auth middleware validates token.
 2. Parse JSON body into `GetPersonsSchema`.
-3. Usecase validates `diagram_id != 0`.
-4. Usecase loads active `entity(kind=person)` rows through `entity_service`.
+3. Usecase validates `world_id != 0` and `diagram_id != 0`.
+4. Usecase loads active `entity(kind=person)` rows in the requested world and diagram through `entity_service`.
 5. Usecase loads active `person` rows through `person_service`.
 6. Usecase merges both results into `Vec<Person>`.
 7. Return:
@@ -227,13 +227,14 @@ Handler: `creation-driver/src/handler/person.rs::update_person_by_entity_id`
 2. Read `entity_id` from path and parse JSON body into the update request payload.
 3. Usecase normalizes the aggregate payload using service-level validation helpers:
    - `entity_id != 0`
+   - `world_id != 0`
    - trimmed `name` is not empty
    - trimmed `name` fits `VARCHAR(255)`
    - blank or missing `description` is normalized to `NULL`
    - provided string fields fit DDL limits after trim
    - blank optional strings are normalized to `NULL`
 4. Usecase begins the service-side transaction port and gets a transaction-aware service container.
-5. The transactional `entity` service updates the active `entity(kind=person)` row.
+5. The transactional `entity` service updates the active `entity(kind=person)` row in the requested world.
 6. The transactional `person` service updates the active `person` row.
 7. The transaction context commits.
 8. Return:
@@ -247,10 +248,10 @@ Handler: `creation-driver/src/handler/person.rs::update_person_by_entity_id`
 Handler: `creation-driver/src/handler/person.rs::delete_person_by_entity_id`
 
 1. Auth middleware validates token.
-2. Read `entity_id` from path.
-3. Usecase validates `entity_id != 0`.
+2. Read `entity_id` from path and required `world_id` from the query string.
+3. Usecase validates `entity_id != 0` and `world_id != 0`.
 4. Usecase begins the service-side transaction port and gets a transaction-aware service container.
-5. The transactional `entity` service soft-deletes the active `entity` row.
+5. The transactional `entity` service soft-deletes the active `entity` row in the requested world.
 6. The transactional `person` service soft-deletes the active `person` row.
 7. The transaction context commits.
 8. Return:

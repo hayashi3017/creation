@@ -15,7 +15,10 @@ use sqlx::{PgPool, Row};
 async fn get_entities_filters_by_diagram_and_excludes_deleted(db: PgPool) {
     let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
     let ret = repo
-        .get_entities(GetEntitiesSchema { diagram_id: 1 })
+        .get_entities(GetEntitiesSchema {
+            world_id: 1,
+            diagram_id: 1,
+        })
         .await
         .unwrap();
 
@@ -145,6 +148,7 @@ async fn update_entity_updates_active_row(db: PgPool) {
     let repo = RepositoryImpl::<EntityTable>::new_test(db.clone()).await;
     let body = UpdateEntitySchema {
         entity_id: 1,
+        world_id: 1,
         kind: EntityKind::Person,
         name: "Updated Entity".to_string(),
         description: Some("updated from repository test".to_string()),
@@ -184,9 +188,12 @@ async fn update_entity_updates_active_row(db: PgPool) {
 async fn delete_entity_marks_row_deleted(db: PgPool) {
     let repo = RepositoryImpl::<EntityTable>::new_test(db.clone()).await;
 
-    repo.delete_entity(DeleteEntitySchema { entity_id: 2 })
-        .await
-        .unwrap();
+    repo.delete_entity(DeleteEntitySchema {
+        entity_id: 2,
+        world_id: 1,
+    })
+    .await
+    .unwrap();
 
     let deleted_at: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
         r#"
@@ -201,7 +208,10 @@ async fn delete_entity_marks_row_deleted(db: PgPool) {
     assert!(deleted_at.is_some());
 
     let ret = repo
-        .get_entities(GetEntitiesSchema { diagram_id: 1 })
+        .get_entities(GetEntitiesSchema {
+            world_id: 1,
+            diagram_id: 1,
+        })
         .await
         .unwrap();
     let names: Vec<String> = ret.into_iter().map(|entity| entity.name).collect();
@@ -215,6 +225,7 @@ async fn update_entity_returns_not_found_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
     let body = UpdateEntitySchema {
         entity_id: 3,
+        world_id: 1,
         kind: EntityKind::Person,
         name: "Missing Entity".to_string(),
         description: Some("should fail".to_string()),
@@ -230,7 +241,10 @@ async fn delete_entity_returns_not_found_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
 
     let err = repo
-        .delete_entity(DeleteEntitySchema { entity_id: 3 })
+        .delete_entity(DeleteEntitySchema {
+            entity_id: 3,
+            world_id: 1,
+        })
         .await
         .unwrap_err();
 

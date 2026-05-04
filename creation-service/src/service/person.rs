@@ -220,6 +220,7 @@ pub fn prepare_create_person(body: CreatePersonSchema) -> Option<CreatePersonSch
 pub fn prepare_update_person(body: UpdatePersonSchema) -> Option<UpdatePersonSchema> {
     let entity = prepare_update_entity(UpdateEntitySchema {
         entity_id: body.entity_id,
+        world_id: body.world_id,
         kind: EntityKind::Person,
         name: body.name,
         description: body.description,
@@ -244,6 +245,7 @@ pub fn prepare_update_person(body: UpdatePersonSchema) -> Option<UpdatePersonSch
 
     Some(UpdatePersonSchema {
         entity_id: entity.entity_id,
+        world_id: entity.world_id,
         name: entity.name,
         description: entity.description,
         first_name: text_fields.first_name,
@@ -361,9 +363,11 @@ pub fn prepare_update_person_record(
 pub fn prepare_delete_person(body: DeletePersonSchema) -> Option<DeletePersonSchema> {
     prepare_delete_entity(DeleteEntitySchema {
         entity_id: body.entity_id,
+        world_id: body.world_id,
     })
     .map(|entity| DeletePersonSchema {
         entity_id: entity.entity_id,
+        world_id: entity.world_id,
     })
 }
 
