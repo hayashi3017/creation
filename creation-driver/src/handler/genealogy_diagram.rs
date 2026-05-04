@@ -22,6 +22,12 @@ type JsonError = (StatusCode, Json<ErrorResponse>);
 #[derive(Debug, Deserialize)]
 pub struct GetGenealogyDiagramQuery {
     #[serde(default)]
+    pub center_entity_id: Option<usize>,
+    #[serde(default)]
+    pub ancestor_depth: Option<usize>,
+    #[serde(default)]
+    pub descendant_depth: Option<usize>,
+    #[serde(default)]
     pub as_of: Option<chrono::NaiveDate>,
 }
 
@@ -33,6 +39,9 @@ pub struct GetGenealogyDiagramQuery {
     security(("cookie_auth" = []), ("bearer_auth" = [])),
     params(
         ("diagram_id" = usize, Path, description = "Diagram identifier."),
+        ("center_entity_id" = Option<usize>, Query, description = "Optional center person entity id."),
+        ("ancestor_depth" = Option<usize>, Query, description = "Optional ancestor traversal depth from the center person."),
+        ("descendant_depth" = Option<usize>, Query, description = "Optional descendant traversal depth from the center person."),
         ("as_of" = Option<chrono::NaiveDate>, Query, description = "Optional as-of date in YYYY-MM-DD format.")
     ),
     responses(
@@ -52,6 +61,9 @@ pub async fn get_genealogy_diagram_by_diagram_id(
         .driver
         .get_genealogy_diagram(GetGenealogyDiagramSchema {
             diagram_id,
+            center_entity_id: query.center_entity_id,
+            ancestor_depth: query.ancestor_depth,
+            descendant_depth: query.descendant_depth,
             as_of: query.as_of,
         })
         .await

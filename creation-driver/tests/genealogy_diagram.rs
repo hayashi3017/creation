@@ -130,6 +130,48 @@ async fn get_genealogy_diagram_applies_as_of_projection(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("family_tree"))]
+async fn get_genealogy_diagram_applies_center_depth_filters(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/api/genealogy/diagram/1?center_entity_id=2&ancestor_depth=1&descendant_depth=1")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let node_ids = json["data"]["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|node| node["entity_id"].as_i64().unwrap())
+        .collect::<Vec<_>>();
+
+    assert_eq!(node_ids, vec![1, 2, 3]);
+    assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1]));
+    assert_eq!(json["data"]["stats"]["person_count"], 3);
+    assert_eq!(json["data"]["stats"]["edge_count"], 2);
+    assert_eq!(json["data"]["stats"]["root_count"], 1);
+
+    let edges = json["data"]["edges"].as_array().unwrap();
+    assert!(edges.iter().any(|edge| edge["relationship_id"] == 1));
+    assert!(edges.iter().any(|edge| edge["relationship_id"] == 2));
+    assert!(edges.iter().all(|edge| edge["relationship_id"] != 5));
+}
+
+#[sqlx::test(fixtures("family_tree"))]
 async fn get_genealogy_diagram_returns_bad_request_for_zero_diagram_id(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
