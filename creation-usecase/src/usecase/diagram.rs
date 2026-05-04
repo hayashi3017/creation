@@ -172,7 +172,7 @@ where
         body: DeleteDiagramSchema,
     ) -> Result<(), DeleteDiagramUsecaseError> {
         let diagram_id = body.diagram_id;
-        if diagram_id == 0 {
+        if diagram_id == 0 || body.world_id == 0 {
             return Err(DeleteDiagramUsecaseError::DeleteDiagramServiceError(
                 DeleteDiagramServiceError::InvalidParams,
             ));

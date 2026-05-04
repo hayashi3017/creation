@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::IntoResponse,
     Json,
 };
@@ -41,13 +41,24 @@ use crate::{
 type JsonError = (StatusCode, Json<ErrorResponse>);
 
 #[derive(Debug, Deserialize, ToSchema)]
+pub struct GetDiagramsQuery {
+    pub world_id: usize,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateDiagramRequest {
+    pub world_id: usize,
     pub name: String,
     pub kind: DiagramKind,
     #[serde(default = "default_true")]
     pub genealogy_overview_enabled: bool,
     #[serde(default)]
     pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct DeleteDiagramQuery {
+    pub world_id: usize,
 }
 
 fn default_true() -> bool {
@@ -60,16 +71,21 @@ fn default_true() -> bool {
     path = "/api/diagrams",
     tag = "Diagrams",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
+    params(("world_id" = usize, Query, description = "World identifier.")),
     responses(
         (status = 200, description = "All accessible diagrams.", body = DiagramListResponse),
+        (status = 400, description = "The request was invalid.", body = ErrorResponse),
         (status = 401, description = "Authentication is required.", body = ErrorResponse),
         (status = 500, description = "The diagrams could not be loaded.", body = ErrorResponse)
     )
 )]
 pub async fn get_diagrams(
+    Query(query): Query<GetDiagramsQuery>,
     State(data): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, JsonError> {
-    let body = GetDiagramsSchema {};
+    let body = GetDiagramsSchema {
+        world_id: query.world_id,
+    };
     let query_result = data.driver.get_diagrams(body).await;
 
     match query_result {
@@ -79,6 +95,9 @@ pub async fn get_diagrams(
         })),
         Err(err) => match err {
             GetDiagramsUsecaseError::GetDiagramsServiceError(err) => match err {
+                GetDiagramsServiceError::InvalidParams => {
+                    Err(bad_request_error("Invalid Parameter".to_string()))
+                }
                 GetDiagramsServiceError::GetDiagramsRepositoryError(err) => match err {
                     GetDiagramsRepositoryError::Db(err) => {
                         Err(internal_server_error(format!("Database error: {}", err)))
@@ -200,6 +219,7 @@ pub async fn update_diagram_by_diagram_id(
         data,
         UpdateDiagramSchema {
             diagram_id,
+            world_id: body.world_id,
             name: body.name,
             kind: body.kind,
             genealogy_overview_enabled: body.genealogy_overview_enabled,
@@ -241,7 +261,10 @@ async fn update_diagram_inner(
     path = "/api/diagrams/delete/{diagram_id}",
     tag = "Diagrams",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
-    params(("diagram_id" = usize, Path, description = "Diagram identifier.")),
+    params(
+        ("diagram_id" = usize, Path, description = "Diagram identifier."),
+        ("world_id" = usize, Query, description = "World identifier.")
+    ),
     responses(
         (status = 200, description = "The diagram was deleted successfully."),
         (status = 400, description = "The request was invalid.", body = ErrorResponse),
@@ -252,9 +275,17 @@ async fn update_diagram_inner(
 )]
 pub async fn delete_diagram_by_diagram_id(
     Path(diagram_id): Path<usize>,
+    Query(query): Query<DeleteDiagramQuery>,
     State(data): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, JsonError> {
-    delete_diagram_inner(data, DeleteDiagramSchema { diagram_id }).await
+    delete_diagram_inner(
+        data,
+        DeleteDiagramSchema {
+            diagram_id,
+            world_id: query.world_id,
+        },
+    )
+    .await
 }
 
 async fn delete_diagram_inner(

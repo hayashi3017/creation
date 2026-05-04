@@ -110,10 +110,11 @@ impl<T: GenealogyOverviewUsecase> UsesGetGenealogyOverviewUsecase for T {
 
         let diagrams = self
             .diagram_repository()
-            .get_diagrams(GetDiagramsSchema {})
+            .get_diagrams(GetDiagramsSchema {
+                world_id: body.world_id,
+            })
             .await?
             .into_iter()
-            .filter(|diagram| diagram.world_id == body.world_id)
             .filter(|diagram| diagram.kind == DiagramKind::FamilyTree)
             .filter(|diagram| diagram.genealogy_overview_enabled)
             .filter(|diagram| {

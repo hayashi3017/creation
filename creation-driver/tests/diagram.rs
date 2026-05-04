@@ -25,7 +25,7 @@ async fn get_diagrams_returns_list(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/diagrams")
+                .uri("/api/diagrams?world_id=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -206,6 +206,7 @@ async fn update_diagram_returns_ok(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": "Updated Diagram",
                         "kind": "correlation",
                         "description": "updated from handler test"
@@ -252,6 +253,7 @@ async fn update_diagram_normalizes_name_and_missing_description(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": "  Updated Diagram  ",
                         "kind": "correlation"
                     }))
@@ -294,6 +296,7 @@ async fn update_diagram_rejects_empty_name(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": "",
                         "kind": "family_tree",
                         "description": "invalid"
@@ -329,6 +332,7 @@ async fn update_diagram_returns_not_found_for_missing_id(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
+                        "world_id": 1,
                         "name": "Missing Diagram",
                         "kind": "family_tree",
                         "description": "missing"
@@ -349,6 +353,37 @@ async fn update_diagram_returns_not_found_for_missing_id(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("get_diagrams"))]
+async fn update_diagram_returns_not_found_for_wrong_world(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri("/api/diagrams/update/1")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "world_id": 999,
+                        "name": "Wrong World Diagram",
+                        "kind": "family_tree",
+                        "description": "wrong world"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(fixtures("get_diagrams"))]
 async fn delete_diagram_returns_ok(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -359,7 +394,7 @@ async fn delete_diagram_returns_ok(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
-                .uri("/api/diagrams/delete/2")
+                .uri("/api/diagrams/delete/2?world_id=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -383,6 +418,40 @@ async fn delete_diagram_returns_ok(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("get_diagrams"))]
+async fn delete_diagram_returns_not_found_for_wrong_world(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri("/api/diagrams/delete/2?world_id=999")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+    let deleted_at: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
+        r#"
+            SELECT deleted_at FROM diagram WHERE diagram_id = $1
+        "#,
+    )
+    .bind(2_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert!(deleted_at.is_none());
+}
+
+#[sqlx::test(fixtures("get_diagrams"))]
 async fn delete_diagram_returns_not_found_when_already_deleted(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -394,7 +463,7 @@ async fn delete_diagram_returns_not_found_when_already_deleted(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
-                .uri("/api/diagrams/delete/2")
+                .uri("/api/diagrams/delete/2?world_id=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -409,7 +478,7 @@ async fn delete_diagram_returns_not_found_when_already_deleted(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
-                .uri("/api/diagrams/delete/2")
+                .uri("/api/diagrams/delete/2?world_id=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),
@@ -436,7 +505,7 @@ async fn delete_diagram_rejects_zero_id(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::DELETE)
-                .uri("/api/diagrams/delete/0")
+                .uri("/api/diagrams/delete/0?world_id=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .body(Body::empty())
                 .unwrap(),

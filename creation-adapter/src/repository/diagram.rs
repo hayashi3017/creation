@@ -19,7 +19,7 @@ use crate::{model::diagram::DiagramTable, repository::RepositoryImpl};
 impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
     async fn get_diagrams(
         &self,
-        _body: GetDiagramsSchema,
+        body: GetDiagramsSchema,
     ) -> Result<Vec<Diagram>, GetDiagramsRepositoryError> {
         let diagrams = sqlx::query_as::<_, DiagramTable>(
             r#"
@@ -35,9 +35,12 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
                     deleted_at
                 FROM diagram
                 WHERE
+                    world_id = $1
+                    AND
                     deleted_at IS NULL
             "#,
         )
+        .bind(body.world_id as i64)
         .fetch_all(&self.pool.0)
         .await
         .map_err(GetDiagramsRepositoryError::Db)?;
@@ -139,6 +142,7 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
                     updated_at = now()
                 WHERE
                     diagram_id = $5
+                    AND world_id = $6
                     AND deleted_at IS NULL
             "#,
         )
@@ -147,6 +151,7 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
         .bind(body.genealogy_overview_enabled)
         .bind(body.description)
         .bind(body.diagram_id as i64)
+        .bind(body.world_id as i64)
         .execute(&self.pool.0)
         .await
         .map_err(UpdateDiagramRepositoryError::Db)?;
@@ -170,10 +175,12 @@ impl UsesDiagramRepository for RepositoryImpl<DiagramTable> {
                     updated_at = now()
                 WHERE
                     diagram_id = $1
+                    AND world_id = $2
                     AND deleted_at IS NULL
             "#,
         )
         .bind(body.diagram_id as i64)
+        .bind(body.world_id as i64)
         .execute(&self.pool.0)
         .await
         .map_err(DeleteDiagramRepositoryError::Db)?;

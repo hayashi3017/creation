@@ -1,3 +1,3 @@
 List diagrams
 
-Returns all diagrams visible to the authenticated caller.
+Returns all active diagrams in the requested world.

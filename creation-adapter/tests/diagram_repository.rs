@@ -13,7 +13,10 @@ use sqlx::{PgPool, Row};
 #[sqlx::test(fixtures("diagram_repository"))]
 async fn get_diagrams_excludes_deleted(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
-    let ret = repo.get_diagrams(GetDiagramsSchema {}).await.unwrap();
+    let ret = repo
+        .get_diagrams(GetDiagramsSchema { world_id: 1 })
+        .await
+        .unwrap();
 
     let names: Vec<String> = ret.into_iter().map(|d| d.name).collect();
     assert_eq!(names.len(), 2);
@@ -128,6 +131,7 @@ async fn update_diagram_updates_active_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db.clone()).await;
     let body = UpdateDiagramSchema {
         diagram_id: 1,
+        world_id: 1,
         name: "Updated Diagram".to_string(),
         kind: DiagramKind::Correlation,
         genealogy_overview_enabled: true,
@@ -169,9 +173,12 @@ async fn update_diagram_updates_active_row(db: PgPool) {
 async fn delete_diagram_marks_row_deleted(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db.clone()).await;
 
-    repo.delete_diagram(DeleteDiagramSchema { diagram_id: 2 })
-        .await
-        .unwrap();
+    repo.delete_diagram(DeleteDiagramSchema {
+        diagram_id: 2,
+        world_id: 1,
+    })
+    .await
+    .unwrap();
 
     let deleted_at: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
         r#"
@@ -185,7 +192,10 @@ async fn delete_diagram_marks_row_deleted(db: PgPool) {
 
     assert!(deleted_at.is_some());
 
-    let ret = repo.get_diagrams(GetDiagramsSchema {}).await.unwrap();
+    let ret = repo
+        .get_diagrams(GetDiagramsSchema { world_id: 1 })
+        .await
+        .unwrap();
     let names: Vec<String> = ret.into_iter().map(|d| d.name).collect();
 
     assert_eq!(names.len(), 1);
@@ -197,6 +207,7 @@ async fn update_diagram_returns_not_found_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
     let body = UpdateDiagramSchema {
         diagram_id: 3,
+        world_id: 1,
         name: "Missing Diagram".to_string(),
         kind: DiagramKind::Correlation,
         genealogy_overview_enabled: true,
@@ -213,7 +224,10 @@ async fn delete_diagram_returns_not_found_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<DiagramTable>::new_test(db).await;
 
     let err = repo
-        .delete_diagram(DeleteDiagramSchema { diagram_id: 3 })
+        .delete_diagram(DeleteDiagramSchema {
+            diagram_id: 3,
+            world_id: 1,
+        })
         .await
         .unwrap_err();
 

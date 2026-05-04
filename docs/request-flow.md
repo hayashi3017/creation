@@ -111,11 +111,13 @@ Handler: `creation-driver/src/handler/user.rs::get_me_handler`
 Handler: `creation-driver/src/handler/diagram.rs::get_diagrams`
 
 1. Auth middleware validates token.
-2. Handler constructs `GetDiagramsSchema` without requiring a request body.
-3. Repository queries `diagram` where `deleted_at IS NULL`.
-4. Rows are mapped to `Vec<Diagram>`.
-5. Return:
+2. Handler reads required `world_id` from the query string and constructs `GetDiagramsSchema`.
+3. Service validates `world_id != 0`.
+4. Repository queries `diagram` where `world_id = $1` and `deleted_at IS NULL`.
+5. Rows are mapped to `Vec<Diagram>`.
+6. Return:
    - `200` with list
+   - `400` invalid params
    - `500` DB failure
 
 ### `POST /api/diagrams/create` (protected)
@@ -123,9 +125,9 @@ Handler: `creation-driver/src/handler/diagram.rs::get_diagrams`
 Handler: `creation-driver/src/handler/diagram.rs::create_diagram`
 
 1. Auth middleware validates token.
-2. Parse JSON into `CreateDiagramSchema`.
-3. Service-level validation trims `name`, rejects empty / overlong values, and normalizes blank or missing `description` to `NULL`.
-4. Repository inserts into `diagram`.
+2. Parse JSON into `CreateDiagramSchema`, including required `world_id`.
+3. Service-level validation checks `world_id != 0`, trims `name`, rejects empty / overlong values, and normalizes blank or missing `description` to `NULL`.
+4. Repository inserts into `diagram` only when the world is active.
 5. Return:
    - `200` on success (empty body in current handler)
    - `400` invalid params / DB error mapping
@@ -149,13 +151,14 @@ Handler: `creation-driver/src/handler/diagram.rs::create_diagram_entity_membersh
 Handler: `creation-driver/src/handler/diagram.rs::update_diagram_by_diagram_id`
 
 1. Auth middleware validates token.
-2. Read `diagram_id` from path and JSON body into the update request payload.
+2. Read `diagram_id` from path and `world_id` plus JSON body fields from the update request payload.
 3. Service-level validation checks:
    - `diagram_id != 0`
+   - `world_id != 0`
    - trimmed `name` is not empty
    - trimmed `name` fits `VARCHAR(255)`
    - blank or missing `description` is normalized to `NULL`
-4. Repository updates the active `diagram` row and refreshes `updated_at`.
+4. Repository updates the active `diagram` row in the requested world and refreshes `updated_at`.
 5. Return:
    - `200` on success (empty body in current handler)
    - `400` invalid params
@@ -167,9 +170,9 @@ Handler: `creation-driver/src/handler/diagram.rs::update_diagram_by_diagram_id`
 Handler: `creation-driver/src/handler/diagram.rs::delete_diagram_by_diagram_id`
 
 1. Auth middleware validates token.
-2. Read `diagram_id` from path.
-3. Service-level validation checks `diagram_id != 0`.
-4. Repository soft-deletes the active `diagram` row by setting `deleted_at`.
+2. Read `diagram_id` from path and required `world_id` from the query string.
+3. Service-level validation checks `diagram_id != 0` and `world_id != 0`.
+4. Repository soft-deletes the active `diagram` row in the requested world by setting `deleted_at`.
 5. Return:
    - `200` on success (empty body in current handler)
    - `400` invalid params

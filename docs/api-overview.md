@@ -184,6 +184,8 @@ or
 ### GET `/api/diagrams`
 
 - Auth required
+- Query parameters:
+  - `world_id` (required)
 - Request body: none
 
 - `200 OK`:
@@ -202,6 +204,7 @@ or
 }
 ```
 
+- `400 BAD_REQUEST`: invalid params (`world_id` is `0` or missing)
 - `500 INTERNAL_SERVER_ERROR`: DB failures
 
 ### POST `/api/diagrams/create`
@@ -211,6 +214,7 @@ or
 
 ```json
 {
+  "world_id": 1,
   "name": "Family Tree",
   "kind": "family_tree",
   "description": "created from API"
@@ -238,6 +242,7 @@ or
 
 ```json
 {
+  "world_id": 1,
   "name": "Family Tree v2",
   "kind": "correlation",
   "description": "updated from API"
@@ -251,7 +256,7 @@ or
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`diagram_id` is `0` or `name` empty)
+  - invalid params (`diagram_id` is `0`, `world_id` is `0`, or `name` empty)
 - `404 NOT_FOUND`:
   - target diagram does not exist
   - target diagram is already soft-deleted
@@ -261,12 +266,14 @@ or
 ### DELETE `/api/diagrams/delete/{diagram_id}`
 
 - Auth required
+- Query parameters:
+  - `world_id` (required)
 - Request body: none
 
 - `200 OK`:
   - current handler returns empty body on success
 - `400 BAD_REQUEST`:
-  - invalid params (`diagram_id` is `0`)
+  - invalid params (`diagram_id` is `0` or `world_id` is `0`)
 - `404 NOT_FOUND`:
   - target diagram does not exist
   - target diagram is already soft-deleted

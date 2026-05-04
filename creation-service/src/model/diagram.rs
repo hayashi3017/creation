@@ -44,8 +44,10 @@ impl Clone for DiagramKind {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct GetDiagramsSchema {}
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct GetDiagramsSchema {
+    pub world_id: usize,
+}
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateDiagramSchema {
@@ -67,6 +69,7 @@ impl Display for CreateDiagramSchema {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateDiagramSchema {
     pub diagram_id: usize,
+    pub world_id: usize,
     pub name: String,
     pub kind: DiagramKind,
     #[serde(default = "default_true")]
@@ -78,6 +81,7 @@ pub struct UpdateDiagramSchema {
 #[derive(Debug, Deserialize)]
 pub struct DeleteDiagramSchema {
     pub diagram_id: usize,
+    pub world_id: usize,
 }
 
 #[derive(Debug, Clone)]

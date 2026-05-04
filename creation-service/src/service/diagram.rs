@@ -33,6 +33,8 @@ pub enum DiagramServiceError {
 pub enum GetDiagramsServiceError {
     #[error(transparent)]
     GetDiagramsRepositoryError(#[from] GetDiagramsRepositoryError),
+    #[error("invalid parameter")]
+    InvalidParams,
 }
 
 #[derive(Debug, Error)]
@@ -91,6 +93,10 @@ impl<T: DiagramService> UsesDiagramService for T {
         &self,
         body: GetDiagramsSchema,
     ) -> Result<Vec<Diagram>, GetDiagramsServiceError> {
+        if body.world_id == 0 {
+            return Err(GetDiagramsServiceError::InvalidParams);
+        }
+
         map_service_result!(
             self.diagram_repository().get_diagrams(body),
             GetDiagramsServiceError::GetDiagramsRepositoryError
@@ -125,7 +131,7 @@ impl<T: DiagramService> UsesDiagramService for T {
     ) -> Result<(), UpdateDiagramServiceError> {
         let mut body = body;
 
-        if body.diagram_id == 0 {
+        if body.diagram_id == 0 || body.world_id == 0 {
             return Err(UpdateDiagramServiceError::InvalidParams);
         }
 
@@ -147,7 +153,7 @@ impl<T: DiagramService> UsesDiagramService for T {
         &self,
         body: DeleteDiagramSchema,
     ) -> Result<(), DeleteDiagramServiceError> {
-        if body.diagram_id == 0 {
+        if body.diagram_id == 0 || body.world_id == 0 {
             return Err(DeleteDiagramServiceError::InvalidParams);
         }
 
