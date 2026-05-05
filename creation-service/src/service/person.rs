@@ -194,7 +194,7 @@ pub fn prepare_create_person(body: CreatePersonSchema) -> Option<CreatePersonSch
 
     Some(CreatePersonSchema {
         world_id: entity.world_id,
-        diagram_id: body.diagram_id,
+        diagram_ids: normalize_diagram_ids(body.diagram_ids)?,
         name: entity.name,
         description: entity.description,
         first_name: text_fields.first_name,
@@ -246,6 +246,7 @@ pub fn prepare_update_person(body: UpdatePersonSchema) -> Option<UpdatePersonSch
     Some(UpdatePersonSchema {
         entity_id: entity.entity_id,
         world_id: entity.world_id,
+        diagram_ids: normalize_diagram_ids(body.diagram_ids)?,
         name: entity.name,
         description: entity.description,
         first_name: text_fields.first_name,
@@ -358,6 +359,14 @@ pub fn prepare_update_person_record(
         photo_url: text_fields.photo_url,
         profile_text: text_fields.profile_text,
     })
+}
+
+fn normalize_diagram_ids(diagram_ids: Option<Vec<usize>>) -> Option<Option<Vec<usize>>> {
+    match diagram_ids {
+        Some(diagram_ids) if diagram_ids.iter().any(|diagram_id| *diagram_id == 0) => None,
+        Some(diagram_ids) => Some(Some(diagram_ids)),
+        None => Some(None),
+    }
 }
 
 pub fn prepare_delete_person(body: DeletePersonSchema) -> Option<DeletePersonSchema> {

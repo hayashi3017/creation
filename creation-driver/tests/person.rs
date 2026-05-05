@@ -40,7 +40,10 @@ async fn get_persons_returns_list(db: PgPool) {
     assert!(json["data"].is_array());
     assert_eq!(json["data"].as_array().unwrap().len(), 3);
     assert_eq!(json["data"][0]["name"], "Test Person 1");
+    assert!(json["data"][0]["diagram_id"].is_null());
+    assert_eq!(json["data"][0]["diagram_ids"], serde_json::json!([1]));
     assert_eq!(json["data"][2]["name"], "Other Diagram Person");
+    assert_eq!(json["data"][2]["diagram_ids"], serde_json::json!([2]));
 }
 
 #[sqlx::test(fixtures("person"))]
@@ -104,7 +107,7 @@ async fn create_person_returns_ok(db: PgPool) {
                 .body(Body::from(
                     serde_json::to_string(&json!({
                         "world_id": 1,
-                        "diagram_id": 1,
+                        "diagram_ids": [1, 2],
                         "name": "Created Person",
                         "description": "created from test",
                         "first_name": "Created",
@@ -130,10 +133,8 @@ async fn create_person_returns_ok(db: PgPool) {
 
     let row = sqlx::query(
         r#"
-            SELECT de.diagram_id, e.name, e.description, p.first_name, p.last_name, p.first_name_kana, p.last_name_romaji, p.gender, p.birthplace, p.deathplace, p.profile_text
+            SELECT e.entity_id, e.name, e.description, p.first_name, p.last_name, p.first_name_kana, p.last_name_romaji, p.gender, p.birthplace, p.deathplace, p.profile_text
             FROM entity AS e
-            INNER JOIN diagram_entity AS de
-                ON de.entity_id = e.entity_id
             INNER JOIN person AS p ON p.entity_id = e.entity_id
             WHERE e.name = $1
         "#,
@@ -143,7 +144,21 @@ async fn create_person_returns_ok(db: PgPool) {
     .await
     .unwrap();
 
-    assert_eq!(row.get::<i64, _>("diagram_id"), 1);
+    let entity_id = row.get::<i64, _>("entity_id");
+    let diagram_ids = sqlx::query_scalar::<_, i64>(
+        r#"
+            SELECT diagram_id
+            FROM diagram_entity
+            WHERE entity_id = $1 AND deleted_at IS NULL
+            ORDER BY diagram_id
+        "#,
+    )
+    .bind(entity_id)
+    .fetch_all(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(diagram_ids, vec![1, 2]);
     assert_eq!(
         row.get::<Option<String>, _>("description").as_deref(),
         Some("created from test")
@@ -299,7 +314,7 @@ async fn create_person_normalizes_name_description_and_blank_optional_fields(db:
                 .body(Body::from(
                     serde_json::to_string(&json!({
                         "world_id": 1,
-                        "diagram_id": 1,
+                        "diagram_ids": [1],
                         "name": "  Normalized Person  ",
                         "description": "   ",
                         "first_name": "  Normalized  ",
@@ -363,7 +378,7 @@ async fn create_person_rejects_empty_name(db: PgPool) {
                 .body(Body::from(
                     serde_json::to_string(&json!({
                         "world_id": 1,
-                        "diagram_id": 1,
+                        "diagram_ids": [1],
                         "name": "",
                         "description": "invalid"
                     }))
@@ -395,7 +410,7 @@ async fn create_person_rejects_too_long_birthplace(db: PgPool) {
                 .body(Body::from(
                     serde_json::to_string(&json!({
                         "world_id": 1,
-                        "diagram_id": 1,
+                        "diagram_ids": [1],
                         "name": "Too Long Birthplace",
                         "birthplace": too_long_birthplace
                     }))
@@ -426,6 +441,7 @@ async fn update_person_returns_ok(db: PgPool) {
                 .body(Body::from(
                     serde_json::to_string(&json!({
                         "world_id": 1,
+                        "diagram_ids": [2],
                         "name": "Updated Person",
                         "description": "updated from API",
                         "first_name": "Updated",
@@ -452,10 +468,8 @@ async fn update_person_returns_ok(db: PgPool) {
 
     let row = sqlx::query(
         r#"
-            SELECT de.diagram_id, e.name, e.description, p.first_name, p.last_name, p.first_name_romaji, p.last_name_romaji, p.gender, p.death_date, p.birthplace, p.deathplace, p.residence, p.profile_text
+            SELECT e.name, e.description, p.first_name, p.last_name, p.first_name_romaji, p.last_name_romaji, p.gender, p.death_date, p.birthplace, p.deathplace, p.residence, p.profile_text
             FROM entity AS e
-            INNER JOIN diagram_entity AS de
-                ON de.entity_id = e.entity_id
             INNER JOIN person AS p ON p.entity_id = e.entity_id
             WHERE e.entity_id = $1
         "#,
@@ -465,7 +479,20 @@ async fn update_person_returns_ok(db: PgPool) {
     .await
     .unwrap();
 
-    assert_eq!(row.get::<i64, _>("diagram_id"), 1);
+    let diagram_ids = sqlx::query_scalar::<_, i64>(
+        r#"
+            SELECT diagram_id
+            FROM diagram_entity
+            WHERE entity_id = $1 AND deleted_at IS NULL
+            ORDER BY diagram_id
+        "#,
+    )
+    .bind(1_i64)
+    .fetch_all(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(diagram_ids, vec![1, 2]);
     assert_eq!(row.get::<String, _>("name"), "Updated Person");
     assert_eq!(
         row.get::<Option<String>, _>("first_name").as_deref(),

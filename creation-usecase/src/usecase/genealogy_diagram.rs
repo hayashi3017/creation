@@ -150,7 +150,7 @@ impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
 
             nodes.push(GenealogyDiagramNode {
                 entity_id: person.entity_id,
-                diagram_id: person.diagram_id,
+                diagram_id: body.diagram_id,
                 name: person.name,
                 description: person.description,
                 gender: person.gender,
@@ -260,7 +260,7 @@ fn merge_persons(
                 .remove(&entity.entity_id)
                 .map(|record| Person {
                     entity_id: entity.entity_id,
-                    diagram_id: entity.diagram_id,
+                    diagram_ids: vec![entity.diagram_id],
                     name: entity.name,
                     description: entity.description,
                     first_name: record.first_name,

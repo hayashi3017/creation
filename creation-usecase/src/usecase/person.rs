@@ -1,11 +1,12 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use async_trait::async_trait;
 use creation_service::{
     model::{
         entity::{
             CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteEntitySchema,
-            EntityKind, LoadEntitiesByWorldSchema, UpdateEntitySchema,
+            EntityKind, LoadEntitiesByWorldSchema, LoadSeedEntitiesSchema, SeedEntity,
+            UpdateEntitySchema,
         },
         person::{
             CreatePersonRecordSchema, CreatePersonSchema, DeletePersonSchema,
@@ -22,8 +23,9 @@ use creation_service::{
     service::{
         entity::{
             CreateDiagramEntityMembershipServiceError, CreateEntityServiceError,
-            DeleteEntityServiceError, LoadEntitiesByWorldServiceError, ProvidesEntityService,
-            UpdateEntityServiceError, UsesEntityService,
+            DeleteEntityServiceError, LoadEntitiesByWorldServiceError,
+            LoadSeedEntitiesServiceError, ProvidesEntityService, UpdateEntityServiceError,
+            UsesEntityService,
         },
         person::{
             prepare_create_person, prepare_delete_person, prepare_update_person,
@@ -69,6 +71,8 @@ pub enum GetPersonsUsecaseError {
     InvalidParams,
     #[error(transparent)]
     LoadEntitiesByWorldServiceError(#[from] LoadEntitiesByWorldServiceError),
+    #[error(transparent)]
+    LoadSeedEntitiesServiceError(#[from] LoadSeedEntitiesServiceError),
     #[error(transparent)]
     GetPersonRecordsServiceError(#[from] GetPersonRecordsServiceError),
 }
@@ -161,6 +165,20 @@ where
             .map(|entity| entity.entity_id)
             .collect::<Vec<_>>();
 
+        let seed_entities = match self
+            .entity_service()
+            .load_seed_entities(LoadSeedEntitiesSchema {
+                entity_ids: entity_ids.clone(),
+            })
+            .await
+        {
+            Ok(seed_entities) => seed_entities,
+            Err(LoadSeedEntitiesServiceError::InvalidParams) => {
+                return Err(GetPersonsUsecaseError::InvalidParams);
+            }
+            Err(err) => return Err(GetPersonsUsecaseError::LoadSeedEntitiesServiceError(err)),
+        };
+
         let person_records = match self
             .person_service()
             .get_person_records(GetPersonRecordsSchema { entity_ids })
@@ -173,7 +191,11 @@ where
             Err(err) => return Err(GetPersonsUsecaseError::GetPersonRecordsServiceError(err)),
         };
 
-        Ok(merge_persons(person_entities, person_records))
+        Ok(merge_persons(
+            person_entities,
+            person_records,
+            diagram_ids_by_entity_id(seed_entities),
+        ))
     }
 }
 
@@ -212,7 +234,7 @@ where
             .await
             .map_err(map_create_person_entity_error)?;
 
-        if let Some(diagram_id) = body.diagram_id {
+        for diagram_id in membership_diagram_ids(body.diagram_ids) {
             tx.entity_service()
                 .create_diagram_entity_membership(CreateDiagramEntityMembershipSchema {
                     diagram_id,
@@ -286,6 +308,16 @@ where
             })
             .await
             .map_err(map_update_person_entity_error)?;
+
+        for diagram_id in membership_diagram_ids(body.diagram_ids) {
+            tx.entity_service()
+                .create_diagram_entity_membership(CreateDiagramEntityMembershipSchema {
+                    diagram_id,
+                    entity_id: body.entity_id,
+                })
+                .await
+                .map_err(map_update_person_membership_error)?;
+        }
 
         tx.person_service()
             .update_person_record(UpdatePersonRecordSchema {
@@ -381,9 +413,19 @@ where
     }
 }
 
+fn membership_diagram_ids(diagram_ids: Option<Vec<usize>>) -> Vec<usize> {
+    diagram_ids
+        .unwrap_or_default()
+        .into_iter()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
 fn merge_persons(
     person_entities: Vec<creation_service::model::entity::Entity>,
     person_records: Vec<PersonRecord>,
+    mut diagram_ids_by_entity_id: HashMap<usize, Vec<usize>>,
 ) -> Vec<Person> {
     let mut records_by_entity_id: HashMap<usize, PersonRecord> = person_records
         .into_iter()
@@ -397,7 +439,9 @@ fn merge_persons(
                 .remove(&entity.entity_id)
                 .map(|record| Person {
                     entity_id: entity.entity_id,
-                    diagram_id: entity.diagram_id,
+                    diagram_ids: diagram_ids_by_entity_id
+                        .remove(&entity.entity_id)
+                        .unwrap_or_default(),
                     name: entity.name,
                     description: entity.description,
                     first_name: record.first_name,
@@ -420,6 +464,24 @@ fn merge_persons(
                 })
         })
         .collect()
+}
+
+fn diagram_ids_by_entity_id(seed_entities: Vec<SeedEntity>) -> HashMap<usize, Vec<usize>> {
+    let mut diagram_ids_by_entity_id = HashMap::<usize, Vec<usize>>::new();
+
+    for seed_entity in seed_entities {
+        diagram_ids_by_entity_id
+            .entry(seed_entity.entity_id)
+            .or_default()
+            .push(seed_entity.diagram_id);
+    }
+
+    for diagram_ids in diagram_ids_by_entity_id.values_mut() {
+        diagram_ids.sort_unstable();
+        diagram_ids.dedup();
+    }
+
+    diagram_ids_by_entity_id
 }
 
 fn map_create_person_entity_error(err: CreateEntityServiceError) -> CreatePersonUsecaseError {
@@ -482,6 +544,27 @@ fn map_update_person_entity_error(err: UpdateEntityServiceError) -> UpdatePerson
             })
         }
         UpdateEntityServiceError::InvalidParams => UpdatePersonUsecaseError::InvalidParams,
+    }
+}
+
+fn map_update_person_membership_error(
+    err: CreateDiagramEntityMembershipServiceError,
+) -> UpdatePersonUsecaseError {
+    match err {
+        CreateDiagramEntityMembershipServiceError::InvalidParams
+        | CreateDiagramEntityMembershipServiceError::NotFound => {
+            UpdatePersonUsecaseError::InvalidParams
+        }
+        CreateDiagramEntityMembershipServiceError::CreateDiagramEntityMembershipRepositoryError(
+            err,
+        ) => UpdatePersonUsecaseError::TransactionError(match err {
+            creation_service::repository::entity::CreateDiagramEntityMembershipRepositoryError::Db(
+                err,
+            ) => TransactionError::Db(err),
+            creation_service::repository::entity::CreateDiagramEntityMembershipRepositoryError::NotFound => {
+                TransactionError::NotFound
+            }
+        }),
     }
 }
 

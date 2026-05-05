@@ -7,15 +7,15 @@ use crate::{
     model::entity::{
         CreateDiagramEntityMembershipSchema, CreateEntitySchema,
         DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
-        LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema, UpdateEntitySchema,
-        ENTITY_NAME_MAX_CHARS,
+        LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema, LoadSeedEntitiesSchema,
+        SeedEntity, UpdateEntitySchema, ENTITY_NAME_MAX_CHARS,
     },
     repository::entity::{
         CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
         DeleteDiagramEntityMembershipsRepositoryError, DeleteEntityRepositoryError,
         GetEntitiesRepositoryError, LoadEntitiesByDiagramIdsRepositoryError,
-        LoadEntitiesByWorldRepositoryError, ProvidesEntityRepository, UpdateEntityRepositoryError,
-        UsesEntityRepository,
+        LoadEntitiesByWorldRepositoryError, LoadSeedEntitiesRepositoryError,
+        ProvidesEntityRepository, UpdateEntityRepositoryError, UsesEntityRepository,
     },
 };
 
@@ -40,6 +40,8 @@ pub enum EntityServiceError {
     LoadEntitiesByDiagramIdsServiceError(#[from] LoadEntitiesByDiagramIdsServiceError),
     #[error(transparent)]
     LoadEntitiesByWorldServiceError(#[from] LoadEntitiesByWorldServiceError),
+    #[error(transparent)]
+    LoadSeedEntitiesServiceError(#[from] LoadSeedEntitiesServiceError),
 }
 
 #[derive(Debug, Error)]
@@ -116,6 +118,14 @@ pub enum LoadEntitiesByWorldServiceError {
     InvalidParams,
 }
 
+#[derive(Debug, Error)]
+pub enum LoadSeedEntitiesServiceError {
+    #[error(transparent)]
+    LoadSeedEntitiesRepositoryError(#[from] LoadSeedEntitiesRepositoryError),
+    #[error("invalid parameter")]
+    InvalidParams,
+}
+
 #[async_trait]
 pub trait UsesEntityService {
     async fn get_entities(
@@ -148,6 +158,10 @@ pub trait UsesEntityService {
         &self,
         body: LoadEntitiesByWorldSchema,
     ) -> Result<Vec<Entity>, LoadEntitiesByWorldServiceError>;
+    async fn load_seed_entities(
+        &self,
+        body: LoadSeedEntitiesSchema,
+    ) -> Result<Vec<SeedEntity>, LoadSeedEntitiesServiceError>;
 }
 
 #[async_trait]
@@ -282,6 +296,24 @@ impl<T: EntityService> UsesEntityService for T {
             .load_entities_by_world(body)
             .await
             .map_err(LoadEntitiesByWorldServiceError::LoadEntitiesByWorldRepositoryError)
+    }
+
+    async fn load_seed_entities(
+        &self,
+        body: LoadSeedEntitiesSchema,
+    ) -> Result<Vec<SeedEntity>, LoadSeedEntitiesServiceError> {
+        if body.entity_ids.iter().any(|entity_id| *entity_id == 0) {
+            return Err(LoadSeedEntitiesServiceError::InvalidParams);
+        }
+
+        if body.entity_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        self.entity_repository()
+            .load_seed_entities(body)
+            .await
+            .map_err(LoadSeedEntitiesServiceError::LoadSeedEntitiesRepositoryError)
     }
 }
 

@@ -13,7 +13,7 @@ pub const PERSON_PHOTO_URL_MAX_CHARS: usize = 512;
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct Person {
     pub entity_id: usize,
-    pub diagram_id: usize,
+    pub diagram_ids: Vec<usize>,
     pub name: String,
     pub description: Option<String>,
     pub first_name: Option<String>,
@@ -82,7 +82,7 @@ pub struct GetPersonRecordsSchema {
 pub struct CreatePersonSchema {
     pub world_id: usize,
     #[serde(default)]
-    pub diagram_id: Option<usize>,
+    pub diagram_ids: Option<Vec<usize>>,
     pub name: String,
     #[serde(default)]
     pub description: Option<String>,
@@ -148,6 +148,8 @@ pub struct CreatePersonRecordSchema {
 pub struct UpdatePersonSchema {
     pub entity_id: usize,
     pub world_id: usize,
+    #[serde(default)]
+    pub diagram_ids: Option<Vec<usize>>,
     pub name: String,
     #[serde(default)]
     pub description: Option<String>,
