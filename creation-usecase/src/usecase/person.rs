@@ -5,7 +5,7 @@ use creation_service::{
     model::{
         entity::{
             CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteEntitySchema,
-            EntityKind, GetEntitiesSchema, UpdateEntitySchema,
+            EntityKind, LoadEntitiesByWorldSchema, UpdateEntitySchema,
         },
         person::{
             CreatePersonRecordSchema, CreatePersonSchema, DeletePersonSchema,
@@ -22,7 +22,7 @@ use creation_service::{
     service::{
         entity::{
             CreateDiagramEntityMembershipServiceError, CreateEntityServiceError,
-            DeleteEntityServiceError, GetEntitiesServiceError, ProvidesEntityService,
+            DeleteEntityServiceError, LoadEntitiesByWorldServiceError, ProvidesEntityService,
             UpdateEntityServiceError, UsesEntityService,
         },
         person::{
@@ -68,7 +68,7 @@ pub enum GetPersonsUsecaseError {
     #[error("invalid parameter")]
     InvalidParams,
     #[error(transparent)]
-    GetEntitiesServiceError(#[from] GetEntitiesServiceError),
+    LoadEntitiesByWorldServiceError(#[from] LoadEntitiesByWorldServiceError),
     #[error(transparent)]
     GetPersonRecordsServiceError(#[from] GetPersonRecordsServiceError),
 }
@@ -129,23 +129,22 @@ where
         &self,
         body: GetPersonsSchema,
     ) -> Result<Vec<Person>, GetPersonsUsecaseError> {
-        if body.world_id == 0 || body.diagram_id == 0 {
+        if body.world_id == 0 {
             return Err(GetPersonsUsecaseError::InvalidParams);
         }
 
         let entities = match self
             .entity_service()
-            .get_entities(GetEntitiesSchema {
+            .load_entities_by_world(LoadEntitiesByWorldSchema {
                 world_id: body.world_id,
-                diagram_id: body.diagram_id,
             })
             .await
         {
             Ok(entities) => entities,
-            Err(GetEntitiesServiceError::InvalidParams) => {
+            Err(LoadEntitiesByWorldServiceError::InvalidParams) => {
                 return Err(GetPersonsUsecaseError::InvalidParams);
             }
-            Err(err) => return Err(GetPersonsUsecaseError::GetEntitiesServiceError(err)),
+            Err(err) => return Err(GetPersonsUsecaseError::LoadEntitiesByWorldServiceError(err)),
         };
 
         let person_entities: Vec<_> = entities

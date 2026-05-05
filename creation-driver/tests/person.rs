@@ -24,10 +24,9 @@ async fn get_persons_returns_list(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/persons")
+                .uri("/api/persons?world_id=1")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"world_id":1,"diagram_id":1}"#))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -39,12 +38,13 @@ async fn get_persons_returns_list(db: PgPool) {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["status"], "success");
     assert!(json["data"].is_array());
-    assert_eq!(json["data"].as_array().unwrap().len(), 2);
+    assert_eq!(json["data"].as_array().unwrap().len(), 3);
     assert_eq!(json["data"][0]["name"], "Test Person 1");
+    assert_eq!(json["data"][2]["name"], "Other Diagram Person");
 }
 
 #[sqlx::test(fixtures("person"))]
-async fn get_persons_rejects_zero_diagram_id(db: PgPool) {
+async fn get_persons_rejects_missing_world_id(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -56,8 +56,7 @@ async fn get_persons_rejects_zero_diagram_id(db: PgPool) {
                 .method(Method::GET)
                 .uri("/api/persons")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"world_id":1,"diagram_id":0}"#))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
@@ -77,10 +76,9 @@ async fn get_persons_rejects_zero_world_id(db: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/api/persons")
+                .uri("/api/persons?world_id=0")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"world_id":0,"diagram_id":1}"#))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await

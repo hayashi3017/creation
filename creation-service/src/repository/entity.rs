@@ -4,8 +4,8 @@ use thiserror::Error;
 use crate::model::entity::{
     CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteDiagramEntityMembershipsSchema,
     DeleteEntitySchema, Entity, GetEntitiesSchema, LoadActiveEntitiesByDiagramIdsSchema,
-    LoadActiveEntityIdsSchema, LoadEntitiesByDiagramIdsSchema, LoadSeedEntitiesSchema, SeedEntity,
-    UpdateEntitySchema,
+    LoadActiveEntityIdsSchema, LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema,
+    LoadSeedEntitiesSchema, SeedEntity, UpdateEntitySchema,
 };
 
 pub trait EntityRepository: Send + Sync + 'static {}
@@ -38,6 +38,8 @@ pub enum EntityRepositoryError {
     ),
     #[error(transparent)]
     LoadEntitiesByDiagramIdsRepositoryError(#[from] LoadEntitiesByDiagramIdsRepositoryError),
+    #[error(transparent)]
+    LoadEntitiesByWorldRepositoryError(#[from] LoadEntitiesByWorldRepositoryError),
 }
 
 #[derive(Debug, Error)]
@@ -108,6 +110,12 @@ pub enum LoadEntitiesByDiagramIdsRepositoryError {
     Db(#[from] sqlx::Error),
 }
 
+#[derive(Debug, Error)]
+pub enum LoadEntitiesByWorldRepositoryError {
+    #[error(transparent)]
+    Db(#[from] sqlx::Error),
+}
+
 #[async_trait]
 pub trait UsesEntityRepository: Send + Sync + 'static {
     async fn get_entities(
@@ -150,6 +158,10 @@ pub trait UsesEntityRepository: Send + Sync + 'static {
         &self,
         body: LoadEntitiesByDiagramIdsSchema,
     ) -> Result<Vec<Entity>, LoadEntitiesByDiagramIdsRepositoryError>;
+    async fn load_entities_by_world(
+        &self,
+        body: LoadEntitiesByWorldSchema,
+    ) -> Result<Vec<Entity>, LoadEntitiesByWorldRepositoryError>;
 }
 
 pub trait ProvidesEntityRepository: Send + Sync + 'static {

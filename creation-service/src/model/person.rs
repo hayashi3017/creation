@@ -49,7 +49,6 @@ pub enum GenderKind {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct GetPersonsSchema {
     pub world_id: usize,
-    pub diagram_id: usize,
 }
 
 #[derive(Debug, Clone)]

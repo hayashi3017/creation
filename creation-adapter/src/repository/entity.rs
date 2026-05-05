@@ -4,15 +4,17 @@ use creation_service::{
         CreateDiagramEntityMembershipSchema, CreateEntitySchema,
         DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
         LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
-        LoadEntitiesByDiagramIdsSchema, LoadSeedEntitiesSchema, SeedEntity, UpdateEntitySchema,
+        LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema, LoadSeedEntitiesSchema,
+        SeedEntity, UpdateEntitySchema,
     },
     repository::entity::{
         CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
         DeleteDiagramEntityMembershipsRepositoryError, DeleteEntityRepositoryError,
         EntityRepository, GetEntitiesRepositoryError,
         LoadActiveEntitiesByDiagramIdsRepositoryError, LoadActiveEntityIdsRepositoryError,
-        LoadEntitiesByDiagramIdsRepositoryError, LoadSeedEntitiesRepositoryError,
-        ProvidesEntityRepository, UpdateEntityRepositoryError, UsesEntityRepository,
+        LoadEntitiesByDiagramIdsRepositoryError, LoadEntitiesByWorldRepositoryError,
+        LoadSeedEntitiesRepositoryError, ProvidesEntityRepository, UpdateEntityRepositoryError,
+        UsesEntityRepository,
     },
     service::entity::{EntityService, ProvidesEntityService},
 };
@@ -293,6 +295,31 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
             load_entities_by_diagram_ids_with(&self.pool.0, body)
                 .await
                 .map_err(LoadEntitiesByDiagramIdsRepositoryError::Db)?
+        };
+
+        Ok(entities)
+    }
+
+    async fn load_entities_by_world(
+        &self,
+        body: LoadEntitiesByWorldSchema,
+    ) -> Result<Vec<Entity>, LoadEntitiesByWorldRepositoryError> {
+        let entities = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                load_entities_by_world_with(tx.as_mut(), body)
+                    .await
+                    .map_err(LoadEntitiesByWorldRepositoryError::Db)?
+            } else {
+                return Err(LoadEntitiesByWorldRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            load_entities_by_world_with(&self.pool.0, body)
+                .await
+                .map_err(LoadEntitiesByWorldRepositoryError::Db)?
         };
 
         Ok(entities)
@@ -625,6 +652,39 @@ where
         "#,
     )
     .bind(diagram_ids)
+    .fetch_all(executor)
+    .await?;
+
+    Ok(entities.into_iter().map(map_entity_table).collect())
+}
+
+async fn load_entities_by_world_with<'e, E>(
+    executor: E,
+    body: LoadEntitiesByWorldSchema,
+) -> Result<Vec<Entity>, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let entities = sqlx::query_as::<_, EntityTable>(
+        r#"
+            SELECT
+                e.entity_id,
+                0::BIGINT AS diagram_id,
+                e.world_id,
+                e.kind,
+                e.name,
+                e.description,
+                e.created_at,
+                e.updated_at,
+                e.deleted_at
+            FROM entity AS e
+            WHERE
+                e.world_id = $1
+                AND e.deleted_at IS NULL
+            ORDER BY e.entity_id
+        "#,
+    )
+    .bind(body.world_id as i64)
     .fetch_all(executor)
     .await?;
 

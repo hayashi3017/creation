@@ -113,3 +113,8 @@ pub struct LoadActiveEntitiesByDiagramIdsSchema {
 pub struct LoadEntitiesByDiagramIdsSchema {
     pub diagram_ids: Vec<usize>,
 }
+
+#[derive(Debug, Clone)]
+pub struct LoadEntitiesByWorldSchema {
+    pub world_id: usize,
+}

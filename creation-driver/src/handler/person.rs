@@ -76,17 +76,17 @@ pub struct DeletePersonQuery {
     path = "/api/persons",
     tag = "Persons",
     security(("cookie_auth" = []), ("bearer_auth" = [])),
-    request_body = GetPersonsSchema,
+    params(("world_id" = usize, Query, description = "World identifier.")),
     responses(
-        (status = 200, description = "All person nodes in the requested diagram.", body = PersonListResponse),
-        (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
+        (status = 200, description = "All person nodes in the requested world.", body = PersonListResponse),
+        (status = 400, description = "The request was invalid.", body = ErrorResponse),
         (status = 401, description = "Authentication is required.", body = ErrorResponse),
         (status = 500, description = "The persons could not be loaded.", body = ErrorResponse)
     )
 )]
 pub async fn get_persons_by_diagram(
+    Query(body): Query<GetPersonsSchema>,
     State(data): State<Arc<AppState>>,
-    Json(body): Json<GetPersonsSchema>,
 ) -> Result<impl IntoResponse, JsonError> {
     match data.driver.get_persons(body).await {
         Ok(ret) => Ok(Json(PersonListResponse {
