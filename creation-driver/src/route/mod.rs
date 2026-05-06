@@ -10,7 +10,7 @@ use crate::{
     handler::{
         diagram::{
             create_diagram, create_diagram_entity_membership, delete_diagram_by_diagram_id,
-            get_diagrams, update_diagram_by_diagram_id,
+            get_diagrams, sync_diagram_entity_memberships, update_diagram_by_diagram_id,
         },
         genealogy_diagram::get_genealogy_diagram_by_diagram_id,
         genealogy_overview::get_genealogy_overview,
@@ -96,6 +96,11 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         .route(
             "/api/diagrams/entities/create",
             post(create_diagram_entity_membership)
+                .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
+        )
+        .route(
+            "/api/diagrams/:diagram_id/entities/sync",
+            post(sync_diagram_entity_memberships)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(

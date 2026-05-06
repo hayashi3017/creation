@@ -2,12 +2,12 @@ use async_trait::async_trait;
 use creation_service::{
     model::entity::{
         CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteEntitySchema, Entity,
-        GetEntitiesSchema, UpdateEntitySchema,
+        GetEntitiesSchema, SyncDiagramEntityMembershipsSchema, UpdateEntitySchema,
     },
     service::entity::{
         CreateDiagramEntityMembershipServiceError, CreateEntityServiceError,
         DeleteEntityServiceError, GetEntitiesServiceError, ProvidesEntityService,
-        UpdateEntityServiceError, UsesEntityService,
+        SyncDiagramEntityMembershipsServiceError, UpdateEntityServiceError, UsesEntityService,
     },
 };
 use thiserror::Error;
@@ -25,6 +25,8 @@ pub enum EntityUsecaseError {
     CreateEntityUsecaseError(#[from] CreateEntityUsecaseError),
     #[error(transparent)]
     CreateDiagramEntityMembershipUsecaseError(#[from] CreateDiagramEntityMembershipUsecaseError),
+    #[error(transparent)]
+    SyncDiagramEntityMembershipsUsecaseError(#[from] SyncDiagramEntityMembershipsUsecaseError),
     #[error(transparent)]
     UpdateEntityUsecaseError(#[from] UpdateEntityUsecaseError),
     #[error(transparent)]
@@ -51,6 +53,16 @@ pub enum CreateDiagramEntityMembershipUsecaseError {
     NotFound,
     #[error(transparent)]
     CreateDiagramEntityMembershipServiceError(#[from] CreateDiagramEntityMembershipServiceError),
+}
+
+#[derive(Debug, Error)]
+pub enum SyncDiagramEntityMembershipsUsecaseError {
+    #[error("invalid parameter")]
+    InvalidParams,
+    #[error("not found")]
+    NotFound,
+    #[error(transparent)]
+    SyncDiagramEntityMembershipsServiceError(#[from] SyncDiagramEntityMembershipsServiceError),
 }
 
 #[derive(Debug, Error)]
@@ -145,6 +157,41 @@ impl<T: EntityUsecase> UsesCreateDiagramEntityMembershipUsecase for T {
 }
 
 #[async_trait]
+pub trait UsesSyncDiagramEntityMembershipsUsecase {
+    async fn sync_diagram_entity_memberships(
+        &self,
+        body: SyncDiagramEntityMembershipsSchema,
+    ) -> Result<(), SyncDiagramEntityMembershipsUsecaseError>;
+}
+
+#[async_trait]
+impl<T: EntityUsecase> UsesSyncDiagramEntityMembershipsUsecase for T {
+    async fn sync_diagram_entity_memberships(
+        &self,
+        body: SyncDiagramEntityMembershipsSchema,
+    ) -> Result<(), SyncDiagramEntityMembershipsUsecaseError> {
+        match self
+            .entity_service()
+            .sync_diagram_entity_memberships(body)
+            .await
+        {
+            Ok(()) => Ok(()),
+            Err(SyncDiagramEntityMembershipsServiceError::InvalidParams) => {
+                Err(SyncDiagramEntityMembershipsUsecaseError::InvalidParams)
+            }
+            Err(SyncDiagramEntityMembershipsServiceError::NotFound) => {
+                Err(SyncDiagramEntityMembershipsUsecaseError::NotFound)
+            }
+            Err(err) => Err(
+                SyncDiagramEntityMembershipsUsecaseError::SyncDiagramEntityMembershipsServiceError(
+                    err,
+                ),
+            ),
+        }
+    }
+}
+
+#[async_trait]
 pub trait UsesUpdateEntityUsecase {
     async fn update_entity(&self, body: UpdateEntitySchema)
         -> Result<(), UpdateEntityUsecaseError>;
@@ -189,6 +236,7 @@ pub trait UsesEntityUsecase:
     UsesGetEntitiesUsecase
     + UsesCreateEntityUsecase
     + UsesCreateDiagramEntityMembershipUsecase
+    + UsesSyncDiagramEntityMembershipsUsecase
     + UsesUpdateEntityUsecase
     + UsesDeleteEntityUsecase
 {
@@ -213,6 +261,13 @@ pub trait UsesEntityUsecase:
         UsesCreateDiagramEntityMembershipUsecase::create_diagram_entity_membership(self, body).await
     }
 
+    async fn sync_diagram_entity_memberships(
+        &self,
+        body: SyncDiagramEntityMembershipsSchema,
+    ) -> Result<(), SyncDiagramEntityMembershipsUsecaseError> {
+        UsesSyncDiagramEntityMembershipsUsecase::sync_diagram_entity_memberships(self, body).await
+    }
+
     async fn update_entity(
         &self,
         body: UpdateEntitySchema,
@@ -232,6 +287,7 @@ impl<T> UsesEntityUsecase for T where
     T: UsesGetEntitiesUsecase
         + UsesCreateEntityUsecase
         + UsesCreateDiagramEntityMembershipUsecase
+        + UsesSyncDiagramEntityMembershipsUsecase
         + UsesUpdateEntityUsecase
         + UsesDeleteEntityUsecase
 {

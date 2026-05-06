@@ -24,8 +24,10 @@ use utoipa::{
 
 use crate::{
     handler::{
-        diagram::UpdateDiagramRequest, person::UpdatePersonRequest,
-        relationship::UpdateRelationshipRequest, world::UpdateWorldRequest,
+        diagram::{SyncDiagramEntityMembershipsRequest, UpdateDiagramRequest},
+        person::UpdatePersonRequest,
+        relationship::UpdateRelationshipRequest,
+        world::UpdateWorldRequest,
     },
     response::{
         DiagramListResponse, ErrorResponse, GenealogyDiagramResponse, GenealogyOverviewResponse,
@@ -78,6 +80,7 @@ impl Modify for SecurityAddon {
         crate::handler::diagram::get_diagrams,
         crate::handler::diagram::create_diagram,
         crate::handler::diagram::create_diagram_entity_membership,
+        crate::handler::diagram::sync_diagram_entity_memberships,
         crate::handler::diagram::update_diagram_by_diagram_id,
         crate::handler::diagram::delete_diagram_by_diagram_id,
         crate::handler::person::get_persons_by_diagram,
@@ -98,6 +101,7 @@ impl Modify for SecurityAddon {
         World,
         CreateDiagramSchema,
         CreateDiagramEntityMembershipSchema,
+        SyncDiagramEntityMembershipsRequest,
         UpdateDiagramRequest,
         Diagram,
         DiagramKind,

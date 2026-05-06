@@ -10,24 +10,31 @@ use creation_service::{
         CreateDiagramSchema, DeleteDiagramSchema, DiagramKind, GetDiagramsSchema,
         UpdateDiagramSchema,
     },
-    model::entity::CreateDiagramEntityMembershipSchema,
+    model::entity::{CreateDiagramEntityMembershipSchema, SyncDiagramEntityMembershipsSchema},
     repository::diagram::{
         CreateDiagramRepositoryError, DeleteDiagramRepositoryError, GetDiagramsRepositoryError,
         UpdateDiagramRepositoryError,
     },
-    repository::entity::CreateDiagramEntityMembershipRepositoryError,
+    repository::entity::{
+        CreateDiagramEntityMembershipRepositoryError, SyncDiagramEntityMembershipsRepositoryError,
+    },
     service::diagram::{
         CreateDiagramServiceError, DeleteDiagramServiceError, GetDiagramsServiceError,
         UpdateDiagramServiceError,
     },
-    service::entity::CreateDiagramEntityMembershipServiceError,
+    service::entity::{
+        CreateDiagramEntityMembershipServiceError, SyncDiagramEntityMembershipsServiceError,
+    },
 };
 use creation_usecase::usecase::{
     diagram::{
         CreateDiagramUsecaseError, DeleteDiagramUsecaseError, GetDiagramsUsecaseError,
         UpdateDiagramUsecaseError, UsesDiagramUsecase,
     },
-    entity::{CreateDiagramEntityMembershipUsecaseError, UsesEntityUsecase},
+    entity::{
+        CreateDiagramEntityMembershipUsecaseError, SyncDiagramEntityMembershipsUsecaseError,
+        UsesEntityUsecase,
+    },
 };
 use http::StatusCode;
 use serde::Deserialize;
@@ -54,6 +61,11 @@ pub struct UpdateDiagramRequest {
     pub genealogy_overview_enabled: bool,
     #[serde(default)]
     pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SyncDiagramEntityMembershipsRequest {
+    pub entity_ids: Vec<usize>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -189,6 +201,58 @@ pub async fn create_diagram_entity_membership(
                     }
                     CreateDiagramEntityMembershipRepositoryError::NotFound => Err(not_found_error()),
                 },
+            },
+        },
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/diagrams/{diagram_id}/entities/sync",
+    tag = "Diagrams",
+    security(("cookie_auth" = []), ("bearer_auth" = [])),
+    params(("diagram_id" = usize, Path, description = "Diagram identifier.")),
+    request_body = SyncDiagramEntityMembershipsRequest,
+    responses(
+        (status = 200, description = "The entity memberships were synchronized successfully."),
+        (status = 400, description = "The request was invalid.", body = ErrorResponse),
+        (status = 401, description = "Authentication is required.", body = ErrorResponse),
+        (status = 404, description = "The entity or one of the diagrams was not found in the same world.", body = ErrorResponse),
+        (status = 500, description = "The memberships could not be synchronized.", body = ErrorResponse)
+    )
+)]
+pub async fn sync_diagram_entity_memberships(
+    Path(diagram_id): Path<usize>,
+    State(data): State<Arc<AppState>>,
+    Json(body): Json<SyncDiagramEntityMembershipsRequest>,
+) -> Result<impl IntoResponse, JsonError> {
+    match data
+        .driver
+        .sync_diagram_entity_memberships(SyncDiagramEntityMembershipsSchema {
+            diagram_id,
+            entity_ids: body.entity_ids,
+        })
+        .await
+    {
+        Ok(()) => Ok(()),
+        Err(SyncDiagramEntityMembershipsUsecaseError::InvalidParams) => {
+            Err(bad_request_error("Invalid Parameter".to_string()))
+        }
+        Err(SyncDiagramEntityMembershipsUsecaseError::NotFound) => Err(not_found_error()),
+        Err(SyncDiagramEntityMembershipsUsecaseError::SyncDiagramEntityMembershipsServiceError(
+            err,
+        )) => match err {
+            SyncDiagramEntityMembershipsServiceError::InvalidParams => {
+                Err(bad_request_error("Invalid Parameter".to_string()))
+            }
+            SyncDiagramEntityMembershipsServiceError::NotFound => Err(not_found_error()),
+            SyncDiagramEntityMembershipsServiceError::SyncDiagramEntityMembershipsRepositoryError(
+                err,
+            ) => match err {
+                SyncDiagramEntityMembershipsRepositoryError::Db(err) => {
+                    Err(internal_server_error(format!("Database error: {}", err)))
+                }
+                SyncDiagramEntityMembershipsRepositoryError::NotFound => Err(not_found_error()),
             },
         },
     }

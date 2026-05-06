@@ -8,14 +8,17 @@ use crate::{
         CreateDiagramEntityMembershipSchema, CreateEntitySchema,
         DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
         LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema, LoadSeedEntitiesSchema,
-        SeedEntity, UpdateEntitySchema, ENTITY_NAME_MAX_CHARS,
+        SeedEntity, SyncDiagramEntityMembershipsSchema, SyncEntityDiagramMembershipsSchema,
+        UpdateEntitySchema, ENTITY_NAME_MAX_CHARS,
     },
     repository::entity::{
         CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
         DeleteDiagramEntityMembershipsRepositoryError, DeleteEntityRepositoryError,
         GetEntitiesRepositoryError, LoadEntitiesByDiagramIdsRepositoryError,
         LoadEntitiesByWorldRepositoryError, LoadSeedEntitiesRepositoryError,
-        ProvidesEntityRepository, UpdateEntityRepositoryError, UsesEntityRepository,
+        ProvidesEntityRepository, SyncDiagramEntityMembershipsRepositoryError,
+        SyncEntityDiagramMembershipsRepositoryError, UpdateEntityRepositoryError,
+        UsesEntityRepository,
     },
 };
 
@@ -30,6 +33,10 @@ pub enum EntityServiceError {
     CreateEntityServiceError(#[from] CreateEntityServiceError),
     #[error(transparent)]
     CreateDiagramEntityMembershipServiceError(#[from] CreateDiagramEntityMembershipServiceError),
+    #[error(transparent)]
+    SyncDiagramEntityMembershipsServiceError(#[from] SyncDiagramEntityMembershipsServiceError),
+    #[error(transparent)]
+    SyncEntityDiagramMembershipsServiceError(#[from] SyncEntityDiagramMembershipsServiceError),
     #[error(transparent)]
     UpdateEntityServiceError(#[from] UpdateEntityServiceError),
     #[error(transparent)]
@@ -65,6 +72,30 @@ pub enum CreateDiagramEntityMembershipServiceError {
     #[error(transparent)]
     CreateDiagramEntityMembershipRepositoryError(
         #[from] CreateDiagramEntityMembershipRepositoryError,
+    ),
+    #[error("invalid parameter")]
+    InvalidParams,
+    #[error("not found")]
+    NotFound,
+}
+
+#[derive(Debug, Error)]
+pub enum SyncDiagramEntityMembershipsServiceError {
+    #[error(transparent)]
+    SyncDiagramEntityMembershipsRepositoryError(
+        #[from] SyncDiagramEntityMembershipsRepositoryError,
+    ),
+    #[error("invalid parameter")]
+    InvalidParams,
+    #[error("not found")]
+    NotFound,
+}
+
+#[derive(Debug, Error)]
+pub enum SyncEntityDiagramMembershipsServiceError {
+    #[error(transparent)]
+    SyncEntityDiagramMembershipsRepositoryError(
+        #[from] SyncEntityDiagramMembershipsRepositoryError,
     ),
     #[error("invalid parameter")]
     InvalidParams,
@@ -140,6 +171,14 @@ pub trait UsesEntityService {
         &self,
         body: CreateDiagramEntityMembershipSchema,
     ) -> Result<(), CreateDiagramEntityMembershipServiceError>;
+    async fn sync_diagram_entity_memberships(
+        &self,
+        body: SyncDiagramEntityMembershipsSchema,
+    ) -> Result<(), SyncDiagramEntityMembershipsServiceError>;
+    async fn sync_entity_diagram_memberships(
+        &self,
+        body: SyncEntityDiagramMembershipsSchema,
+    ) -> Result<(), SyncEntityDiagramMembershipsServiceError>;
     async fn update_entity(&self, body: UpdateEntitySchema)
         -> Result<(), UpdateEntityServiceError>;
     async fn delete_entity(
@@ -216,6 +255,56 @@ impl<T: EntityService> UsesEntityService for T {
             }
             Err(err) => Err(
                 CreateDiagramEntityMembershipServiceError::CreateDiagramEntityMembershipRepositoryError(
+                    err,
+                ),
+            ),
+        }
+    }
+
+    async fn sync_diagram_entity_memberships(
+        &self,
+        body: SyncDiagramEntityMembershipsSchema,
+    ) -> Result<(), SyncDiagramEntityMembershipsServiceError> {
+        if body.diagram_id == 0 || body.entity_ids.contains(&0) {
+            return Err(SyncDiagramEntityMembershipsServiceError::InvalidParams);
+        }
+
+        match self
+            .entity_repository()
+            .sync_diagram_entity_memberships(body)
+            .await
+        {
+            Ok(()) => Ok(()),
+            Err(SyncDiagramEntityMembershipsRepositoryError::NotFound) => {
+                Err(SyncDiagramEntityMembershipsServiceError::NotFound)
+            }
+            Err(err) => Err(
+                SyncDiagramEntityMembershipsServiceError::SyncDiagramEntityMembershipsRepositoryError(
+                    err,
+                ),
+            ),
+        }
+    }
+
+    async fn sync_entity_diagram_memberships(
+        &self,
+        body: SyncEntityDiagramMembershipsSchema,
+    ) -> Result<(), SyncEntityDiagramMembershipsServiceError> {
+        if body.entity_id == 0 || body.world_id == 0 || body.diagram_ids.contains(&0) {
+            return Err(SyncEntityDiagramMembershipsServiceError::InvalidParams);
+        }
+
+        match self
+            .entity_repository()
+            .sync_entity_diagram_memberships(body)
+            .await
+        {
+            Ok(()) => Ok(()),
+            Err(SyncEntityDiagramMembershipsRepositoryError::NotFound) => {
+                Err(SyncEntityDiagramMembershipsServiceError::NotFound)
+            }
+            Err(err) => Err(
+                SyncEntityDiagramMembershipsServiceError::SyncEntityDiagramMembershipsRepositoryError(
                     err,
                 ),
             ),

@@ -94,6 +94,19 @@ pub struct CreateDiagramEntityMembershipSchema {
     pub entity_id: usize,
 }
 
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct SyncDiagramEntityMembershipsSchema {
+    pub diagram_id: usize,
+    pub entity_ids: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SyncEntityDiagramMembershipsSchema {
+    pub entity_id: usize,
+    pub world_id: usize,
+    pub diagram_ids: Vec<usize>,
+}
+
 #[derive(Debug, Clone)]
 pub struct LoadSeedEntitiesSchema {
     pub entity_ids: Vec<usize>,

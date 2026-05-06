@@ -298,6 +298,49 @@ async fn create_diagram_entity_membership_adds_existing_person_to_diagram(db: Pg
 }
 
 #[sqlx::test(fixtures("person"))]
+async fn sync_diagram_entity_memberships_links_entities_to_diagram(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/diagrams/2/entities/sync")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "entity_ids": [1, 2]
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let entity_ids = sqlx::query_scalar::<_, i64>(
+        r#"
+            SELECT entity_id
+            FROM diagram_entity
+            WHERE diagram_id = $1 AND deleted_at IS NULL
+            ORDER BY entity_id
+        "#,
+    )
+    .bind(2_i64)
+    .fetch_all(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(entity_ids, vec![1, 2, 3]);
+}
+
+#[sqlx::test(fixtures("person"))]
 async fn create_person_normalizes_name_description_and_blank_optional_fields(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
@@ -492,7 +535,7 @@ async fn update_person_returns_ok(db: PgPool) {
     .await
     .unwrap();
 
-    assert_eq!(diagram_ids, vec![1, 2]);
+    assert_eq!(diagram_ids, vec![2]);
     assert_eq!(row.get::<String, _>("name"), "Updated Person");
     assert_eq!(
         row.get::<Option<String>, _>("first_name").as_deref(),
@@ -519,6 +562,50 @@ async fn update_person_returns_ok(db: PgPool) {
         row.get::<Option<String>, _>("profile_text").as_deref(),
         Some("updated profile")
     );
+}
+
+#[sqlx::test(fixtures("person"))]
+async fn update_person_with_empty_diagram_ids_removes_all_memberships(db: PgPool) {
+    set_test_env();
+    let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
+
+    let mut router = setup_router(db.clone()).await;
+    let resp = router
+        .borrow_mut()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri("/api/persons/update/1")
+                .header(header::AUTHORIZATION, format!("Bearer {}", token))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_string(&json!({
+                        "world_id": 1,
+                        "diagram_ids": [],
+                        "name": "Unlinked Person"
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let membership_count: i64 = sqlx::query_scalar(
+        r#"
+            SELECT COUNT(*)
+            FROM diagram_entity
+            WHERE entity_id = $1 AND deleted_at IS NULL
+        "#,
+    )
+    .bind(1_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(membership_count, 0);
 }
 
 #[sqlx::test(fixtures("person"))]

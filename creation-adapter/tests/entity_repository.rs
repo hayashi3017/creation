@@ -2,7 +2,8 @@ use creation_adapter::{model::entity::EntityTable, repository::RepositoryImpl};
 use creation_service::{
     model::entity::{
         CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteEntitySchema, EntityKind,
-        GetEntitiesSchema, UpdateEntitySchema,
+        GetEntitiesSchema, SyncDiagramEntityMembershipsSchema, SyncEntityDiagramMembershipsSchema,
+        UpdateEntitySchema,
     },
     repository::entity::{
         CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
@@ -140,6 +141,80 @@ async fn create_diagram_entity_membership_returns_not_found_for_world_mismatch(d
     assert!(matches!(
         err,
         CreateDiagramEntityMembershipRepositoryError::NotFound
+    ));
+}
+
+#[sqlx::test(fixtures("entity_repository"))]
+async fn sync_diagram_entity_memberships_links_entities_to_diagram(db: PgPool) {
+    let repo = RepositoryImpl::<EntityTable>::new_test(db.clone()).await;
+
+    repo.sync_diagram_entity_memberships(SyncDiagramEntityMembershipsSchema {
+        diagram_id: 2,
+        entity_ids: vec![1, 2],
+    })
+    .await
+    .unwrap();
+
+    let active_entity_ids = sqlx::query_scalar::<_, i64>(
+        r#"
+            SELECT entity_id
+            FROM diagram_entity
+            WHERE diagram_id = $1 AND deleted_at IS NULL
+            ORDER BY entity_id
+        "#,
+    )
+    .bind(2_i64)
+    .fetch_all(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(active_entity_ids, vec![1, 2, 4]);
+}
+
+#[sqlx::test(fixtures("entity_repository"))]
+async fn sync_entity_diagram_memberships_replaces_active_memberships(db: PgPool) {
+    let repo = RepositoryImpl::<EntityTable>::new_test(db.clone()).await;
+
+    repo.sync_entity_diagram_memberships(SyncEntityDiagramMembershipsSchema {
+        entity_id: 1,
+        world_id: 1,
+        diagram_ids: vec![2],
+    })
+    .await
+    .unwrap();
+
+    let active_diagram_ids = sqlx::query_scalar::<_, i64>(
+        r#"
+            SELECT diagram_id
+            FROM diagram_entity
+            WHERE entity_id = $1 AND deleted_at IS NULL
+            ORDER BY diagram_id
+        "#,
+    )
+    .bind(1_i64)
+    .fetch_all(&db)
+    .await
+    .unwrap();
+
+    assert_eq!(active_diagram_ids, vec![2]);
+}
+
+#[sqlx::test(fixtures("entity_repository"))]
+async fn sync_entity_diagram_memberships_returns_not_found_for_world_mismatch(db: PgPool) {
+    let repo = RepositoryImpl::<EntityTable>::new_test(db).await;
+
+    let err = repo
+        .sync_entity_diagram_memberships(SyncEntityDiagramMembershipsSchema {
+            entity_id: 5,
+            world_id: 2,
+            diagram_ids: vec![1],
+        })
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        creation_service::repository::entity::SyncEntityDiagramMembershipsRepositoryError::NotFound
     ));
 }
 

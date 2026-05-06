@@ -5,7 +5,8 @@ use creation_service::{
         DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
         LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
         LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema, LoadSeedEntitiesSchema,
-        SeedEntity, UpdateEntitySchema,
+        SeedEntity, SyncDiagramEntityMembershipsSchema, SyncEntityDiagramMembershipsSchema,
+        UpdateEntitySchema,
     },
     repository::entity::{
         CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
@@ -13,8 +14,9 @@ use creation_service::{
         EntityRepository, GetEntitiesRepositoryError,
         LoadActiveEntitiesByDiagramIdsRepositoryError, LoadActiveEntityIdsRepositoryError,
         LoadEntitiesByDiagramIdsRepositoryError, LoadEntitiesByWorldRepositoryError,
-        LoadSeedEntitiesRepositoryError, ProvidesEntityRepository, UpdateEntityRepositoryError,
-        UsesEntityRepository,
+        LoadSeedEntitiesRepositoryError, ProvidesEntityRepository,
+        SyncDiagramEntityMembershipsRepositoryError, SyncEntityDiagramMembershipsRepositoryError,
+        UpdateEntityRepositoryError, UsesEntityRepository,
     },
     service::entity::{EntityService, ProvidesEntityService},
 };
@@ -119,6 +121,64 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
             Ok(())
         } else {
             Err(CreateDiagramEntityMembershipRepositoryError::NotFound)
+        }
+    }
+
+    async fn sync_diagram_entity_memberships(
+        &self,
+        body: SyncDiagramEntityMembershipsSchema,
+    ) -> Result<(), SyncDiagramEntityMembershipsRepositoryError> {
+        let synced = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                sync_diagram_entity_memberships_with(tx.as_mut(), body)
+                    .await
+                    .map_err(SyncDiagramEntityMembershipsRepositoryError::Db)?
+            } else {
+                return Err(SyncDiagramEntityMembershipsRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            sync_diagram_entity_memberships_with(&self.pool.0, body)
+                .await
+                .map_err(SyncDiagramEntityMembershipsRepositoryError::Db)?
+        };
+
+        if synced {
+            Ok(())
+        } else {
+            Err(SyncDiagramEntityMembershipsRepositoryError::NotFound)
+        }
+    }
+
+    async fn sync_entity_diagram_memberships(
+        &self,
+        body: SyncEntityDiagramMembershipsSchema,
+    ) -> Result<(), SyncEntityDiagramMembershipsRepositoryError> {
+        let synced = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                sync_entity_diagram_memberships_with(tx.as_mut(), body)
+                    .await
+                    .map_err(SyncEntityDiagramMembershipsRepositoryError::Db)?
+            } else {
+                return Err(SyncEntityDiagramMembershipsRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            sync_entity_diagram_memberships_with(&self.pool.0, body)
+                .await
+                .map_err(SyncEntityDiagramMembershipsRepositoryError::Db)?
+        };
+
+        if synced {
+            Ok(())
+        } else {
+            Err(SyncEntityDiagramMembershipsRepositoryError::NotFound)
         }
     }
 
@@ -386,6 +446,150 @@ where
     .await?;
 
     Ok(inserted.is_some())
+}
+
+async fn sync_diagram_entity_memberships_with<'e, E>(
+    executor: E,
+    body: SyncDiagramEntityMembershipsSchema,
+) -> Result<bool, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let entity_ids = body
+        .entity_ids
+        .into_iter()
+        .map(|entity_id| entity_id as i64)
+        .collect::<Vec<_>>();
+
+    let synced = sqlx::query_scalar::<_, bool>(
+        r#"
+            WITH target_diagram AS (
+                SELECT diagram_id, world_id
+                FROM diagram
+                WHERE
+                    diagram_id = $1
+                    AND deleted_at IS NULL
+            ),
+            requested_entity AS (
+                SELECT DISTINCT unnest($2::BIGINT[]) AS entity_id
+            ),
+            valid_entity AS (
+                SELECT e.entity_id
+                FROM entity AS e
+                INNER JOIN target_diagram AS d
+                    ON d.world_id = e.world_id
+                INNER JOIN requested_entity AS requested
+                    ON requested.entity_id = e.entity_id
+                WHERE e.deleted_at IS NULL
+            ),
+            validation AS (
+                SELECT
+                    EXISTS (SELECT 1 FROM target_diagram) AS diagram_exists,
+                    (
+                        SELECT COUNT(*) FROM requested_entity
+                    ) = (
+                        SELECT COUNT(*) FROM valid_entity
+                    ) AS all_entities_valid
+            ),
+            upserted_membership AS (
+                INSERT INTO diagram_entity
+                    (diagram_id, entity_id)
+                SELECT $1, entity_id
+                FROM valid_entity
+                WHERE (SELECT diagram_exists AND all_entities_valid FROM validation)
+                ON CONFLICT (diagram_id, entity_id)
+                DO UPDATE SET deleted_at = NULL
+                WHERE diagram_entity.deleted_at IS NOT NULL
+                RETURNING entity_id
+            )
+            SELECT diagram_exists AND all_entities_valid
+            FROM validation
+        "#,
+    )
+    .bind(body.diagram_id as i64)
+    .bind(entity_ids)
+    .fetch_one(executor)
+    .await?;
+
+    Ok(synced)
+}
+
+async fn sync_entity_diagram_memberships_with<'e, E>(
+    executor: E,
+    body: SyncEntityDiagramMembershipsSchema,
+) -> Result<bool, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let diagram_ids = body
+        .diagram_ids
+        .into_iter()
+        .map(|diagram_id| diagram_id as i64)
+        .collect::<Vec<_>>();
+
+    let synced = sqlx::query_scalar::<_, bool>(
+        r#"
+            WITH target_entity AS (
+                SELECT entity_id, world_id
+                FROM entity
+                WHERE
+                    entity_id = $1
+                    AND world_id = $2
+                    AND deleted_at IS NULL
+            ),
+            requested_diagram AS (
+                SELECT DISTINCT unnest($3::BIGINT[]) AS diagram_id
+            ),
+            valid_diagram AS (
+                SELECT d.diagram_id
+                FROM diagram AS d
+                INNER JOIN target_entity AS e
+                    ON e.world_id = d.world_id
+                INNER JOIN requested_diagram AS requested
+                    ON requested.diagram_id = d.diagram_id
+                WHERE d.deleted_at IS NULL
+            ),
+            validation AS (
+                SELECT
+                    EXISTS (SELECT 1 FROM target_entity) AS entity_exists,
+                    (
+                        SELECT COUNT(*) FROM requested_diagram
+                    ) = (
+                        SELECT COUNT(*) FROM valid_diagram
+                    ) AS all_diagrams_valid
+            ),
+            soft_deleted_membership AS (
+                UPDATE diagram_entity
+                SET deleted_at = now()
+                WHERE
+                    entity_id = $1
+                    AND deleted_at IS NULL
+                    AND NOT (diagram_id = ANY($3::BIGINT[]))
+                    AND (SELECT entity_exists AND all_diagrams_valid FROM validation)
+                RETURNING entity_id
+            ),
+            upserted_membership AS (
+                INSERT INTO diagram_entity
+                    (diagram_id, entity_id)
+                SELECT diagram_id, $1
+                FROM valid_diagram
+                WHERE (SELECT entity_exists AND all_diagrams_valid FROM validation)
+                ON CONFLICT (diagram_id, entity_id)
+                DO UPDATE SET deleted_at = NULL
+                WHERE diagram_entity.deleted_at IS NOT NULL
+                RETURNING entity_id
+            )
+            SELECT entity_exists AND all_diagrams_valid
+            FROM validation
+        "#,
+    )
+    .bind(body.entity_id as i64)
+    .bind(body.world_id as i64)
+    .bind(diagram_ids)
+    .fetch_one(executor)
+    .await?;
+
+    Ok(synced)
 }
 
 async fn update_entity_with<'e, E>(

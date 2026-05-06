@@ -1,11 +1,11 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 
 use async_trait::async_trait;
 use creation_service::{
     model::{
         entity::{
-            CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteEntitySchema,
-            EntityKind, LoadEntitiesByWorldSchema, LoadSeedEntitiesSchema, SeedEntity,
+            CreateEntitySchema, DeleteEntitySchema, EntityKind, LoadEntitiesByWorldSchema,
+            LoadSeedEntitiesSchema, SeedEntity, SyncEntityDiagramMembershipsSchema,
             UpdateEntitySchema,
         },
         person::{
@@ -22,10 +22,9 @@ use creation_service::{
     },
     service::{
         entity::{
-            CreateDiagramEntityMembershipServiceError, CreateEntityServiceError,
-            DeleteEntityServiceError, LoadEntitiesByWorldServiceError,
-            LoadSeedEntitiesServiceError, ProvidesEntityService, UpdateEntityServiceError,
-            UsesEntityService,
+            CreateEntityServiceError, DeleteEntityServiceError, LoadEntitiesByWorldServiceError,
+            LoadSeedEntitiesServiceError, ProvidesEntityService,
+            SyncEntityDiagramMembershipsServiceError, UpdateEntityServiceError, UsesEntityService,
         },
         person::{
             prepare_create_person, prepare_delete_person, prepare_update_person,
@@ -234,11 +233,12 @@ where
             .await
             .map_err(map_create_person_entity_error)?;
 
-        for diagram_id in membership_diagram_ids(body.diagram_ids) {
+        if let Some(diagram_ids) = body.diagram_ids {
             tx.entity_service()
-                .create_diagram_entity_membership(CreateDiagramEntityMembershipSchema {
-                    diagram_id,
+                .sync_entity_diagram_memberships(SyncEntityDiagramMembershipsSchema {
                     entity_id,
+                    world_id: body.world_id,
+                    diagram_ids,
                 })
                 .await
                 .map_err(map_create_person_membership_error)?;
@@ -309,11 +309,12 @@ where
             .await
             .map_err(map_update_person_entity_error)?;
 
-        for diagram_id in membership_diagram_ids(body.diagram_ids) {
+        if let Some(diagram_ids) = body.diagram_ids {
             tx.entity_service()
-                .create_diagram_entity_membership(CreateDiagramEntityMembershipSchema {
-                    diagram_id,
+                .sync_entity_diagram_memberships(SyncEntityDiagramMembershipsSchema {
                     entity_id: body.entity_id,
+                    world_id: body.world_id,
+                    diagram_ids,
                 })
                 .await
                 .map_err(map_update_person_membership_error)?;
@@ -413,15 +414,6 @@ where
     }
 }
 
-fn membership_diagram_ids(diagram_ids: Option<Vec<usize>>) -> Vec<usize> {
-    diagram_ids
-        .unwrap_or_default()
-        .into_iter()
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect()
-}
-
 fn merge_persons(
     person_entities: Vec<creation_service::model::entity::Entity>,
     person_records: Vec<PersonRecord>,
@@ -499,20 +491,20 @@ fn map_create_person_entity_error(err: CreateEntityServiceError) -> CreatePerson
 }
 
 fn map_create_person_membership_error(
-    err: CreateDiagramEntityMembershipServiceError,
+    err: SyncEntityDiagramMembershipsServiceError,
 ) -> CreatePersonUsecaseError {
     match err {
-        CreateDiagramEntityMembershipServiceError::InvalidParams
-        | CreateDiagramEntityMembershipServiceError::NotFound => {
+        SyncEntityDiagramMembershipsServiceError::InvalidParams
+        | SyncEntityDiagramMembershipsServiceError::NotFound => {
             CreatePersonUsecaseError::InvalidParams
         }
-        CreateDiagramEntityMembershipServiceError::CreateDiagramEntityMembershipRepositoryError(
+        SyncEntityDiagramMembershipsServiceError::SyncEntityDiagramMembershipsRepositoryError(
             err,
         ) => CreatePersonUsecaseError::TransactionError(TransactionError::Db(match err {
-            creation_service::repository::entity::CreateDiagramEntityMembershipRepositoryError::Db(
+            creation_service::repository::entity::SyncEntityDiagramMembershipsRepositoryError::Db(
                 err,
             ) => err,
-            creation_service::repository::entity::CreateDiagramEntityMembershipRepositoryError::NotFound => {
+            creation_service::repository::entity::SyncEntityDiagramMembershipsRepositoryError::NotFound => {
                 sqlx::Error::RowNotFound
             }
         })),
@@ -548,20 +540,20 @@ fn map_update_person_entity_error(err: UpdateEntityServiceError) -> UpdatePerson
 }
 
 fn map_update_person_membership_error(
-    err: CreateDiagramEntityMembershipServiceError,
+    err: SyncEntityDiagramMembershipsServiceError,
 ) -> UpdatePersonUsecaseError {
     match err {
-        CreateDiagramEntityMembershipServiceError::InvalidParams
-        | CreateDiagramEntityMembershipServiceError::NotFound => {
+        SyncEntityDiagramMembershipsServiceError::InvalidParams
+        | SyncEntityDiagramMembershipsServiceError::NotFound => {
             UpdatePersonUsecaseError::InvalidParams
         }
-        CreateDiagramEntityMembershipServiceError::CreateDiagramEntityMembershipRepositoryError(
+        SyncEntityDiagramMembershipsServiceError::SyncEntityDiagramMembershipsRepositoryError(
             err,
         ) => UpdatePersonUsecaseError::TransactionError(match err {
-            creation_service::repository::entity::CreateDiagramEntityMembershipRepositoryError::Db(
+            creation_service::repository::entity::SyncEntityDiagramMembershipsRepositoryError::Db(
                 err,
             ) => TransactionError::Db(err),
-            creation_service::repository::entity::CreateDiagramEntityMembershipRepositoryError::NotFound => {
+            creation_service::repository::entity::SyncEntityDiagramMembershipsRepositoryError::NotFound => {
                 TransactionError::NotFound
             }
         }),
