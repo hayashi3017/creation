@@ -12,8 +12,8 @@ use tower::ServiceExt;
 
 use crate::common::setup_router;
 
-#[sqlx::test(fixtures("genealogy_overview"))]
-async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
+#[sqlx::test(fixtures("genealogy_world"))]
+async fn get_genealogy_world_merges_visible_world_diagrams(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -37,8 +37,12 @@ async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["status"], "success");
-    assert_eq!(json["data"]["world"]["world_id"], 1);
-    assert_eq!(json["data"]["diagram_ids"], serde_json::json!([1, 2]));
+    assert_eq!(json["data"]["context"]["kind"], "world");
+    assert_eq!(json["data"]["context"]["world_id"], 1);
+    assert_eq!(
+        json["data"]["context"]["diagram_ids"],
+        serde_json::json!([1, 2])
+    );
     assert_eq!(json["data"]["stats"]["diagram_count"], 2);
     assert_eq!(json["data"]["stats"]["node_count"], 4);
     assert_eq!(json["data"]["stats"]["edge_count"], 5);
@@ -67,6 +71,8 @@ async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
         deduped_parent["source_relationship_ids"],
         serde_json::json!([1])
     );
+    assert_eq!(deduped_parent["edge_id"], "world:1:edge:1");
+    assert_eq!(deduped_parent["source_confidence"], "confirmed");
     assert_eq!(
         deduped_parent["source_diagram_ids"],
         serde_json::json!([1, 2])
@@ -79,8 +85,8 @@ async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
         .all(|edge| edge["source_diagram_ids"] != serde_json::json!([4])));
 }
 
-#[sqlx::test(fixtures("genealogy_overview"))]
-async fn get_genealogy_overview_applies_center_depth_filters(db: PgPool) {
+#[sqlx::test(fixtures("genealogy_world"))]
+async fn get_genealogy_world_applies_center_depth_filters(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -115,10 +121,30 @@ async fn get_genealogy_overview_applies_center_depth_filters(db: PgPool) {
     assert_eq!(json["data"]["stats"]["node_count"], 2);
     assert_eq!(json["data"]["stats"]["edge_count"], 1);
     assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([2]));
+
+    let nodes = json["data"]["nodes"].as_array().unwrap();
+    let center = nodes
+        .iter()
+        .find(|node| node["entity_id"] == serde_json::json!(3))
+        .unwrap();
+    assert_eq!(center["relation_to_center"], "self");
+    assert_eq!(center["relation_path_to_center"], serde_json::json!([]));
+    assert_eq!(center["generation_offset_from_center"], 0);
+
+    let parent = nodes
+        .iter()
+        .find(|node| node["entity_id"] == serde_json::json!(2))
+        .unwrap();
+    assert_eq!(parent["relation_to_center"], "parent");
+    assert_eq!(parent["generation_offset_from_center"], -1);
+    assert_eq!(
+        parent["relation_path_to_center"].as_array().unwrap().len(),
+        1
+    );
 }
 
-#[sqlx::test(fixtures("genealogy_overview"))]
-async fn get_genealogy_overview_returns_conflict_when_requested_diagrams_are_disabled(db: PgPool) {
+#[sqlx::test(fixtures("genealogy_world"))]
+async fn get_genealogy_world_returns_conflict_when_requested_diagrams_are_disabled(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -143,8 +169,8 @@ async fn get_genealogy_overview_returns_conflict_when_requested_diagrams_are_dis
     assert_eq!(json["message"], "NO_VISIBLE_GENEALOGY_DIAGRAMS");
 }
 
-#[sqlx::test(fixtures("genealogy_overview"))]
-async fn get_genealogy_overview_applies_as_of_filters(db: PgPool) {
+#[sqlx::test(fixtures("genealogy_world"))]
+async fn get_genealogy_world_applies_as_of_filters(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -178,8 +204,8 @@ async fn get_genealogy_overview_applies_as_of_filters(db: PgPool) {
         .all(|edge| { edge["source_entity_id"] != 4 || edge["target_entity_id"] != 2 }));
 }
 
-#[sqlx::test(fixtures("genealogy_overview"))]
-async fn get_genealogy_overview_requires_authentication(db: PgPool) {
+#[sqlx::test(fixtures("genealogy_world"))]
+async fn get_genealogy_world_requires_authentication(db: PgPool) {
     set_test_env();
 
     let mut router = setup_router(db).await;

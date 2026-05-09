@@ -2,14 +2,13 @@ use axum::{response::Html, Json};
 use creation_service::model::{
     diagram::{CreateDiagramSchema, Diagram, DiagramKind},
     entity::CreateDiagramEntityMembershipSchema,
-    genealogy_diagram::{
-        GenealogyDiagramEdge, GenealogyDiagramGraph, GenealogyDiagramNode, GenealogyDiagramStats,
+    genealogy_graph::{
+        GenealogyGraphContextPayload, GenealogyGraphEdgePayload, GenealogyGraphEdgeSource,
+        GenealogyGraphNodePayload, GenealogyGraphPayload, GenealogyGraphSourceConfidence,
+        GenealogyGraphStatsPayload, GenealogyRelationPathDirection,
+        GenealogyRelationPathStepPayload, GenealogyRelationToCenter,
     },
-    genealogy_overview::{
-        GenealogyOverview, GenealogyOverviewEdge, GenealogyOverviewEdgeSource,
-        GenealogyOverviewNode, GenealogyOverviewStats, GenealogyOverviewWorld,
-        GetGenealogyOverviewSchema,
-    },
+    genealogy_world::GetGenealogyWorldSchema,
     person::{CreatePersonSchema, GenderKind, GetPersonsSchema, Person},
     relationship::{
         CreateRelationshipSchema, GetRelationshipsSchema, Relationship, RelationshipKind,
@@ -30,9 +29,9 @@ use crate::{
         world::UpdateWorldRequest,
     },
     response::{
-        DiagramListResponse, ErrorResponse, GenealogyDiagramResponse, GenealogyOverviewResponse,
-        HealthCheckResponse, LoginUserResponse, PersonListResponse, RegisterUserResponse,
-        RelationshipListResponse, StatusResponse, UserResponse, WorldListResponse, WorldResponse,
+        DiagramListResponse, ErrorResponse, GenealogyGraphResponse, HealthCheckResponse,
+        LoginUserResponse, PersonListResponse, RegisterUserResponse, RelationshipListResponse,
+        StatusResponse, UserResponse, WorldListResponse, WorldResponse,
     },
 };
 
@@ -76,7 +75,7 @@ impl Modify for SecurityAddon {
         crate::handler::world::update_world_by_id,
         crate::handler::world::delete_world_by_id,
         crate::handler::genealogy_diagram::get_genealogy_diagram_by_diagram_id,
-        crate::handler::genealogy_overview::get_genealogy_overview,
+        crate::handler::genealogy_world::get_genealogy_world,
         crate::handler::diagram::get_diagrams,
         crate::handler::diagram::create_diagram,
         crate::handler::diagram::create_diagram_entity_membership,
@@ -105,17 +104,17 @@ impl Modify for SecurityAddon {
         UpdateDiagramRequest,
         Diagram,
         DiagramKind,
-        GenealogyDiagramGraph,
-        GenealogyDiagramNode,
-        GenealogyDiagramEdge,
-        GenealogyDiagramStats,
-        GetGenealogyOverviewSchema,
-        GenealogyOverview,
-        GenealogyOverviewWorld,
-        GenealogyOverviewNode,
-        GenealogyOverviewEdge,
-        GenealogyOverviewEdgeSource,
-        GenealogyOverviewStats,
+        GenealogyGraphPayload,
+        GenealogyGraphContextPayload,
+        GenealogyGraphNodePayload,
+        GenealogyRelationToCenter,
+        GenealogyRelationPathStepPayload,
+        GenealogyRelationPathDirection,
+        GenealogyGraphEdgePayload,
+        GenealogyGraphEdgeSource,
+        GenealogyGraphSourceConfidence,
+        GenealogyGraphStatsPayload,
+        GetGenealogyWorldSchema,
         GetPersonsSchema,
         CreatePersonSchema,
         UpdatePersonRequest,
@@ -137,8 +136,7 @@ impl Modify for SecurityAddon {
         DiagramListResponse,
         PersonListResponse,
         RelationshipListResponse,
-        GenealogyDiagramResponse,
-        GenealogyOverviewResponse
+        GenealogyGraphResponse
     )),
     modifiers(&SecurityAddon),
     info(

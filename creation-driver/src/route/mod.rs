@@ -13,7 +13,7 @@ use crate::{
             get_diagrams, sync_diagram_entity_memberships, update_diagram_by_diagram_id,
         },
         genealogy_diagram::get_genealogy_diagram_by_diagram_id,
-        genealogy_overview::get_genealogy_overview,
+        genealogy_world::get_genealogy_world,
         health_check::health_checker_handler,
         person::{
             create_person, delete_person_by_entity_id, get_persons_by_diagram,
@@ -81,7 +81,7 @@ pub fn create_router(app_state: Arc<AppState>) -> Router {
         )
         .route(
             "/api/genealogy/world/:world_id",
-            get(get_genealogy_overview)
+            get(get_genealogy_world)
                 .route_layer(middleware::from_fn_with_state(app_state.clone(), auth)),
         )
         .route(

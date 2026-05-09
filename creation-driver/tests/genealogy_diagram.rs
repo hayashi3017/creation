@@ -37,14 +37,20 @@ async fn get_genealogy_diagram_returns_normalized_projection(db: PgPool) {
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(json["status"], "success");
-    assert_eq!(json["data"]["diagram"]["diagram_id"], 1);
+    assert_eq!(json["data"]["context"]["kind"], "diagram");
+    assert_eq!(json["data"]["context"]["diagram_id"], 1);
+    assert_eq!(json["data"]["context"]["world_id"], 1);
+    assert_eq!(
+        json["data"]["context"]["diagram_ids"],
+        serde_json::json!([1])
+    );
     assert!(json["data"]["as_of"].is_null());
-    assert!(json["data"]["diagram"]["id"].is_null());
-    assert_eq!(json["data"]["diagram"]["kind"], "family_tree");
+    assert!(json["data"]["center_entity_id"].is_null());
     assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1, 4]));
-    assert_eq!(json["data"]["stats"]["person_count"], 5);
+    assert_eq!(json["data"]["stats"]["node_count"], 5);
     assert_eq!(json["data"]["stats"]["edge_count"], 4);
     assert_eq!(json["data"]["stats"]["root_count"], 2);
+    assert_eq!(json["data"]["stats"]["diagram_count"], 1);
 
     let nodes = json["data"]["nodes"].as_array().unwrap();
     assert_eq!(nodes.len(), 5);
@@ -63,23 +69,27 @@ async fn get_genealogy_diagram_returns_normalized_projection(db: PgPool) {
 
     let edges = json["data"]["edges"].as_array().unwrap();
     assert_eq!(edges.len(), 4);
-    assert_eq!(edges[0]["relationship_id"], 1);
+    assert_eq!(edges[0]["edge_id"], "diagram:1:edge:1");
+    assert_eq!(edges[0]["source_relationship_ids"], serde_json::json!([1]));
+    assert_eq!(edges[0]["source_confidence"], "confirmed");
     assert_eq!(edges[0]["source_entity_id"], 1);
     assert_eq!(edges[0]["target_entity_id"], 2);
-    assert_eq!(edges[1]["relationship_id"], 2);
+    assert_eq!(edges[1]["source_relationship_ids"], serde_json::json!([2]));
     assert_eq!(edges[1]["source_entity_id"], 2);
     assert_eq!(edges[1]["target_entity_id"], 3);
     assert_eq!(edges[1]["kind"], "parent");
-    assert_eq!(edges[2]["relationship_id"], 5);
+    assert_eq!(edges[2]["source_relationship_ids"], serde_json::json!([5]));
     assert_eq!(edges[2]["source_entity_id"], 2);
     assert_eq!(edges[2]["target_entity_id"], 5);
     assert_eq!(edges[2]["kind"], "spouse");
-    assert_eq!(edges[3]["relationship_id"], 3);
+    assert_eq!(edges[3]["source_relationship_ids"], serde_json::json!([3]));
     assert_eq!(edges[3]["source_entity_id"], 4);
     assert_eq!(edges[3]["target_entity_id"], 5);
 
     assert!(nodes.iter().all(|node| node["entity_id"] != 6));
-    assert!(edges.iter().all(|edge| edge["relationship_id"] != 4));
+    assert!(edges
+        .iter()
+        .all(|edge| edge["source_relationship_ids"] != serde_json::json!([4])));
 }
 
 #[sqlx::test(fixtures("family_tree"))]
@@ -108,7 +118,7 @@ async fn get_genealogy_diagram_applies_as_of_projection(db: PgPool) {
 
     assert_eq!(json["data"]["as_of"], "1995-01-01");
     assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1, 4]));
-    assert_eq!(json["data"]["stats"]["person_count"], 4);
+    assert_eq!(json["data"]["stats"]["node_count"], 4);
     assert_eq!(json["data"]["stats"]["edge_count"], 3);
     assert_eq!(json["data"]["stats"]["root_count"], 2);
 
@@ -124,9 +134,15 @@ async fn get_genealogy_diagram_applies_as_of_projection(db: PgPool) {
     );
 
     let edges = json["data"]["edges"].as_array().unwrap();
-    assert!(edges.iter().all(|edge| edge["relationship_id"] != 2));
-    assert!(edges.iter().any(|edge| edge["relationship_id"] == 3));
-    assert!(edges.iter().any(|edge| edge["relationship_id"] == 5));
+    assert!(edges
+        .iter()
+        .all(|edge| edge["source_relationship_ids"] != serde_json::json!([2])));
+    assert!(edges
+        .iter()
+        .any(|edge| edge["source_relationship_ids"] == serde_json::json!([3])));
+    assert!(edges
+        .iter()
+        .any(|edge| edge["source_relationship_ids"] == serde_json::json!([5])));
 }
 
 #[sqlx::test(fixtures("family_tree"))]
@@ -161,14 +177,52 @@ async fn get_genealogy_diagram_applies_center_depth_filters(db: PgPool) {
 
     assert_eq!(node_ids, vec![1, 2, 3]);
     assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1]));
-    assert_eq!(json["data"]["stats"]["person_count"], 3);
+    assert_eq!(json["data"]["center_entity_id"], 2);
+    assert_eq!(json["data"]["stats"]["node_count"], 3);
     assert_eq!(json["data"]["stats"]["edge_count"], 2);
     assert_eq!(json["data"]["stats"]["root_count"], 1);
 
+    let nodes = json["data"]["nodes"].as_array().unwrap();
+    let center = nodes
+        .iter()
+        .find(|node| node["entity_id"] == serde_json::json!(2))
+        .unwrap();
+    assert_eq!(center["relation_to_center"], "self");
+    assert_eq!(center["relation_path_to_center"], serde_json::json!([]));
+    assert_eq!(center["generation_offset_from_center"], 0);
+
+    let parent = nodes
+        .iter()
+        .find(|node| node["entity_id"] == serde_json::json!(1))
+        .unwrap();
+    assert_eq!(parent["relation_to_center"], "parent");
+    assert_eq!(parent["generation_offset_from_center"], -1);
+    assert_eq!(
+        parent["relation_path_to_center"].as_array().unwrap().len(),
+        1
+    );
+
+    let child = nodes
+        .iter()
+        .find(|node| node["entity_id"] == serde_json::json!(3))
+        .unwrap();
+    assert_eq!(child["relation_to_center"], "child");
+    assert_eq!(child["generation_offset_from_center"], 1);
+    assert_eq!(
+        child["relation_path_to_center"].as_array().unwrap().len(),
+        1
+    );
+
     let edges = json["data"]["edges"].as_array().unwrap();
-    assert!(edges.iter().any(|edge| edge["relationship_id"] == 1));
-    assert!(edges.iter().any(|edge| edge["relationship_id"] == 2));
-    assert!(edges.iter().all(|edge| edge["relationship_id"] != 5));
+    assert!(edges
+        .iter()
+        .any(|edge| edge["source_relationship_ids"] == serde_json::json!([1])));
+    assert!(edges
+        .iter()
+        .any(|edge| edge["source_relationship_ids"] == serde_json::json!([2])));
+    assert!(edges
+        .iter()
+        .all(|edge| edge["source_relationship_ids"] != serde_json::json!([5])));
 }
 
 #[sqlx::test(fixtures("family_tree"))]

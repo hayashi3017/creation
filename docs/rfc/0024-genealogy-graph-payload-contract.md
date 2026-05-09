@@ -1,13 +1,13 @@
 # RFC 0024: Genealogy Graph Payload Contract
 
-- 状態: `下書き`
+- 状態: `実装済み`
 - 最終更新: `2026-05-09`
 
 ## 背景
 
 `GET /api/genealogy/diagram/{diagram_id}` と `GET /api/genealogy/world/{world_id}` は、どちらも frontend から見ると「家系 graph を描画する read API」である。
 
-しかし現在の response は diagram-local graph と world overview graph で top-level context の形が異なる。さらに、centered view 用の `center_entity_id` / `ancestor_depth` / `descendant_depth` は request contract に存在する一方で、response 側には center-relative な metadata がまだ明示されていない。
+しかし現在の response は diagram-local graph と world graph で top-level context の形が異なる。さらに、centered view 用の `center_entity_id` / `ancestor_depth` / `descendant_depth` は request contract に存在する一方で、response 側には center-relative な metadata がまだ明示されていない。
 
 Frontend で同じ graph renderer を diagram / world の両方に使うには、backend 側で共通 graph payload を明示した方がよい。
 
@@ -18,7 +18,7 @@ Frontend で同じ graph renderer を diagram / world の両方に使うには�
 - diagram / world の genealogy read endpoint が同じ `GenealogyGraphPayload` を返せるようにする。
 - response に graph の文脈を表す `context` を追加する。
 - centered genealogy read のために `center_entity_id` と node-level center metadata を明示する。
-- world overview の統合 edge に安定した public id を持たせる。
+- world graph の統合 edge に安定した public id を持たせる。
 - edge の裏付けの強さを frontend が表現できるようにする。
 - 既存の source provenance を失わない。
 
@@ -340,7 +340,7 @@ Rules:
 - source relationship が増減した場合は別 edge とみなし、`edge_id` が変わってよい。
 - diagram graph でも `relationship:{relationship_id}` は使わない。explicit / derived / suggested を同じ identity rule で扱うためである。
 - 同じ world-level relationship edge が再取得時に同じ `edge_id` になることを API test で保証する。
-- Client は world overview edge の identity として `relationship_id` ではなく `edge_id` を使う。
+- Client は world graph edge の identity として `relationship_id` ではなく `edge_id` を使う。
 
 ## Stats 契約
 
@@ -410,7 +410,7 @@ Centered request の response assembly は次の順序で行う。
 
 - invalid id / invalid query -> `400 BAD_REQUEST`
 - missing or invisible diagram / world -> `404 NOT_FOUND`
-- visible world だが overview 対象 diagram がない -> `409 CONFLICT` + `NO_VISIBLE_GENEALOGY_DIAGRAMS`
+- visible world だが world graph 対象 diagram がない -> `409 CONFLICT` + `NO_VISIBLE_GENEALOGY_DIAGRAMS`
 - `center_entity_id` が graph scope に含まれない -> `400 BAD_REQUEST`
 
 `center_entity_id` が別 user / 別 world の entity である場合も、resource existence を漏らさないため `400 BAD_REQUEST` または `404 NOT_FOUND` のどちらにするかは RFC 0018 の authorization policy に従う。
@@ -419,7 +419,7 @@ Centered request の response assembly は次の順序で行う。
 
 1. `creation-service` に `GenealogyGraphPayload` 相当の共通 graph model を追加する。
 2. `GenealogyDiagramGraph` と `GenealogyOverview` を public response model としては廃止し、usecase output を共通 graph model に統一する。
-3. diagram / overview usecase の assembly を共通 helper に寄せる。
+3. diagram / world usecase の assembly を共通 helper に寄せる。
 4. world edge の `edge_id` 生成 helper を追加する。
 5. center-relative metadata を計算する read-side helper を追加する。
 6. driver response / OpenAPI schema を `GenealogyGraphResponse` に統一する。

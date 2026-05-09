@@ -113,20 +113,20 @@ CREATE TABLE IF NOT EXISTS tree_path (
 INSERT INTO users
   (user_id, email, name, password, photo, role)
 VALUES
-  ('00000000-0000-0000-0000-000000000001', 'genealogy-overview-test@example.com', 'genealogy_overview_test', 'test_password', 'default.png', 'user');
+  ('00000000-0000-0000-0000-000000000001', 'genealogy-world-test@example.com', 'genealogy_world_test', 'test_password', 'default.png', 'user');
 
 INSERT INTO world
   (world_id, name, description)
 VALUES
   (1, 'Overview World', 'fixture world'),
-  (2, 'Other World', 'world outside the overview');
+  (2, 'Other World', 'world outside the genealogy world graph');
 
 INSERT INTO diagram
   (diagram_id, world_id, name, kind, genealogy_overview_enabled, description, deleted_at)
 VALUES
   (1, 1, 'Main Line', 'family_tree', true, 'first visible diagram', NULL),
   (2, 1, 'Branch Line', 'family_tree', true, 'second visible diagram', NULL),
-  (3, 1, 'Private Draft', 'family_tree', false, 'disabled for overview', NULL),
+  (3, 1, 'Private Draft', 'family_tree', false, 'disabled for world graph', NULL),
   (4, 2, 'Other World Tree', 'family_tree', true, 'outside world', NULL),
   (5, 1, 'Deleted Tree', 'family_tree', true, 'deleted diagram', now()),
   (6, 1, 'Correlation', 'correlation', true, 'wrong diagram kind', NULL);

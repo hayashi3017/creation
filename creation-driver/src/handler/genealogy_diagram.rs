@@ -13,7 +13,7 @@ use http::StatusCode;
 use serde::Deserialize;
 
 use crate::{
-    response::{ErrorResponse, GenealogyDiagramResponse},
+    response::{ErrorResponse, GenealogyGraphResponse},
     AppState,
 };
 
@@ -45,7 +45,7 @@ pub struct GetGenealogyDiagramQuery {
         ("as_of" = Option<chrono::NaiveDate>, Query, description = "Optional as-of date in YYYY-MM-DD format.")
     ),
     responses(
-        (status = 200, description = "Normalized genealogy projection for the requested diagram.", body = GenealogyDiagramResponse),
+        (status = 200, description = "Normalized genealogy projection for the requested diagram.", body = GenealogyGraphResponse),
         (status = 400, description = "The diagram id was invalid or the diagram kind cannot be rendered as genealogy.", body = ErrorResponse),
         (status = 401, description = "Authentication is required.", body = ErrorResponse),
         (status = 404, description = "The diagram was not found.", body = ErrorResponse),
@@ -68,7 +68,7 @@ pub async fn get_genealogy_diagram_by_diagram_id(
         })
         .await
     {
-        Ok(ret) => Ok(Json(GenealogyDiagramResponse {
+        Ok(ret) => Ok(Json(GenealogyGraphResponse {
             status: "success".to_string(),
             data: ret,
         })),

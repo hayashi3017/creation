@@ -36,7 +36,7 @@ use creation_usecase::usecase::{
     diagram::{DiagramUsecase, ProvidesDiagramUsecase},
     entity::{EntityUsecase, ProvidesEntityUsecase},
     genealogy_diagram::{GenealogyDiagramUsecase, ProvidesGenealogyDiagramUsecase},
-    genealogy_overview::{GenealogyOverviewUsecase, ProvidesGenealogyOverviewUsecase},
+    genealogy_world::{GenealogyWorldUsecase, ProvidesGenealogyWorldUsecase},
     person::{PersonUsecase, ProvidesPersonUsecase},
     relationship::{ProvidesRelationshipUsecase, RelationshipUsecase},
     user::{ProvidesUserUsecase, UserUsecase},
@@ -298,7 +298,7 @@ impl WorldUsecase for AppModule {}
 impl DiagramUsecase for AppModule {}
 impl EntityUsecase for AppModule {}
 impl GenealogyDiagramUsecase for AppModule {}
-impl GenealogyOverviewUsecase for AppModule {}
+impl GenealogyWorldUsecase for AppModule {}
 impl PersonUsecase for AppModule {}
 impl RelationshipUsecase for AppModule {}
 
@@ -342,10 +342,10 @@ impl ProvidesGenealogyDiagramUsecase for AppModule {
     }
 }
 
-impl ProvidesGenealogyOverviewUsecase for AppModule {
+impl ProvidesGenealogyWorldUsecase for AppModule {
     type T = Self;
 
-    fn genealogy_overview_usecase(&self) -> &Self::T {
+    fn genealogy_world_usecase(&self) -> &Self::T {
         self
     }
 }

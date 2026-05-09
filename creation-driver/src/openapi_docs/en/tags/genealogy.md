@@ -1,1 +1,1 @@
-Genealogy diagram and world overview read endpoints.
+Genealogy diagram and world graph read endpoints.
