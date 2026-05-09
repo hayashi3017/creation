@@ -1,3 +1,3 @@
 Create a relationship
 
-Creates a relationship edge in the target diagram.
+Creates a world-level relationship edge.

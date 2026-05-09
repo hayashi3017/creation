@@ -152,9 +152,7 @@ where
             ),
             deleted_tree_path AS (
                 DELETE FROM tree_path
-                WHERE
-                    ancestor_id IN (SELECT entity_id FROM entity WHERE world_id IN (SELECT world_id FROM active_world))
-                    OR descendant_id IN (SELECT entity_id FROM entity WHERE world_id IN (SELECT world_id FROM active_world))
+                WHERE world_id IN (SELECT world_id FROM active_world)
             ),
             deleted_relationship AS (
                 UPDATE relationship
@@ -162,7 +160,7 @@ where
                     deleted_at = now(),
                     updated_at = now()
                 WHERE
-                    diagram_id IN (SELECT diagram_id FROM diagram WHERE world_id IN (SELECT world_id FROM active_world))
+                    world_id IN (SELECT world_id FROM active_world)
                     AND deleted_at IS NULL
             ),
             deleted_person AS (

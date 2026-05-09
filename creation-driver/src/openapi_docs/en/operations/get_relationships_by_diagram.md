@@ -1,5 +1,5 @@
-List relationships in a diagram
+List relationships in a world
 
-Returns all relationships for the requested diagram.
+Returns all relationships for the requested world.
 
-The current implementation accepts the diagram identifier in the request body even though the route uses `GET`.
+The current implementation accepts the world identifier in the request body even though the route uses `GET`.

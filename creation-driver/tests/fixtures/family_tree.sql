@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS person (
 
 CREATE TABLE IF NOT EXISTS relationship (
     relationship_id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     source_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     target_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     kind relationship_kind NOT NULL,
@@ -103,10 +103,11 @@ CREATE TABLE IF NOT EXISTS relationship (
 );
 
 CREATE TABLE IF NOT EXISTS tree_path (
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     ancestor_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     descendant_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     depth INT NOT NULL,
-    PRIMARY KEY (ancestor_id, descendant_id)
+    PRIMARY KEY (world_id, ancestor_id, descendant_id)
 );
 
 INSERT INTO users
@@ -172,13 +173,13 @@ VALUES
   (9, 'female', NULL, NULL, 'Okinawa', NULL, NULL, NULL);
 
 INSERT INTO relationship
-  (relationship_id, diagram_id, source_entity_id, target_entity_id, kind, start_date, end_date, notes, deleted_at)
+  (relationship_id, world_id, source_entity_id, target_entity_id, kind, start_date, end_date, notes, deleted_at)
 VALUES
   (1, 1, 1, 2, 'parent', NULL, NULL, 'ancestor to parent', NULL),
   (2, 1, 2, 3, 'parent', '2000-09-09', NULL, 'parent to child', NULL),
   (3, 1, 4, 5, 'parent', '1990-07-07', '1999-12-31', 'second branch', NULL),
   (4, 1, 1, 6, 'parent', NULL, NULL, 'deleted endpoint edge', NULL),
   (5, 1, 2, 5, 'spouse', NULL, NULL, 'non lineage edge', NULL),
-  (6, 3, 8, 9, 'parent', NULL, NULL, 'deleted diagram edge', NULL);
+  (6, 1, 8, 9, 'parent', NULL, NULL, 'deleted diagram edge', NULL);
 
 SELECT setval(pg_get_serial_sequence('relationship', 'relationship_id'), 6, true);

@@ -98,7 +98,7 @@ impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
         let relationships = self
             .relationship_service()
             .get_relationships(GetRelationshipsSchema {
-                diagram_id: body.diagram_id,
+                world_id: diagram.world_id,
             })
             .await
             .map_err(map_get_relationships_error)?;

@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS person (
 
 CREATE TABLE IF NOT EXISTS relationship (
     relationship_id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     source_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     target_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     kind relationship_kind NOT NULL,
@@ -103,10 +103,11 @@ CREATE TABLE IF NOT EXISTS relationship (
 );
 
 CREATE TABLE IF NOT EXISTS tree_path (
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     ancestor_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     descendant_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     depth INT NOT NULL,
-    PRIMARY KEY (ancestor_id, descendant_id)
+    PRIMARY KEY (world_id, ancestor_id, descendant_id)
 );
 
 INSERT INTO users
@@ -168,14 +169,13 @@ VALUES
   (7, 'unknown', '2000-01-01', NULL, NULL, NULL, NULL, NULL);
 
 INSERT INTO relationship
-  (relationship_id, diagram_id, source_entity_id, target_entity_id, kind, start_date, end_date, end_reason, notes, deleted_at)
+  (relationship_id, world_id, source_entity_id, target_entity_id, kind, start_date, end_date, end_reason, notes, deleted_at)
 VALUES
   (1, 1, 1, 2, 'parent', '1975-01-01', NULL, NULL, 'main line parent', NULL),
-  (2, 2, 1, 2, 'parent', '1975-01-01', NULL, NULL, 'duplicate branch parent', NULL),
   (3, 1, 2, 3, 'parent', '2010-01-01', NULL, NULL, 'future child', NULL),
-  (4, 2, 4, 2, 'adoptive_parent', '1990-01-01', '1999-12-31', 'ended', 'past relationship', NULL),
-  (5, 3, 5, 1, 'parent', NULL, NULL, NULL, 'disabled diagram edge', NULL),
-  (6, 4, 6, 1, 'parent', NULL, NULL, NULL, 'other world edge', NULL),
+  (4, 1, 4, 2, 'adoptive_parent', '1990-01-01', '1999-12-31', 'ended', 'past relationship', NULL),
+  (5, 1, 5, 1, 'parent', NULL, NULL, NULL, 'disabled diagram edge', NULL),
+  (6, 2, 6, 1, 'parent', NULL, NULL, NULL, 'other world edge', NULL),
   (7, 1, 1, 7, 'parent', NULL, NULL, NULL, 'deleted endpoint edge', NULL),
-  (8, 2, 1, 4, 'spouse', NULL, NULL, NULL, 'symmetric edge', NULL),
+  (8, 1, 1, 4, 'spouse', NULL, NULL, NULL, 'symmetric edge', NULL),
   (9, 1, 1, 4, 'parent', NULL, NULL, NULL, 'target is not a member of diagram 1', NULL);

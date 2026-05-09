@@ -132,7 +132,6 @@ impl<T: GenealogyOverviewUsecase> UsesGetGenealogyOverviewUsecase for T {
             .iter()
             .map(|diagram| diagram.diagram_id)
             .collect::<Vec<_>>();
-        let diagram_id_set = diagram_ids.iter().copied().collect::<HashSet<_>>();
 
         let entity_rows = self
             .entity_service()
@@ -166,15 +165,16 @@ impl<T: GenealogyOverviewUsecase> UsesGetGenealogyOverviewUsecase for T {
         let relationships = self
             .relationship_service()
             .load_relationships_by_diagram_ids(LoadRelationshipsByDiagramIdsSchema {
+                world_id: body.world_id,
                 diagram_ids: diagram_ids.clone(),
             })
             .await
             .map_err(map_load_relationships_by_diagram_ids_error)?;
         let mut edges = build_edges(
             relationships,
-            &diagram_id_set,
             &active_entity_ids,
             &visible_entity_ids,
+            &source_diagram_ids_by_entity_id(&nodes),
             body.as_of,
         );
 
@@ -285,16 +285,15 @@ struct EdgeKey {
 
 fn build_edges(
     relationships: Vec<Relationship>,
-    diagram_id_set: &HashSet<usize>,
     active_entity_ids: &HashSet<usize>,
     visible_entity_ids: &HashSet<usize>,
+    source_diagram_ids_by_entity_id: &HashMap<usize, Vec<usize>>,
     as_of: Option<NaiveDate>,
 ) -> Vec<GenealogyOverviewEdge> {
     let mut edges_by_key = HashMap::<EdgeKey, GenealogyOverviewEdge>::new();
 
     for relationship in relationships {
-        if !diagram_id_set.contains(&relationship.diagram_id)
-            || relationship.source_entity_id == relationship.target_entity_id
+        if relationship.source_entity_id == relationship.target_entity_id
             || !active_entity_ids.contains(&relationship.source_entity_id)
             || !active_entity_ids.contains(&relationship.target_entity_id)
             || !visible_entity_ids.contains(&relationship.source_entity_id)
@@ -319,7 +318,11 @@ fn build_edges(
             .and_modify(|edge| {
                 edge.source_relationship_ids
                     .push(relationship.relationship_id);
-                edge.source_diagram_ids.push(relationship.diagram_id);
+                edge.source_diagram_ids.extend(source_diagram_ids_for_edge(
+                    source_diagram_ids_by_entity_id,
+                    relationship.source_entity_id,
+                    relationship.target_entity_id,
+                ));
             })
             .or_insert_with(|| GenealogyOverviewEdge {
                 source_entity_id,
@@ -330,7 +333,11 @@ fn build_edges(
                 end_date: relationship.end_date,
                 end_reason: relationship.end_reason,
                 source_relationship_ids: vec![relationship.relationship_id],
-                source_diagram_ids: vec![relationship.diagram_id],
+                source_diagram_ids: source_diagram_ids_for_edge(
+                    source_diagram_ids_by_entity_id,
+                    relationship.source_entity_id,
+                    relationship.target_entity_id,
+                ),
             });
     }
 
@@ -358,6 +365,30 @@ fn normalize_edge_endpoints(relationship: &Relationship) -> (usize, usize) {
     } else {
         (relationship.source_entity_id, relationship.target_entity_id)
     }
+}
+
+fn source_diagram_ids_by_entity_id(nodes: &[GenealogyOverviewNode]) -> HashMap<usize, Vec<usize>> {
+    nodes
+        .iter()
+        .map(|node| (node.entity_id, node.source_diagram_ids.clone()))
+        .collect()
+}
+
+fn source_diagram_ids_for_edge(
+    source_diagram_ids_by_entity_id: &HashMap<usize, Vec<usize>>,
+    source_entity_id: usize,
+    target_entity_id: usize,
+) -> Vec<usize> {
+    let mut diagram_ids = Vec::new();
+    if let Some(source_diagram_ids) = source_diagram_ids_by_entity_id.get(&source_entity_id) {
+        diagram_ids.extend(source_diagram_ids);
+    }
+    if let Some(target_diagram_ids) = source_diagram_ids_by_entity_id.get(&target_entity_id) {
+        diagram_ids.extend(target_diagram_ids);
+    }
+    diagram_ids.sort_unstable();
+    diagram_ids.dedup();
+    diagram_ids
 }
 
 fn is_relationship_visible_as_of(relationship: &Relationship, as_of: Option<NaiveDate>) -> bool {

@@ -1,17 +1,14 @@
 use async_trait::async_trait;
 use creation_service::{
-    model::diagram::ExistsActiveDiagramSchema,
     model::relationship::{
         CreateRelationshipSchema, DeleteRelationshipSchema, GetRelationshipsSchema,
-        LoadRelationshipDiagramIdSchema, Relationship, UpdateRelationshipSchema,
+        LoadRelationshipWorldIdSchema, Relationship, UpdateRelationshipSchema,
     },
     model::tree_path::SyncTreePathsByEntityIdsSchema,
-    repository::diagram::{
-        ExistsActiveDiagramRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
-    },
+    model::world::GetWorldSchema,
     repository::relationship::{
         CreateRelationshipRepositoryError, DeleteRelationshipRepositoryError,
-        LoadRelationshipDiagramIdRepositoryError, ProvidesRelationshipRepository,
+        LoadRelationshipWorldIdRepositoryError, ProvidesRelationshipRepository,
         UpdateRelationshipRepositoryError, UsesRelationshipRepository,
     },
     service::{
@@ -24,22 +21,21 @@ use creation_service::{
             BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError,
         },
         tree_path::{ProvidesTreePathService, SyncTreePathsServiceError, UsesTreePathService},
+        world::{GetWorldServiceError, ProvidesWorldService, UsesWorldService},
     },
 };
 use thiserror::Error;
 
 #[async_trait]
 pub trait RelationshipUsecase:
-    ProvidesDiagramRepository
+    ProvidesWorldService
     + ProvidesRelationshipService
     + ProvidesTreePathService
     + ProvidesTransactionManager
 where
     <Self as ProvidesTransactionManager>::T: TransactionContext,
-    <Self as ProvidesTransactionManager>::T: ProvidesDiagramRepository
-        + ProvidesRelationshipRepository
-        + ProvidesRelationshipService
-        + ProvidesTreePathService,
+    <Self as ProvidesTransactionManager>::T:
+        ProvidesRelationshipRepository + ProvidesRelationshipService + ProvidesTreePathService,
 {
 }
 
@@ -50,7 +46,7 @@ pub enum GetRelationshipsUsecaseError {
     #[error(transparent)]
     GetRelationshipsServiceError(#[from] GetRelationshipsServiceError),
     #[error(transparent)]
-    ExistsActiveDiagramRepositoryError(#[from] ExistsActiveDiagramRepositoryError),
+    GetWorldServiceError(#[from] GetWorldServiceError),
     #[error("not found")]
     NotFound,
 }
@@ -104,27 +100,29 @@ impl<T> UsesGetRelationshipsUsecase for T
 where
     T: RelationshipUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesDiagramRepository
-        + ProvidesRelationshipRepository
-        + ProvidesRelationshipService
-        + ProvidesTreePathService,
+    <T as ProvidesTransactionManager>::T:
+        ProvidesRelationshipRepository + ProvidesRelationshipService + ProvidesTreePathService,
 {
     async fn get_relationships(
         &self,
         body: GetRelationshipsSchema,
     ) -> Result<Vec<Relationship>, GetRelationshipsUsecaseError> {
-        if body.diagram_id == 0 {
+        if body.world_id == 0 {
             return Err(GetRelationshipsUsecaseError::InvalidParams);
         }
 
-        if !self
-            .diagram_repository()
-            .exists_active_diagram(ExistsActiveDiagramSchema {
-                diagram_id: body.diagram_id,
+        match self
+            .world_service()
+            .get_world(GetWorldSchema {
+                world_id: body.world_id,
             })
-            .await?
+            .await
         {
-            return Err(GetRelationshipsUsecaseError::NotFound);
+            Ok(_) => {}
+            Err(GetWorldServiceError::NotFound) => {
+                return Err(GetRelationshipsUsecaseError::NotFound)
+            }
+            Err(err) => return Err(GetRelationshipsUsecaseError::GetWorldServiceError(err)),
         }
 
         match self.relationship_service().get_relationships(body).await {
@@ -152,33 +150,21 @@ impl<T> UsesCreateRelationshipUsecase for T
 where
     T: RelationshipUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesDiagramRepository
-        + ProvidesRelationshipRepository
-        + ProvidesRelationshipService
-        + ProvidesTreePathService,
+    <T as ProvidesTransactionManager>::T:
+        ProvidesRelationshipRepository + ProvidesRelationshipService + ProvidesTreePathService,
 {
     async fn create_relationship(
         &self,
         body: CreateRelationshipSchema,
     ) -> Result<(), CreateRelationshipUsecaseError> {
-        if body.diagram_id == 0 {
+        if body.world_id == 0 {
             return Err(CreateRelationshipUsecaseError::InvalidParams);
         }
 
+        let world_id = body.world_id;
         let affected_entity_ids =
             normalize_entity_ids(vec![body.source_entity_id, body.target_entity_id]);
         let tx = self.begin_transaction().await?;
-
-        if !tx
-            .diagram_repository()
-            .exists_active_diagram(ExistsActiveDiagramSchema {
-                diagram_id: body.diagram_id,
-            })
-            .await
-            .map_err(map_create_relationship_diagram_error)?
-        {
-            return Err(CreateRelationshipUsecaseError::NotFound);
-        }
 
         tx.relationship_service()
             .create_relationship(body)
@@ -187,6 +173,7 @@ where
 
         tx.tree_path_service()
             .sync_tree_paths_by_entity_ids(SyncTreePathsByEntityIdsSchema {
+                world_id,
                 entity_ids: affected_entity_ids,
             })
             .await
@@ -213,10 +200,8 @@ impl<T> UsesUpdateRelationshipUsecase for T
 where
     T: RelationshipUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesDiagramRepository
-        + ProvidesRelationshipRepository
-        + ProvidesRelationshipService
-        + ProvidesTreePathService,
+    <T as ProvidesTransactionManager>::T:
+        ProvidesRelationshipRepository + ProvidesRelationshipService + ProvidesTreePathService,
 {
     async fn update_relationship(
         &self,
@@ -229,25 +214,16 @@ where
         let next_entity_ids = vec![body.source_entity_id, body.target_entity_id];
         let tx = self.begin_transaction().await?;
 
-        let Some(diagram_id) = tx
+        let Some(world_id) = tx
             .relationship_repository()
-            .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema {
+            .load_relationship_world_id(LoadRelationshipWorldIdSchema {
                 relationship_id: body.relationship_id,
             })
             .await
-            .map_err(map_update_relationship_load_diagram_id_error)?
+            .map_err(map_update_relationship_load_world_id_error)?
         else {
             return Err(UpdateRelationshipUsecaseError::NotFound);
         };
-
-        if !tx
-            .diagram_repository()
-            .exists_active_diagram(ExistsActiveDiagramSchema { diagram_id })
-            .await
-            .map_err(map_update_relationship_diagram_error)?
-        {
-            return Err(UpdateRelationshipUsecaseError::NotFound);
-        }
 
         let previous_endpoints = tx
             .relationship_service()
@@ -261,6 +237,7 @@ where
 
         tx.tree_path_service()
             .sync_tree_paths_by_entity_ids(SyncTreePathsByEntityIdsSchema {
+                world_id,
                 entity_ids: normalize_entity_ids(affected_entity_ids),
             })
             .await
@@ -287,10 +264,8 @@ impl<T> UsesDeleteRelationshipUsecase for T
 where
     T: RelationshipUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesDiagramRepository
-        + ProvidesRelationshipRepository
-        + ProvidesRelationshipService
-        + ProvidesTreePathService,
+    <T as ProvidesTransactionManager>::T:
+        ProvidesRelationshipRepository + ProvidesRelationshipService + ProvidesTreePathService,
 {
     async fn delete_relationship(
         &self,
@@ -302,25 +277,16 @@ where
 
         let tx = self.begin_transaction().await?;
 
-        let Some(diagram_id) = tx
+        let Some(world_id) = tx
             .relationship_repository()
-            .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema {
+            .load_relationship_world_id(LoadRelationshipWorldIdSchema {
                 relationship_id: body.relationship_id,
             })
             .await
-            .map_err(map_delete_relationship_load_diagram_id_error)?
+            .map_err(map_delete_relationship_load_world_id_error)?
         else {
             return Err(DeleteRelationshipUsecaseError::NotFound);
         };
-
-        if !tx
-            .diagram_repository()
-            .exists_active_diagram(ExistsActiveDiagramSchema { diagram_id })
-            .await
-            .map_err(map_delete_relationship_diagram_error)?
-        {
-            return Err(DeleteRelationshipUsecaseError::NotFound);
-        }
 
         let endpoints = tx
             .relationship_service()
@@ -330,6 +296,7 @@ where
 
         tx.tree_path_service()
             .sync_tree_paths_by_entity_ids(SyncTreePathsByEntityIdsSchema {
+                world_id,
                 entity_ids: normalize_entity_ids(vec![
                     endpoints.source_entity_id,
                     endpoints.target_entity_id,
@@ -363,14 +330,6 @@ fn map_create_relationship_service_error(
     }
 }
 
-fn map_create_relationship_diagram_error(
-    err: ExistsActiveDiagramRepositoryError,
-) -> CreateRelationshipUsecaseError {
-    CreateRelationshipUsecaseError::TransactionError(match err {
-        ExistsActiveDiagramRepositoryError::Db(err) => TransactionError::Db(err),
-    })
-}
-
 fn map_update_relationship_service_error(
     err: UpdateRelationshipServiceError,
 ) -> UpdateRelationshipUsecaseError {
@@ -388,19 +347,11 @@ fn map_update_relationship_service_error(
     }
 }
 
-fn map_update_relationship_load_diagram_id_error(
-    err: LoadRelationshipDiagramIdRepositoryError,
+fn map_update_relationship_load_world_id_error(
+    err: LoadRelationshipWorldIdRepositoryError,
 ) -> UpdateRelationshipUsecaseError {
     UpdateRelationshipUsecaseError::TransactionError(match err {
-        LoadRelationshipDiagramIdRepositoryError::Db(err) => TransactionError::Db(err),
-    })
-}
-
-fn map_update_relationship_diagram_error(
-    err: ExistsActiveDiagramRepositoryError,
-) -> UpdateRelationshipUsecaseError {
-    UpdateRelationshipUsecaseError::TransactionError(match err {
-        ExistsActiveDiagramRepositoryError::Db(err) => TransactionError::Db(err),
+        LoadRelationshipWorldIdRepositoryError::Db(err) => TransactionError::Db(err),
     })
 }
 
@@ -421,19 +372,11 @@ fn map_delete_relationship_service_error(
     }
 }
 
-fn map_delete_relationship_load_diagram_id_error(
-    err: LoadRelationshipDiagramIdRepositoryError,
+fn map_delete_relationship_load_world_id_error(
+    err: LoadRelationshipWorldIdRepositoryError,
 ) -> DeleteRelationshipUsecaseError {
     DeleteRelationshipUsecaseError::TransactionError(match err {
-        LoadRelationshipDiagramIdRepositoryError::Db(err) => TransactionError::Db(err),
-    })
-}
-
-fn map_delete_relationship_diagram_error(
-    err: ExistsActiveDiagramRepositoryError,
-) -> DeleteRelationshipUsecaseError {
-    DeleteRelationshipUsecaseError::TransactionError(match err {
-        ExistsActiveDiagramRepositoryError::Db(err) => TransactionError::Db(err),
+        LoadRelationshipWorldIdRepositoryError::Db(err) => TransactionError::Db(err),
     })
 }
 
@@ -486,9 +429,16 @@ fn map_tree_path_transaction_error(err: SyncTreePathsServiceError) -> Transactio
                 ) => err,
             })
         }
-        SyncTreePathsServiceError::LoadRelationshipEdgesByDiagramIdsRepositoryError(err) => {
+        SyncTreePathsServiceError::LoadEntitiesByWorldRepositoryError(err) => {
             TransactionError::Db(match err {
-                creation_service::repository::relationship::LoadRelationshipEdgesByDiagramIdsRepositoryError::Db(err) => err,
+                creation_service::repository::entity::LoadEntitiesByWorldRepositoryError::Db(
+                    err,
+                ) => err,
+            })
+        }
+        SyncTreePathsServiceError::LoadRelationshipEdgesByWorldIdRepositoryError(err) => {
+            TransactionError::Db(match err {
+                creation_service::repository::relationship::LoadRelationshipEdgesByWorldIdRepositoryError::Db(err) => err,
             })
         }
         SyncTreePathsServiceError::LoadStaleRelatedConnectionsRepositoryError(err) => {

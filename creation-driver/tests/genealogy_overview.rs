@@ -41,8 +41,8 @@ async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
     assert_eq!(json["data"]["diagram_ids"], serde_json::json!([1, 2]));
     assert_eq!(json["data"]["stats"]["diagram_count"], 2);
     assert_eq!(json["data"]["stats"]["node_count"], 4);
-    assert_eq!(json["data"]["stats"]["edge_count"], 4);
-    assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1, 4]));
+    assert_eq!(json["data"]["stats"]["edge_count"], 5);
+    assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1]));
 
     let nodes = json["data"]["nodes"].as_array().unwrap();
     let shared = nodes
@@ -65,7 +65,7 @@ async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
         .expect("deduped parent edge");
     assert_eq!(
         deduped_parent["source_relationship_ids"],
-        serde_json::json!([1, 2])
+        serde_json::json!([1])
     );
     assert_eq!(
         deduped_parent["source_diagram_ids"],
@@ -77,11 +77,6 @@ async fn get_genealogy_overview_merges_visible_world_diagrams(db: PgPool) {
     assert!(edges
         .iter()
         .all(|edge| edge["source_diagram_ids"] != serde_json::json!([4])));
-    assert!(edges.iter().all(|edge| {
-        edge["source_relationship_ids"]
-            .as_array()
-            .is_some_and(|ids| ids.iter().all(|id| id != 9))
-    }));
 }
 
 #[sqlx::test(fixtures("genealogy_overview"))]

@@ -2,12 +2,11 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::model::relationship::{
-    CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForDiagramSchema,
-    DeleteRelationshipsForEntitySchema, DiagramRelationshipEdge, GetRelationshipsSchema,
-    LoadRelationshipDiagramIdSchema, LoadRelationshipEdgesByDiagramIdsSchema,
-    LoadRelationshipEdgesSchema, LoadRelationshipsByDiagramIdsSchema, Relationship,
+    CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForEntitySchema,
+    GetRelationshipsSchema, LoadRelationshipEdgesByWorldIdSchema, LoadRelationshipEdgesSchema,
+    LoadRelationshipWorldIdSchema, LoadRelationshipsByDiagramIdsSchema, Relationship,
     RelationshipEdge, RelationshipEndpoints, UpdateRelationshipSchema,
-    UpdatedRelationshipEndpoints,
+    UpdatedRelationshipEndpoints, WorldRelationshipEdge,
 };
 
 pub trait RelationshipRepository: Send + Sync + 'static {}
@@ -49,19 +48,13 @@ pub enum DeleteRelationshipsForEntityRepositoryError {
 }
 
 #[derive(Debug, Error)]
-pub enum DeleteRelationshipsForDiagramRepositoryError {
-    #[error(transparent)]
-    Db(#[from] sqlx::Error),
-}
-
-#[derive(Debug, Error)]
 pub enum LoadRelationshipEdgesRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
 }
 
 #[derive(Debug, Error)]
-pub enum LoadRelationshipEdgesByDiagramIdsRepositoryError {
+pub enum LoadRelationshipEdgesByWorldIdRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
 }
@@ -73,7 +66,7 @@ pub enum LoadRelationshipsByDiagramIdsRepositoryError {
 }
 
 #[derive(Debug, Error)]
-pub enum LoadRelationshipDiagramIdRepositoryError {
+pub enum LoadRelationshipWorldIdRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
 }
@@ -100,22 +93,18 @@ pub trait UsesRelationshipRepository: Send + Sync + 'static {
         &self,
         body: DeleteRelationshipsForEntitySchema,
     ) -> Result<Vec<usize>, DeleteRelationshipsForEntityRepositoryError>;
-    async fn delete_relationships_for_diagram(
+    async fn load_relationship_world_id(
         &self,
-        body: DeleteRelationshipsForDiagramSchema,
-    ) -> Result<Vec<usize>, DeleteRelationshipsForDiagramRepositoryError>;
-    async fn load_relationship_diagram_id(
-        &self,
-        body: LoadRelationshipDiagramIdSchema,
-    ) -> Result<Option<usize>, LoadRelationshipDiagramIdRepositoryError>;
+        body: LoadRelationshipWorldIdSchema,
+    ) -> Result<Option<usize>, LoadRelationshipWorldIdRepositoryError>;
     async fn load_relationship_edges(
         &self,
         body: LoadRelationshipEdgesSchema,
     ) -> Result<Vec<RelationshipEdge>, LoadRelationshipEdgesRepositoryError>;
-    async fn load_relationship_edges_by_diagram_ids(
+    async fn load_relationship_edges_by_world_id(
         &self,
-        body: LoadRelationshipEdgesByDiagramIdsSchema,
-    ) -> Result<Vec<DiagramRelationshipEdge>, LoadRelationshipEdgesByDiagramIdsRepositoryError>;
+        body: LoadRelationshipEdgesByWorldIdSchema,
+    ) -> Result<Vec<WorldRelationshipEdge>, LoadRelationshipEdgesByWorldIdRepositoryError>;
     async fn load_relationships_by_diagram_ids(
         &self,
         body: LoadRelationshipsByDiagramIdsSchema,

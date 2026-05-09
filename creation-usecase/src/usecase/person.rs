@@ -374,6 +374,7 @@ where
     ) -> Result<(), DeletePersonUsecaseError> {
         let body = prepare_delete_person(body).ok_or(DeletePersonUsecaseError::InvalidParams)?;
         let entity_id = body.entity_id;
+        let world_id = body.world_id;
 
         let tx = self.begin_transaction().await?;
 
@@ -401,6 +402,7 @@ where
 
         tx.tree_path_service()
             .sync_tree_paths_by_entity_ids(SyncTreePathsByEntityIdsSchema {
+                world_id,
                 entity_ids: affected_entity_ids,
             })
             .await
@@ -630,9 +632,16 @@ fn map_delete_person_tree_path_error(err: SyncTreePathsServiceError) -> DeletePe
                 creation_service::repository::entity::LoadActiveEntitiesByDiagramIdsRepositoryError::Db(err) => err,
             }))
         }
-        SyncTreePathsServiceError::LoadRelationshipEdgesByDiagramIdsRepositoryError(err) => {
+        SyncTreePathsServiceError::LoadEntitiesByWorldRepositoryError(err) => {
             DeletePersonUsecaseError::TransactionError(TransactionError::Db(match err {
-                creation_service::repository::relationship::LoadRelationshipEdgesByDiagramIdsRepositoryError::Db(err) => err,
+                creation_service::repository::entity::LoadEntitiesByWorldRepositoryError::Db(
+                    err,
+                ) => err,
+            }))
+        }
+        SyncTreePathsServiceError::LoadRelationshipEdgesByWorldIdRepositoryError(err) => {
+            DeletePersonUsecaseError::TransactionError(TransactionError::Db(match err {
+                creation_service::repository::relationship::LoadRelationshipEdgesByWorldIdRepositoryError::Db(err) => err,
             }))
         }
         SyncTreePathsServiceError::LoadStaleRelatedConnectionsRepositoryError(err) => {

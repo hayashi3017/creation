@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS person (
 
 CREATE TABLE IF NOT EXISTS relationship (
     relationship_id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     source_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     target_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     kind relationship_kind NOT NULL,
@@ -103,10 +103,11 @@ CREATE TABLE IF NOT EXISTS relationship (
 );
 
 CREATE TABLE IF NOT EXISTS tree_path (
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     ancestor_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     descendant_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     depth INT NOT NULL,
-    PRIMARY KEY (ancestor_id, descendant_id)
+    PRIMARY KEY (world_id, ancestor_id, descendant_id)
 );
 
 INSERT INTO users
@@ -148,11 +149,11 @@ INSERT INTO diagram_entity
   (1, 2);
 
 INSERT INTO relationship
-  (relationship_id, diagram_id, source_entity_id, target_entity_id, kind)
+  (relationship_id, world_id, source_entity_id, target_entity_id, kind)
   VALUES
   (1, 1, 1, 2, 'parent');
 
 INSERT INTO tree_path
-  (ancestor_id, descendant_id, depth)
+  (world_id, ancestor_id, descendant_id, depth)
   VALUES
-  (1, 2, 1);
+  (1, 1, 2, 1);

@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS diagram_entity (
 
 CREATE TABLE IF NOT EXISTS relationship (
     relationship_id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     source_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     target_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     kind relationship_kind NOT NULL,
@@ -78,10 +78,11 @@ CREATE TABLE IF NOT EXISTS relationship (
 );
 
 CREATE TABLE IF NOT EXISTS tree_path (
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     ancestor_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     descendant_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     depth INT NOT NULL,
-    PRIMARY KEY (ancestor_id, descendant_id)
+    PRIMARY KEY (world_id, ancestor_id, descendant_id)
 );
 
 INSERT INTO world

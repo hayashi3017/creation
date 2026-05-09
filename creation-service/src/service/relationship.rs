@@ -5,16 +5,15 @@ use super::normalize_optional_text;
 
 use crate::{
     model::relationship::{
-        CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForDiagramSchema,
-        GetRelationshipsSchema, LoadRelationshipsByDiagramIdsSchema, Relationship,
-        RelationshipEndpoints, RelationshipKind, RelationshipTopology, UpdateRelationshipSchema,
-        UpdatedRelationshipEndpoints,
+        CreateRelationshipSchema, DeleteRelationshipSchema, GetRelationshipsSchema,
+        LoadRelationshipsByDiagramIdsSchema, Relationship, RelationshipEndpoints, RelationshipKind,
+        RelationshipTopology, UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
     },
     repository::relationship::{
         CreateRelationshipRepositoryError, DeleteRelationshipRepositoryError,
-        DeleteRelationshipsForDiagramRepositoryError, GetRelationshipsRepositoryError,
-        LoadRelationshipsByDiagramIdsRepositoryError, ProvidesRelationshipRepository,
-        UpdateRelationshipRepositoryError, UsesRelationshipRepository,
+        GetRelationshipsRepositoryError, LoadRelationshipsByDiagramIdsRepositoryError,
+        ProvidesRelationshipRepository, UpdateRelationshipRepositoryError,
+        UsesRelationshipRepository,
     },
 };
 
@@ -69,16 +68,6 @@ pub enum DeleteRelationshipServiceError {
     NotFound,
 }
 
-#[derive(Debug, Error)]
-pub enum DeleteRelationshipsForDiagramServiceError {
-    #[error(transparent)]
-    DeleteRelationshipsForDiagramRepositoryError(
-        #[from] DeleteRelationshipsForDiagramRepositoryError,
-    ),
-    #[error("invalid parameter")]
-    InvalidParams,
-}
-
 #[async_trait]
 pub trait UsesRelationshipService {
     async fn get_relationships(
@@ -101,10 +90,6 @@ pub trait UsesRelationshipService {
         &self,
         body: DeleteRelationshipSchema,
     ) -> Result<RelationshipEndpoints, DeleteRelationshipServiceError>;
-    async fn delete_relationships_for_diagram(
-        &self,
-        body: DeleteRelationshipsForDiagramSchema,
-    ) -> Result<Vec<usize>, DeleteRelationshipsForDiagramServiceError>;
 }
 
 #[async_trait]
@@ -113,7 +98,7 @@ impl<T: RelationshipService> UsesRelationshipService for T {
         &self,
         body: GetRelationshipsSchema,
     ) -> Result<Vec<Relationship>, GetRelationshipsServiceError> {
-        if body.diagram_id == 0 {
+        if body.world_id == 0 {
             return Err(GetRelationshipsServiceError::InvalidParams);
         }
 
@@ -127,7 +112,7 @@ impl<T: RelationshipService> UsesRelationshipService for T {
         &self,
         body: LoadRelationshipsByDiagramIdsSchema,
     ) -> Result<Vec<Relationship>, LoadRelationshipsByDiagramIdsServiceError> {
-        if body.diagram_ids.iter().any(|diagram_id| *diagram_id == 0) {
+        if body.world_id == 0 || body.diagram_ids.iter().any(|diagram_id| *diagram_id == 0) {
             return Err(LoadRelationshipsByDiagramIdsServiceError::InvalidParams);
         }
 
@@ -207,26 +192,12 @@ impl<T: RelationshipService> UsesRelationshipService for T {
             Err(err) => Err(DeleteRelationshipServiceError::DeleteRelationshipRepositoryError(err)),
         }
     }
-
-    async fn delete_relationships_for_diagram(
-        &self,
-        body: DeleteRelationshipsForDiagramSchema,
-    ) -> Result<Vec<usize>, DeleteRelationshipsForDiagramServiceError> {
-        if body.diagram_id == 0 {
-            return Err(DeleteRelationshipsForDiagramServiceError::InvalidParams);
-        }
-
-        self.relationship_repository()
-            .delete_relationships_for_diagram(body)
-            .await
-            .map_err(DeleteRelationshipsForDiagramServiceError::DeleteRelationshipsForDiagramRepositoryError)
-    }
 }
 
 pub fn prepare_create_relationship(
     body: CreateRelationshipSchema,
 ) -> Option<CreateRelationshipSchema> {
-    if body.diagram_id == 0 {
+    if body.world_id == 0 {
         return None;
     }
 
@@ -242,7 +213,7 @@ pub fn prepare_create_relationship(
     .map(
         |(source_entity_id, target_entity_id, kind, start_date, end_date, end_reason, notes)| {
             CreateRelationshipSchema {
-                diagram_id: body.diagram_id,
+                world_id: body.world_id,
                 source_entity_id,
                 target_entity_id,
                 kind,

@@ -6,7 +6,7 @@ use creation_service::{
     model::{
         relationship::{
             CreateRelationshipSchema, DeleteRelationshipSchema, GetRelationshipsSchema,
-            LoadRelationshipDiagramIdSchema, RelationshipEndpoints, RelationshipKind,
+            LoadRelationshipWorldIdSchema, RelationshipEndpoints, RelationshipKind,
             UpdateRelationshipSchema, UpdatedRelationshipEndpoints,
         },
         tree_path::SyncTreePathsByEntityIdsSchema,
@@ -78,11 +78,11 @@ impl ProvidesTreePathService for TestModule {
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
-async fn get_relationships_filters_by_diagram_and_excludes_deleted(db: PgPool) {
+async fn get_relationships_filters_by_world_and_excludes_deleted(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
     let ret = repo
-        .get_relationships(GetRelationshipsSchema { diagram_id: 1 })
+        .get_relationships(GetRelationshipsSchema { world_id: 1 })
         .await
         .unwrap();
 
@@ -90,15 +90,15 @@ async fn get_relationships_filters_by_diagram_and_excludes_deleted(db: PgPool) {
         .into_iter()
         .map(|relationship| relationship.relationship_id)
         .collect();
-    assert_eq!(ids, vec![1, 2]);
+    assert_eq!(ids, vec![1, 2, 3, 5]);
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
-async fn get_relationships_excludes_rows_for_soft_deleted_diagram(db: PgPool) {
+async fn get_relationships_returns_empty_for_missing_world(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
     let ret = repo
-        .get_relationships(GetRelationshipsSchema { diagram_id: 3 })
+        .get_relationships(GetRelationshipsSchema { world_id: 3 })
         .await
         .unwrap();
 
@@ -110,7 +110,7 @@ async fn create_relationship_inserts_row(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db.clone()).await;
 
     repo.create_relationship(CreateRelationshipSchema {
-        diagram_id: 1,
+        world_id: 1,
         source_entity_id: 3,
         target_entity_id: 7,
         kind: RelationshipKind::Parent,
@@ -126,7 +126,7 @@ async fn create_relationship_inserts_row(db: PgPool) {
         r#"
             SELECT kind, notes
             FROM relationship
-            WHERE diagram_id = $1
+            WHERE world_id = $1
                 AND source_entity_id = $2
                 AND target_entity_id = $3
                 AND deleted_at IS NULL
@@ -155,7 +155,7 @@ async fn create_relationship_returns_not_found_for_missing_entity(db: PgPool) {
 
     let err = repo
         .create_relationship(CreateRelationshipSchema {
-            diagram_id: 1,
+            world_id: 1,
             source_entity_id: 3,
             target_entity_id: 99,
             kind: RelationshipKind::Parent,
@@ -171,12 +171,12 @@ async fn create_relationship_returns_not_found_for_missing_entity(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
-async fn create_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+async fn create_relationship_returns_not_found_for_missing_world(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
     let err = repo
         .create_relationship(CreateRelationshipSchema {
-            diagram_id: 3,
+            world_id: 3,
             source_entity_id: 8,
             target_entity_id: 9,
             kind: RelationshipKind::Parent,
@@ -295,24 +295,21 @@ async fn update_relationship_returns_not_found_for_deleted_row(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
-async fn update_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+async fn update_relationship_ignores_diagram_soft_delete(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
-    let err = repo
-        .update_relationship(UpdateRelationshipSchema {
-            relationship_id: 5,
-            source_entity_id: 8,
-            target_entity_id: 9,
-            kind: RelationshipKind::Parent,
-            start_date: None,
-            end_date: None,
-            end_reason: None,
-            notes: None,
-        })
-        .await
-        .unwrap_err();
-
-    assert!(matches!(err, UpdateRelationshipRepositoryError::NotFound));
+    repo.update_relationship(UpdateRelationshipSchema {
+        relationship_id: 5,
+        source_entity_id: 8,
+        target_entity_id: 9,
+        kind: RelationshipKind::Parent,
+        start_date: None,
+        end_date: None,
+        end_reason: None,
+        notes: None,
+    })
+    .await
+    .unwrap();
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
@@ -328,51 +325,48 @@ async fn delete_relationship_returns_not_found_for_deleted_row(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
-async fn delete_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+async fn delete_relationship_ignores_diagram_soft_delete(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
-    let err = repo
-        .delete_relationship(DeleteRelationshipSchema { relationship_id: 5 })
+    repo.delete_relationship(DeleteRelationshipSchema { relationship_id: 5 })
         .await
-        .unwrap_err();
-
-    assert!(matches!(err, DeleteRelationshipRepositoryError::NotFound));
+        .unwrap();
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
-async fn load_relationship_diagram_id_returns_diagram_id_for_active_row(db: PgPool) {
+async fn load_relationship_world_id_returns_world_id_for_active_row(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
-    let diagram_id = repo
-        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { relationship_id: 2 })
+    let world_id = repo
+        .load_relationship_world_id(LoadRelationshipWorldIdSchema { relationship_id: 2 })
         .await
         .unwrap();
 
-    assert_eq!(diagram_id, Some(1));
+    assert_eq!(world_id, Some(1));
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
-async fn load_relationship_diagram_id_returns_diagram_id_for_soft_deleted_diagram_row(db: PgPool) {
+async fn load_relationship_world_id_ignores_diagram_soft_delete(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
-    let diagram_id = repo
-        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { relationship_id: 5 })
+    let world_id = repo
+        .load_relationship_world_id(LoadRelationshipWorldIdSchema { relationship_id: 5 })
         .await
         .unwrap();
 
-    assert_eq!(diagram_id, Some(3));
+    assert_eq!(world_id, Some(1));
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
-async fn load_relationship_diagram_id_returns_none_for_deleted_row(db: PgPool) {
+async fn load_relationship_world_id_returns_none_for_deleted_row(db: PgPool) {
     let repo = RepositoryImpl::<RelationshipTable>::new_test(db).await;
 
-    let diagram_id = repo
-        .load_relationship_diagram_id(LoadRelationshipDiagramIdSchema { relationship_id: 4 })
+    let world_id = repo
+        .load_relationship_world_id(LoadRelationshipWorldIdSchema { relationship_id: 4 })
         .await
         .unwrap();
 
-    assert_eq!(diagram_id, None);
+    assert_eq!(world_id, None);
 }
 
 #[sqlx::test(fixtures("relationship_repository"))]
@@ -381,6 +375,7 @@ async fn sync_tree_paths_by_entity_ids_creates_closure_rows(db: PgPool) {
 
     module
         .sync_tree_paths_by_entity_ids(SyncTreePathsByEntityIdsSchema {
+            world_id: 1,
             entity_ids: vec![2, 3],
         })
         .await
@@ -423,7 +418,7 @@ async fn sync_tree_paths_by_entity_ids_uses_only_tree_edge_kinds(db: PgPool) {
     module
         .relationship_repository()
         .create_relationship(CreateRelationshipSchema {
-            diagram_id: 1,
+            world_id: 1,
             source_entity_id: 3,
             target_entity_id: 7,
             kind: RelationshipKind::AdoptiveParent,
@@ -437,7 +432,7 @@ async fn sync_tree_paths_by_entity_ids_uses_only_tree_edge_kinds(db: PgPool) {
     module
         .relationship_repository()
         .create_relationship(CreateRelationshipSchema {
-            diagram_id: 1,
+            world_id: 1,
             source_entity_id: 7,
             target_entity_id: 1,
             kind: RelationshipKind::StepParent,
@@ -451,7 +446,7 @@ async fn sync_tree_paths_by_entity_ids_uses_only_tree_edge_kinds(db: PgPool) {
     module
         .relationship_repository()
         .create_relationship(CreateRelationshipSchema {
-            diagram_id: 1,
+            world_id: 1,
             source_entity_id: 7,
             target_entity_id: 2,
             kind: RelationshipKind::Spouse,
@@ -465,6 +460,7 @@ async fn sync_tree_paths_by_entity_ids_uses_only_tree_edge_kinds(db: PgPool) {
 
     module
         .sync_tree_paths_by_entity_ids(SyncTreePathsByEntityIdsSchema {
+            world_id: 1,
             entity_ids: vec![3, 7],
         })
         .await
@@ -505,7 +501,7 @@ async fn sync_tree_paths_by_entity_ids_detects_cycle(db: PgPool) {
     module
         .relationship_repository()
         .create_relationship(CreateRelationshipSchema {
-            diagram_id: 1,
+            world_id: 1,
             source_entity_id: 3,
             target_entity_id: 1,
             kind: RelationshipKind::Parent,
@@ -519,6 +515,7 @@ async fn sync_tree_paths_by_entity_ids_detects_cycle(db: PgPool) {
 
     let err = module
         .sync_tree_paths_by_entity_ids(SyncTreePathsByEntityIdsSchema {
+            world_id: 1,
             entity_ids: vec![1, 3],
         })
         .await
@@ -533,6 +530,7 @@ async fn sync_tree_paths_by_entity_ids_rebuilds_each_related_component(db: PgPoo
 
     module
         .sync_tree_paths_by_entity_ids(SyncTreePathsByEntityIdsSchema {
+            world_id: 1,
             entity_ids: vec![5, 2, 5],
         })
         .await

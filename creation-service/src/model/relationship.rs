@@ -7,7 +7,7 @@ use utoipa::ToSchema;
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct Relationship {
     pub relationship_id: usize,
-    pub diagram_id: usize,
+    pub world_id: usize,
     pub source_entity_id: usize,
     pub target_entity_id: usize,
     pub kind: RelationshipKind,
@@ -35,10 +35,10 @@ pub struct RelationshipEdge {
     pub descendant_id: usize,
 }
 
-// bulk load 後に service 側で diagram ごとへ再グループ化するための内部表現。
+// bulk load 後に service 側で world ごとへ再グループ化するための内部表現。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DiagramRelationshipEdge {
-    pub diagram_id: usize,
+pub struct WorldRelationshipEdge {
+    pub world_id: usize,
     pub ancestor_id: usize,
     pub descendant_id: usize,
 }
@@ -81,12 +81,12 @@ impl RelationshipKind {
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct GetRelationshipsSchema {
-    pub diagram_id: usize,
+    pub world_id: usize,
 }
 
 #[derive(Debug, Deserialize, Clone, ToSchema)]
 pub struct CreateRelationshipSchema {
-    pub diagram_id: usize,
+    pub world_id: usize,
     pub source_entity_id: usize,
     pub target_entity_id: usize,
     pub kind: RelationshipKind,
@@ -127,26 +127,22 @@ pub struct DeleteRelationshipsForEntitySchema {
 }
 
 #[derive(Debug, Clone)]
-pub struct DeleteRelationshipsForDiagramSchema {
-    pub diagram_id: usize,
-}
-
-#[derive(Debug, Clone)]
 pub struct LoadRelationshipEdgesSchema {
-    pub diagram_id: usize,
+    pub world_id: usize,
 }
 
 #[derive(Debug, Clone)]
-pub struct LoadRelationshipEdgesByDiagramIdsSchema {
-    pub diagram_ids: Vec<usize>,
+pub struct LoadRelationshipEdgesByWorldIdSchema {
+    pub world_id: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct LoadRelationshipsByDiagramIdsSchema {
+    pub world_id: usize,
     pub diagram_ids: Vec<usize>,
 }
 
 #[derive(Debug, Clone)]
-pub struct LoadRelationshipDiagramIdSchema {
+pub struct LoadRelationshipWorldIdSchema {
     pub relationship_id: usize,
 }

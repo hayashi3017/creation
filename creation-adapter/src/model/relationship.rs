@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, sqlx::FromRow, Serialize, Clone)]
 pub struct RelationshipTable {
     pub relationship_id: i64,
-    pub diagram_id: i64,
+    pub world_id: i64,
     pub source_entity_id: i64,
     pub target_entity_id: i64,
     pub kind: RelationshipKind,

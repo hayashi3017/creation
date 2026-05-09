@@ -27,7 +27,7 @@ async fn get_relationships_returns_list(db: PgPool) {
                 .uri("/api/relationships")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"diagram_id":1}"#))
+                .body(Body::from(r#"{"world_id":1}"#))
                 .unwrap(),
         )
         .await
@@ -38,14 +38,14 @@ async fn get_relationships_returns_list(db: PgPool) {
     let body = resp.into_body().collect().await.unwrap().to_bytes();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["status"], "success");
-    assert_eq!(json["data"].as_array().unwrap().len(), 2);
+    assert_eq!(json["data"].as_array().unwrap().len(), 4);
     assert_eq!(json["data"][0]["relationship_id"], 1);
     assert!(json["data"][0]["id"].is_null());
     assert_eq!(json["data"][0]["kind"], "parent");
 }
 
 #[sqlx::test(fixtures("relationship"))]
-async fn get_relationships_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+async fn get_relationships_returns_not_found_for_missing_world(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -58,7 +58,7 @@ async fn get_relationships_returns_not_found_for_soft_deleted_diagram(db: PgPool
                 .uri("/api/relationships")
                 .header(header::AUTHORIZATION, format!("Bearer {}", token))
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(r#"{"diagram_id":3}"#))
+                .body(Body::from(r#"{"world_id":999}"#))
                 .unwrap(),
         )
         .await
@@ -83,7 +83,7 @@ async fn create_relationship_rebuilds_tree_path(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "diagram_id": 1,
+                        "world_id": 1,
                         "source_entity_id": 3,
                         "target_entity_id": 6,
                         "kind": "parent",
@@ -103,7 +103,7 @@ async fn create_relationship_rebuilds_tree_path(db: PgPool) {
             SELECT COUNT(*)
             FROM relationship
             WHERE
-                diagram_id = $1
+                world_id = $1
                 AND source_entity_id = $2
                 AND target_entity_id = $3
                 AND deleted_at IS NULL
@@ -136,7 +136,7 @@ async fn create_relationship_rebuilds_tree_path(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship"))]
-async fn create_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+async fn create_relationship_returns_not_found_for_missing_world(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -151,7 +151,7 @@ async fn create_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPo
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "diagram_id": 3,
+                        "world_id": 999,
                         "source_entity_id": 8,
                         "target_entity_id": 9,
                         "kind": "parent"
@@ -182,7 +182,7 @@ async fn create_relationship_rejects_cycle_and_rolls_back(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "diagram_id": 1,
+                        "world_id": 1,
                         "source_entity_id": 3,
                         "target_entity_id": 1,
                         "kind": "parent"
@@ -201,7 +201,7 @@ async fn create_relationship_rejects_cycle_and_rolls_back(db: PgPool) {
             SELECT COUNT(*)
             FROM relationship
             WHERE
-                diagram_id = $1
+                world_id = $1
                 AND source_entity_id = $2
                 AND target_entity_id = $3
                 AND deleted_at IS NULL
@@ -233,7 +233,7 @@ async fn create_relationship_normalizes_symmetric_kind(db: PgPool) {
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(
                     serde_json::to_string(&json!({
-                        "diagram_id": 1,
+                        "world_id": 1,
                         "source_entity_id": 6,
                         "target_entity_id": 1,
                         "kind": "spouse"
@@ -252,7 +252,7 @@ async fn create_relationship_normalizes_symmetric_kind(db: PgPool) {
             SELECT source_entity_id, target_entity_id, kind
             FROM relationship
             WHERE
-                diagram_id = $1
+                world_id = $1
                 AND kind = 'spouse'
                 AND deleted_at IS NULL
         "#,
@@ -384,7 +384,7 @@ async fn update_relationship_returns_not_found_for_deleted_row(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship"))]
-async fn update_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+async fn update_relationship_ignores_diagram_soft_delete(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -410,7 +410,7 @@ async fn update_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPo
         .await
         .unwrap();
 
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(resp.status(), StatusCode::OK);
 }
 
 #[sqlx::test(fixtures("relationship"))]
@@ -486,7 +486,7 @@ async fn delete_relationship_returns_not_found_for_deleted_row(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("relationship"))]
-async fn delete_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPool) {
+async fn delete_relationship_ignores_diagram_soft_delete(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -504,7 +504,7 @@ async fn delete_relationship_returns_not_found_for_soft_deleted_diagram(db: PgPo
         .await
         .unwrap();
 
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(resp.status(), StatusCode::OK);
 }
 
 fn set_test_env() {

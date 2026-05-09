@@ -3,11 +3,7 @@ use creation_service::{
     model::diagram::{
         CreateDiagramSchema, DeleteDiagramSchema, Diagram, GetDiagramsSchema, UpdateDiagramSchema,
     },
-    model::{
-        entity::DeleteDiagramEntityMembershipsSchema,
-        relationship::DeleteRelationshipsForDiagramSchema,
-        tree_path::DeleteTreePathsForDiagramSchema,
-    },
+    model::entity::DeleteDiagramEntityMembershipsSchema,
     service::{
         diagram::{
             CreateDiagramServiceError, DeleteDiagramServiceError, GetDiagramsServiceError,
@@ -16,15 +12,8 @@ use creation_service::{
         entity::{
             DeleteDiagramEntityMembershipsServiceError, ProvidesEntityService, UsesEntityService,
         },
-        relationship::{
-            DeleteRelationshipsForDiagramServiceError, ProvidesRelationshipService,
-            UsesRelationshipService,
-        },
         transaction::{
             BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError,
-        },
-        tree_path::{
-            DeleteTreePathsForDiagramServiceError, ProvidesTreePathService, UsesTreePathService,
         },
     },
 };
@@ -73,10 +62,6 @@ pub enum DeleteDiagramUsecaseError {
     DeleteDiagramServiceError(#[from] DeleteDiagramServiceError),
     #[error(transparent)]
     DeleteDiagramEntityMembershipsServiceError(#[from] DeleteDiagramEntityMembershipsServiceError),
-    #[error(transparent)]
-    DeleteRelationshipsForDiagramServiceError(#[from] DeleteRelationshipsForDiagramServiceError),
-    #[error(transparent)]
-    DeleteTreePathsForDiagramServiceError(#[from] DeleteTreePathsForDiagramServiceError),
     #[error(transparent)]
     BeginTransactionError(#[from] BeginTransactionError),
     #[error(transparent)]
@@ -162,10 +147,7 @@ impl<T> UsesDeleteDiagramUsecase for T
 where
     T: DiagramUsecase + ProvidesTransactionManager,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesDiagramService
-        + ProvidesEntityService
-        + ProvidesRelationshipService
-        + ProvidesTreePathService,
+    <T as ProvidesTransactionManager>::T: ProvidesDiagramService + ProvidesEntityService,
 {
     async fn delete_diagram(
         &self,
@@ -179,14 +161,6 @@ where
         }
 
         let tx = self.begin_transaction().await?;
-
-        tx.tree_path_service()
-            .delete_tree_paths_for_diagram(DeleteTreePathsForDiagramSchema { diagram_id })
-            .await?;
-
-        tx.relationship_service()
-            .delete_relationships_for_diagram(DeleteRelationshipsForDiagramSchema { diagram_id })
-            .await?;
 
         tx.entity_service()
             .delete_diagram_entity_memberships(DeleteDiagramEntityMembershipsSchema { diagram_id })

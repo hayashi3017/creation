@@ -47,10 +47,10 @@ pub struct UpdateRelationshipRequest {
     security(("cookie_auth" = []), ("bearer_auth" = [])),
     request_body = GetRelationshipsSchema,
     responses(
-        (status = 200, description = "All relationships in the requested diagram.", body = RelationshipListResponse),
+        (status = 200, description = "All relationships in the requested world.", body = RelationshipListResponse),
         (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
         (status = 401, description = "Authentication is required.", body = ErrorResponse),
-        (status = 404, description = "The diagram was not found.", body = ErrorResponse),
+        (status = 404, description = "The world was not found.", body = ErrorResponse),
         (status = 500, description = "The relationships could not be loaded.", body = ErrorResponse)
     )
 )]
@@ -80,7 +80,7 @@ pub async fn get_relationships_by_diagram(
         (status = 200, description = "The relationship was created successfully."),
         (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
         (status = 401, description = "Authentication is required.", body = ErrorResponse),
-        (status = 404, description = "The diagram was not found.", body = ErrorResponse),
+        (status = 404, description = "The world was not found.", body = ErrorResponse),
         (status = 500, description = "The create operation failed.", body = ErrorResponse)
     )
 )]
@@ -108,7 +108,7 @@ pub async fn create_relationship(
         (status = 200, description = "The relationship was updated successfully."),
         (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
         (status = 401, description = "Authentication is required.", body = ErrorResponse),
-        (status = 404, description = "The relationship or diagram was not found.", body = ErrorResponse),
+        (status = 404, description = "The relationship or world was not found.", body = ErrorResponse),
         (status = 500, description = "The update operation failed.", body = ErrorResponse)
     )
 )]
@@ -149,7 +149,7 @@ pub async fn update_relationship_by_relationship_id(
         (status = 200, description = "The relationship was deleted successfully."),
         (status = 400, description = "The request payload was invalid.", body = ErrorResponse),
         (status = 401, description = "Authentication is required.", body = ErrorResponse),
-        (status = 404, description = "The relationship or diagram was not found.", body = ErrorResponse),
+        (status = 404, description = "The relationship or world was not found.", body = ErrorResponse),
         (status = 500, description = "The delete operation failed.", body = ErrorResponse)
     )
 )]

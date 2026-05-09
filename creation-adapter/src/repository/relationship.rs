@@ -1,20 +1,19 @@
 use async_trait::async_trait;
 use creation_service::{
     model::relationship::{
-        CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForDiagramSchema,
-        DeleteRelationshipsForEntitySchema, DiagramRelationshipEdge, GetRelationshipsSchema,
-        LoadRelationshipDiagramIdSchema, LoadRelationshipEdgesByDiagramIdsSchema,
-        LoadRelationshipEdgesSchema, LoadRelationshipsByDiagramIdsSchema, Relationship,
+        CreateRelationshipSchema, DeleteRelationshipSchema, DeleteRelationshipsForEntitySchema,
+        GetRelationshipsSchema, LoadRelationshipEdgesByWorldIdSchema, LoadRelationshipEdgesSchema,
+        LoadRelationshipWorldIdSchema, LoadRelationshipsByDiagramIdsSchema, Relationship,
         RelationshipEdge, RelationshipEndpoints, RelationshipKind, UpdateRelationshipSchema,
-        UpdatedRelationshipEndpoints,
+        UpdatedRelationshipEndpoints, WorldRelationshipEdge,
     },
     repository::relationship::{
         CreateRelationshipRepositoryError, DeleteRelationshipRepositoryError,
-        DeleteRelationshipsForDiagramRepositoryError, DeleteRelationshipsForEntityRepositoryError,
-        GetRelationshipsRepositoryError, LoadRelationshipDiagramIdRepositoryError,
-        LoadRelationshipEdgesByDiagramIdsRepositoryError, LoadRelationshipEdgesRepositoryError,
-        LoadRelationshipsByDiagramIdsRepositoryError, ProvidesRelationshipRepository,
-        RelationshipRepository, UpdateRelationshipRepositoryError, UsesRelationshipRepository,
+        DeleteRelationshipsForEntityRepositoryError, GetRelationshipsRepositoryError,
+        LoadRelationshipEdgesByWorldIdRepositoryError, LoadRelationshipEdgesRepositoryError,
+        LoadRelationshipWorldIdRepositoryError, LoadRelationshipsByDiagramIdsRepositoryError,
+        ProvidesRelationshipRepository, RelationshipRepository, UpdateRelationshipRepositoryError,
+        UsesRelationshipRepository,
     },
 };
 use sqlx::{Executor, Postgres};
@@ -34,7 +33,7 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
             r#"
                 SELECT
                     r.relationship_id,
-                    r.diagram_id,
+                    r.world_id,
                     r.source_entity_id,
                     r.target_entity_id,
                     r.kind,
@@ -46,16 +45,13 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
                     r.updated_at,
                     r.deleted_at
                 FROM relationship AS r
-                INNER JOIN diagram AS d
-                    ON d.diagram_id = r.diagram_id
-                    AND d.deleted_at IS NULL
                 WHERE
-                    r.diagram_id = $1
+                    r.world_id = $1
                     AND r.deleted_at IS NULL
                 ORDER BY r.relationship_id
             "#,
         )
-        .bind(body.diagram_id as i64)
+        .bind(body.world_id as i64)
         .fetch_all(&self.pool.0)
         .await
         .map_err(GetRelationshipsRepositoryError::Db)?;
@@ -176,54 +172,29 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
         Ok(entity_ids)
     }
 
-    async fn delete_relationships_for_diagram(
+    async fn load_relationship_world_id(
         &self,
-        body: DeleteRelationshipsForDiagramSchema,
-    ) -> Result<Vec<usize>, DeleteRelationshipsForDiagramRepositoryError> {
-        let entity_ids = if let Some(shared_tx) = &self.tx {
+        body: LoadRelationshipWorldIdSchema,
+    ) -> Result<Option<usize>, LoadRelationshipWorldIdRepositoryError> {
+        let world_id = if let Some(shared_tx) = &self.tx {
             let mut tx = shared_tx.lock().await;
 
             if let Some(tx) = tx.as_mut() {
-                delete_relationships_for_diagram_with(tx.as_mut(), body)
+                load_relationship_world_id_with(tx.as_mut(), body)
                     .await
-                    .map_err(DeleteRelationshipsForDiagramRepositoryError::Db)?
+                    .map_err(LoadRelationshipWorldIdRepositoryError::Db)?
             } else {
-                return Err(DeleteRelationshipsForDiagramRepositoryError::Db(
+                return Err(LoadRelationshipWorldIdRepositoryError::Db(
                     closed_transaction_error(),
                 ));
             }
         } else {
-            delete_relationships_for_diagram_with(&self.pool.0, body)
+            load_relationship_world_id_with(&self.pool.0, body)
                 .await
-                .map_err(DeleteRelationshipsForDiagramRepositoryError::Db)?
+                .map_err(LoadRelationshipWorldIdRepositoryError::Db)?
         };
 
-        Ok(entity_ids)
-    }
-
-    async fn load_relationship_diagram_id(
-        &self,
-        body: LoadRelationshipDiagramIdSchema,
-    ) -> Result<Option<usize>, LoadRelationshipDiagramIdRepositoryError> {
-        let diagram_id = if let Some(shared_tx) = &self.tx {
-            let mut tx = shared_tx.lock().await;
-
-            if let Some(tx) = tx.as_mut() {
-                load_relationship_diagram_id_with(tx.as_mut(), body)
-                    .await
-                    .map_err(LoadRelationshipDiagramIdRepositoryError::Db)?
-            } else {
-                return Err(LoadRelationshipDiagramIdRepositoryError::Db(
-                    closed_transaction_error(),
-                ));
-            }
-        } else {
-            load_relationship_diagram_id_with(&self.pool.0, body)
-                .await
-                .map_err(LoadRelationshipDiagramIdRepositoryError::Db)?
-        };
-
-        Ok(diagram_id)
+        Ok(world_id)
     }
 
     async fn load_relationship_edges(
@@ -251,27 +222,26 @@ impl UsesRelationshipRepository for RepositoryImpl<RelationshipTable> {
         Ok(edges)
     }
 
-    async fn load_relationship_edges_by_diagram_ids(
+    async fn load_relationship_edges_by_world_id(
         &self,
-        body: LoadRelationshipEdgesByDiagramIdsSchema,
-    ) -> Result<Vec<DiagramRelationshipEdge>, LoadRelationshipEdgesByDiagramIdsRepositoryError>
-    {
+        body: LoadRelationshipEdgesByWorldIdSchema,
+    ) -> Result<Vec<WorldRelationshipEdge>, LoadRelationshipEdgesByWorldIdRepositoryError> {
         let edges = if let Some(shared_tx) = &self.tx {
             let mut tx = shared_tx.lock().await;
 
             if let Some(tx) = tx.as_mut() {
-                load_relationship_edges_by_diagram_ids_with(tx.as_mut(), body)
+                load_relationship_edges_by_world_id_with(tx.as_mut(), body)
                     .await
-                    .map_err(LoadRelationshipEdgesByDiagramIdsRepositoryError::Db)?
+                    .map_err(LoadRelationshipEdgesByWorldIdRepositoryError::Db)?
             } else {
-                return Err(LoadRelationshipEdgesByDiagramIdsRepositoryError::Db(
+                return Err(LoadRelationshipEdgesByWorldIdRepositoryError::Db(
                     closed_transaction_error(),
                 ));
             }
         } else {
-            load_relationship_edges_by_diagram_ids_with(&self.pool.0, body)
+            load_relationship_edges_by_world_id_with(&self.pool.0, body)
                 .await
-                .map_err(LoadRelationshipEdgesByDiagramIdsRepositoryError::Db)?
+                .map_err(LoadRelationshipEdgesByWorldIdRepositoryError::Db)?
         };
 
         Ok(edges)
@@ -313,42 +283,34 @@ where
     let relationship_id = sqlx::query_scalar::<_, i64>(
         r#"
             INSERT INTO relationship
-                (diagram_id, source_entity_id, target_entity_id, kind, start_date, end_date, end_reason, notes)
+                (world_id, source_entity_id, target_entity_id, kind, start_date, end_date, end_reason, notes)
             SELECT
-                d.diagram_id, $2, $3, $4, $5, $6, $7, $8
-            FROM diagram AS d
+                w.world_id, $2, $3, $4, $5, $6, $7, $8
+            FROM world AS w
             WHERE
-                d.diagram_id = $1
-                AND d.deleted_at IS NULL
+                w.world_id = $1
+                AND w.deleted_at IS NULL
                 AND
                 EXISTS (
                     SELECT 1
-                    FROM diagram_entity AS source_member
-                    INNER JOIN entity AS source
-                        ON source.entity_id = source_member.entity_id
-                        AND source.world_id = d.world_id
-                        AND source.deleted_at IS NULL
+                    FROM entity AS source
                     WHERE
-                        source_member.diagram_id = $1
-                        AND source_member.entity_id = $2
-                        AND source_member.deleted_at IS NULL
+                        source.entity_id = $2
+                        AND source.world_id = w.world_id
+                        AND source.deleted_at IS NULL
                 )
                 AND EXISTS (
                     SELECT 1
-                    FROM diagram_entity AS target_member
-                    INNER JOIN entity AS target
-                        ON target.entity_id = target_member.entity_id
-                        AND target.world_id = d.world_id
-                        AND target.deleted_at IS NULL
+                    FROM entity AS target
                     WHERE
-                        target_member.diagram_id = $1
-                        AND target_member.entity_id = $3
-                        AND target_member.deleted_at IS NULL
+                        target.entity_id = $3
+                        AND target.world_id = w.world_id
+                        AND target.deleted_at IS NULL
                 )
             RETURNING relationship_id
         "#,
     )
-    .bind(body.diagram_id as i64)
+    .bind(body.world_id as i64)
     .bind(body.source_entity_id as i64)
     .bind(body.target_entity_id as i64)
     .bind(body.kind)
@@ -374,14 +336,10 @@ where
             WITH previous AS (
                 SELECT
                     r.relationship_id,
-                    r.diagram_id,
-                    d.world_id,
+                    r.world_id,
                     r.source_entity_id,
                     r.target_entity_id
                 FROM relationship AS r
-                INNER JOIN diagram AS d
-                    ON d.diagram_id = r.diagram_id
-                    AND d.deleted_at IS NULL
                 WHERE
                     r.relationship_id = $8
                     AND r.deleted_at IS NULL
@@ -401,27 +359,19 @@ where
                 r.relationship_id = previous.relationship_id
                 AND EXISTS (
                     SELECT 1
-                    FROM diagram_entity AS source_member
-                    INNER JOIN entity AS source
-                        ON source.entity_id = source_member.entity_id
+                    FROM entity AS source
+                    WHERE
+                        source.entity_id = $1
                         AND source.world_id = previous.world_id
                         AND source.deleted_at IS NULL
-                    WHERE
-                        source_member.diagram_id = previous.diagram_id
-                        AND source_member.entity_id = $1
-                        AND source_member.deleted_at IS NULL
                 )
                 AND EXISTS (
                     SELECT 1
-                    FROM diagram_entity AS target_member
-                    INNER JOIN entity AS target
-                        ON target.entity_id = target_member.entity_id
+                    FROM entity AS target
+                    WHERE
+                        target.entity_id = $2
                         AND target.world_id = previous.world_id
                         AND target.deleted_at IS NULL
-                    WHERE
-                        target_member.diagram_id = previous.diagram_id
-                        AND target_member.entity_id = $2
-                        AND target_member.deleted_at IS NULL
                 )
             RETURNING previous.source_entity_id, previous.target_entity_id
         "#,
@@ -461,9 +411,6 @@ where
                     r.source_entity_id,
                     r.target_entity_id
                 FROM relationship AS r
-                INNER JOIN diagram AS d
-                    ON d.diagram_id = r.diagram_id
-                    AND d.deleted_at IS NULL
                 WHERE
                     r.relationship_id = $1
                     AND r.deleted_at IS NULL
@@ -526,57 +473,29 @@ where
         .collect())
 }
 
-async fn delete_relationships_for_diagram_with<'e, E>(
+async fn load_relationship_world_id_with<'e, E>(
     executor: E,
-    body: DeleteRelationshipsForDiagramSchema,
-) -> Result<Vec<usize>, sqlx::Error>
-where
-    E: Executor<'e, Database = Postgres>,
-{
-    let endpoints = sqlx::query_as::<_, (i64, i64)>(
-        r#"
-            UPDATE relationship
-            SET
-                deleted_at = now(),
-                updated_at = now()
-            WHERE
-                diagram_id = $1
-                AND deleted_at IS NULL
-            RETURNING source_entity_id, target_entity_id
-        "#,
-    )
-    .bind(body.diagram_id as i64)
-    .fetch_all(executor)
-    .await?;
-
-    Ok(endpoints
-        .into_iter()
-        .flat_map(|(source_entity_id, target_entity_id)| {
-            [source_entity_id as usize, target_entity_id as usize]
-        })
-        .collect())
-}
-
-async fn load_relationship_diagram_id_with<'e, E>(
-    executor: E,
-    body: LoadRelationshipDiagramIdSchema,
+    body: LoadRelationshipWorldIdSchema,
 ) -> Result<Option<usize>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
     sqlx::query_scalar::<_, i64>(
         r#"
-            SELECT diagram_id
-            FROM relationship
+            SELECT r.world_id
+            FROM relationship AS r
+            INNER JOIN world AS w
+                ON w.world_id = r.world_id
+                AND w.deleted_at IS NULL
             WHERE
-                relationship_id = $1
-                AND deleted_at IS NULL
+                r.relationship_id = $1
+                AND r.deleted_at IS NULL
         "#,
     )
     .bind(body.relationship_id as i64)
     .fetch_optional(executor)
     .await
-    .map(|diagram_id| diagram_id.map(|diagram_id| diagram_id as usize))
+    .map(|world_id| world_id.map(|world_id| world_id as usize))
 }
 
 async fn load_relationship_edges_with<'e, E>(
@@ -593,32 +512,21 @@ where
                 r.target_entity_id,
                 r.kind
             FROM relationship AS r
-            INNER JOIN diagram AS d
-                ON d.diagram_id = r.diagram_id
-                AND d.deleted_at IS NULL
-            INNER JOIN diagram_entity AS source_member
-                ON source_member.diagram_id = r.diagram_id
-                AND source_member.entity_id = r.source_entity_id
-                AND source_member.deleted_at IS NULL
             INNER JOIN entity AS source
-                ON source.entity_id = source_member.entity_id
-                AND source.world_id = d.world_id
+                ON source.entity_id = r.source_entity_id
+                AND source.world_id = r.world_id
                 AND source.deleted_at IS NULL
-            INNER JOIN diagram_entity AS target_member
-                ON target_member.diagram_id = r.diagram_id
-                AND target_member.entity_id = r.target_entity_id
-                AND target_member.deleted_at IS NULL
             INNER JOIN entity AS target
-                ON target.entity_id = target_member.entity_id
-                AND target.world_id = d.world_id
+                ON target.entity_id = r.target_entity_id
+                AND target.world_id = r.world_id
                 AND target.deleted_at IS NULL
             WHERE
-                r.diagram_id = $1
+                r.world_id = $1
                 AND r.deleted_at IS NULL
             ORDER BY r.relationship_id
         "#,
     )
-    .bind(body.diagram_id as i64)
+    .bind(body.world_id as i64)
     .fetch_all(executor)
     .await?;
 
@@ -637,66 +545,45 @@ where
         .collect())
 }
 
-async fn load_relationship_edges_by_diagram_ids_with<'e, E>(
+async fn load_relationship_edges_by_world_id_with<'e, E>(
     executor: E,
-    body: LoadRelationshipEdgesByDiagramIdsSchema,
-) -> Result<Vec<DiagramRelationshipEdge>, sqlx::Error>
+    body: LoadRelationshipEdgesByWorldIdSchema,
+) -> Result<Vec<WorldRelationshipEdge>, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
 {
-    if body.diagram_ids.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let diagram_ids = body
-        .diagram_ids
-        .into_iter()
-        .map(|diagram_id| diagram_id as i64)
-        .collect::<Vec<_>>();
-
     let rows = sqlx::query_as::<_, (i64, i64, i64, RelationshipKind)>(
         r#"
             SELECT
-                r.diagram_id,
+                r.world_id,
                 r.source_entity_id,
                 r.target_entity_id,
                 r.kind
             FROM relationship AS r
-            INNER JOIN diagram AS d
-                ON d.diagram_id = r.diagram_id
-                AND d.deleted_at IS NULL
-            INNER JOIN diagram_entity AS source_member
-                ON source_member.diagram_id = r.diagram_id
-                AND source_member.entity_id = r.source_entity_id
-                AND source_member.deleted_at IS NULL
             INNER JOIN entity AS source
-                ON source.entity_id = source_member.entity_id
-                AND source.world_id = d.world_id
+                ON source.entity_id = r.source_entity_id
+                AND source.world_id = r.world_id
                 AND source.deleted_at IS NULL
-            INNER JOIN diagram_entity AS target_member
-                ON target_member.diagram_id = r.diagram_id
-                AND target_member.entity_id = r.target_entity_id
-                AND target_member.deleted_at IS NULL
             INNER JOIN entity AS target
-                ON target.entity_id = target_member.entity_id
-                AND target.world_id = d.world_id
+                ON target.entity_id = r.target_entity_id
+                AND target.world_id = r.world_id
                 AND target.deleted_at IS NULL
             WHERE
-                r.diagram_id = ANY($1)
+                r.world_id = $1
                 AND r.deleted_at IS NULL
-            ORDER BY r.diagram_id, r.relationship_id
+            ORDER BY r.relationship_id
         "#,
     )
-    .bind(diagram_ids)
+    .bind(body.world_id as i64)
     .fetch_all(executor)
     .await?;
 
     Ok(rows
         .into_iter()
-        .filter_map(|(diagram_id, source_entity_id, target_entity_id, kind)| {
+        .filter_map(|(world_id, source_entity_id, target_entity_id, kind)| {
             if kind.is_tree_edge() {
-                Some(DiagramRelationshipEdge {
-                    diagram_id: diagram_id as usize,
+                Some(WorldRelationshipEdge {
+                    world_id: world_id as usize,
                     ancestor_id: source_entity_id as usize,
                     descendant_id: target_entity_id as usize,
                 })
@@ -728,7 +615,7 @@ where
         r#"
             SELECT
                 r.relationship_id,
-                r.diagram_id,
+                r.world_id,
                 r.source_entity_id,
                 r.target_entity_id,
                 r.kind,
@@ -740,31 +627,48 @@ where
                 r.updated_at,
                 r.deleted_at
             FROM relationship AS r
-            INNER JOIN diagram AS d
-                ON d.diagram_id = r.diagram_id
-                AND d.deleted_at IS NULL
-            INNER JOIN diagram_entity AS source_member
-                ON source_member.diagram_id = r.diagram_id
-                AND source_member.entity_id = r.source_entity_id
-                AND source_member.deleted_at IS NULL
+            INNER JOIN world AS w
+                ON w.world_id = r.world_id
+                AND w.world_id = $1
+                AND w.deleted_at IS NULL
             INNER JOIN entity AS source
-                ON source.entity_id = source_member.entity_id
-                AND source.world_id = d.world_id
+                ON source.entity_id = r.source_entity_id
+                AND source.world_id = r.world_id
                 AND source.deleted_at IS NULL
-            INNER JOIN diagram_entity AS target_member
-                ON target_member.diagram_id = r.diagram_id
-                AND target_member.entity_id = r.target_entity_id
-                AND target_member.deleted_at IS NULL
             INNER JOIN entity AS target
-                ON target.entity_id = target_member.entity_id
-                AND target.world_id = d.world_id
+                ON target.entity_id = r.target_entity_id
+                AND target.world_id = r.world_id
                 AND target.deleted_at IS NULL
             WHERE
-                r.diagram_id = ANY($1)
-                AND r.deleted_at IS NULL
-            ORDER BY r.diagram_id, r.relationship_id
+                r.deleted_at IS NULL
+                AND EXISTS (
+                    SELECT 1
+                    FROM diagram_entity AS source_member
+                    INNER JOIN diagram AS source_diagram
+                        ON source_diagram.diagram_id = source_member.diagram_id
+                        AND source_diagram.world_id = r.world_id
+                        AND source_diagram.deleted_at IS NULL
+                    WHERE
+                        source_member.diagram_id = ANY($2)
+                        AND source_member.entity_id = r.source_entity_id
+                        AND source_member.deleted_at IS NULL
+                )
+                AND EXISTS (
+                    SELECT 1
+                    FROM diagram_entity AS target_member
+                    INNER JOIN diagram AS target_diagram
+                        ON target_diagram.diagram_id = target_member.diagram_id
+                        AND target_diagram.world_id = r.world_id
+                        AND target_diagram.deleted_at IS NULL
+                    WHERE
+                        target_member.diagram_id = ANY($2)
+                        AND target_member.entity_id = r.target_entity_id
+                        AND target_member.deleted_at IS NULL
+                )
+            ORDER BY r.relationship_id
         "#,
     )
+    .bind(body.world_id as i64)
     .bind(diagram_ids)
     .fetch_all(executor)
     .await?;
@@ -778,7 +682,7 @@ where
 fn map_relationship_table(relationship: RelationshipTable) -> Relationship {
     Relationship {
         relationship_id: relationship.relationship_id as usize,
-        diagram_id: relationship.diagram_id as usize,
+        world_id: relationship.world_id as usize,
         source_entity_id: relationship.source_entity_id as usize,
         target_entity_id: relationship.target_entity_id as usize,
         kind: relationship.kind,

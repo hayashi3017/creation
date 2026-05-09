@@ -65,7 +65,8 @@ CREATE TABLE entity (
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at TIMESTAMPTZ
+    deleted_at TIMESTAMPTZ,
+    CONSTRAINT uq_entity_world_entity UNIQUE (world_id, entity_id)
 );
 
 CREATE TABLE diagram_entity (
@@ -102,7 +103,7 @@ CREATE TABLE person (
 
 CREATE TABLE relationship (
     relationship_id BIGSERIAL PRIMARY KEY,
-    diagram_id BIGINT NOT NULL REFERENCES diagram(diagram_id) ON DELETE CASCADE,
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     source_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     target_entity_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     kind relationship_kind NOT NULL,
@@ -114,14 +115,28 @@ CREATE TABLE relationship (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ,
     CONSTRAINT chk_relationship_no_active_self_relation
-        CHECK (deleted_at IS NOT NULL OR source_entity_id <> target_entity_id)
+        CHECK (deleted_at IS NOT NULL OR source_entity_id <> target_entity_id),
+    CONSTRAINT fk_relationship_source_world_entity
+        FOREIGN KEY (world_id, source_entity_id) REFERENCES entity(world_id, entity_id),
+    CONSTRAINT fk_relationship_target_world_entity
+        FOREIGN KEY (world_id, target_entity_id) REFERENCES entity(world_id, entity_id)
 );
 
 CREATE TABLE tree_path (
+    world_id BIGINT NOT NULL REFERENCES world(world_id) ON DELETE CASCADE,
     ancestor_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     descendant_id BIGINT NOT NULL REFERENCES entity(entity_id) ON DELETE CASCADE,
     depth INT NOT NULL,
-    PRIMARY KEY (ancestor_id, descendant_id)
+    PRIMARY KEY (world_id, ancestor_id, descendant_id),
+    CONSTRAINT chk_tree_path_self_depth CHECK (
+        (ancestor_id = descendant_id AND depth = 0)
+        OR
+        (ancestor_id <> descendant_id AND depth > 0)
+    ),
+    CONSTRAINT fk_tree_path_ancestor_world_entity
+        FOREIGN KEY (world_id, ancestor_id) REFERENCES entity(world_id, entity_id),
+    CONSTRAINT fk_tree_path_descendant_world_entity
+        FOREIGN KEY (world_id, descendant_id) REFERENCES entity(world_id, entity_id)
 );
 
 CREATE INDEX users_email_idx ON users (email);
@@ -139,13 +154,14 @@ CREATE INDEX idx_person_death_date ON person(death_date);
 CREATE INDEX idx_relationship_source_entity ON relationship(source_entity_id);
 CREATE INDEX idx_relationship_target_entity ON relationship(target_entity_id);
 CREATE INDEX idx_relationship_kind ON relationship(kind);
-CREATE INDEX idx_relationship_diagram ON relationship(diagram_id);
-CREATE INDEX idx_tree_path_ancestor ON tree_path(ancestor_id);
-CREATE INDEX idx_tree_path_descendant ON tree_path(descendant_id);
+CREATE INDEX idx_relationship_world ON relationship(world_id);
+CREATE INDEX idx_tree_path_world_ancestor ON tree_path(world_id, ancestor_id);
+CREATE INDEX idx_tree_path_world_descendant ON tree_path(world_id, descendant_id);
+CREATE INDEX idx_tree_path_world_depth ON tree_path(world_id, depth);
 
 CREATE UNIQUE INDEX uq_relationship_directed_active
 ON relationship (
-    diagram_id,
+    world_id,
     source_entity_id,
     target_entity_id,
     kind
@@ -155,7 +171,7 @@ WHERE deleted_at IS NULL
 
 CREATE UNIQUE INDEX uq_relationship_symmetric_active
 ON relationship (
-    diagram_id,
+    world_id,
     LEAST(source_entity_id, target_entity_id),
     GREATEST(source_entity_id, target_entity_id),
     kind

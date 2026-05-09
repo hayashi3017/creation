@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::model::tree_path::{
-    CreateTreePathsSchema, DeleteTreePathsByEntityIdsSchema, LoadStaleRelatedConnectionsSchema,
-    LoadStaleRelatedEntityIdsSchema, TreePathConnection,
+    CreateTreePathsSchema, DeleteTreePathsByEntityIdsSchema, DeleteTreePathsByWorldSchema,
+    LoadStaleRelatedConnectionsSchema, LoadStaleRelatedEntityIdsSchema, TreePathConnection,
 };
 
 pub trait TreePathRepository: Send + Sync + 'static {}
@@ -45,6 +45,10 @@ pub trait UsesTreePathRepository: Send + Sync + 'static {
     async fn delete_tree_paths_by_entity_ids(
         &self,
         body: DeleteTreePathsByEntityIdsSchema,
+    ) -> Result<(), DeleteTreePathsByEntityIdsRepositoryError>;
+    async fn delete_tree_paths_by_world(
+        &self,
+        body: DeleteTreePathsByWorldSchema,
     ) -> Result<(), DeleteTreePathsByEntityIdsRepositoryError>;
     async fn create_tree_paths(
         &self,

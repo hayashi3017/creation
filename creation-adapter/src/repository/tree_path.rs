@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use creation_service::{
     model::tree_path::{
-        CreateTreePathsSchema, DeleteTreePathsByEntityIdsSchema, LoadStaleRelatedConnectionsSchema,
-        LoadStaleRelatedEntityIdsSchema, TreePathConnection,
+        CreateTreePathsSchema, DeleteTreePathsByEntityIdsSchema, DeleteTreePathsByWorldSchema,
+        LoadStaleRelatedConnectionsSchema, LoadStaleRelatedEntityIdsSchema, TreePathConnection,
     },
     repository::tree_path::{
         CreateTreePathsRepositoryError, DeleteTreePathsByEntityIdsRepositoryError,
@@ -88,6 +88,29 @@ impl UsesTreePathRepository for RepositoryImpl<TreePathTable> {
         }
 
         delete_tree_paths_by_entity_ids_with(&self.pool.0, body)
+            .await
+            .map_err(DeleteTreePathsByEntityIdsRepositoryError::Db)
+    }
+
+    async fn delete_tree_paths_by_world(
+        &self,
+        body: DeleteTreePathsByWorldSchema,
+    ) -> Result<(), DeleteTreePathsByEntityIdsRepositoryError> {
+        if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                return delete_tree_paths_by_world_with(tx.as_mut(), body)
+                    .await
+                    .map_err(DeleteTreePathsByEntityIdsRepositoryError::Db);
+            }
+
+            return Err(DeleteTreePathsByEntityIdsRepositoryError::Db(
+                closed_transaction_error(),
+            ));
+        }
+
+        delete_tree_paths_by_world_with(&self.pool.0, body)
             .await
             .map_err(DeleteTreePathsByEntityIdsRepositoryError::Db)
     }
@@ -218,10 +241,31 @@ where
     Ok(rows
         .into_iter()
         .map(|(ancestor_id, descendant_id)| TreePathConnection {
+            world_id: 0,
             ancestor_id: ancestor_id as usize,
             descendant_id: descendant_id as usize,
         })
         .collect())
+}
+
+async fn delete_tree_paths_by_world_with<'e, E>(
+    executor: E,
+    body: DeleteTreePathsByWorldSchema,
+) -> Result<(), sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    sqlx::query(
+        r#"
+            DELETE FROM tree_path
+            WHERE world_id = $1
+        "#,
+    )
+    .bind(body.world_id as i64)
+    .execute(executor)
+    .await?;
+
+    Ok(())
 }
 
 async fn create_tree_paths_with<'e, E>(
@@ -235,10 +279,12 @@ where
         return Ok(());
     }
 
-    let mut builder =
-        QueryBuilder::<Postgres>::new("INSERT INTO tree_path (ancestor_id, descendant_id, depth) ");
+    let mut builder = QueryBuilder::<Postgres>::new(
+        "INSERT INTO tree_path (world_id, ancestor_id, descendant_id, depth) ",
+    );
     builder.push_values(body.tree_paths.iter(), |mut separated, tree_path| {
         separated
+            .push_bind(tree_path.world_id as i64)
             .push_bind(tree_path.ancestor_id as i64)
             .push_bind(tree_path.descendant_id as i64)
             .push_bind(tree_path.depth as i32);
