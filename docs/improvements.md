@@ -21,6 +21,8 @@ Detailed proposals and decisions:
 
 - Relationship API も `GET /api/relationships` の body 依存と `POST /api/relationships/create`, `PATCH /api/relationships/update/{relationship_id}`, `DELETE /api/relationships/delete/{relationship_id}` の action-style な path を採用している。Diagram / Person と同じ観点なので、resource-oriented に寄せるか現行形を正式化するかを RFC 0001 でまとめて整理した方がよい。See `docs/rfc/0001-resource-oriented-api-shape.md`.
 - `relationship` は canonical stored kind へ寄せたが、`spouse` / `partner` / `cohabitant` の UI 表示、重複エラーの public status mapping、`end_reason` の enum 化はまだ別途整理が必要。See `docs/rfc/0013-canonical-relationship-kinds-and-tree-path.md`.
+- RFC 0025 で relationship / tree_path を world-level に寄せる方針にしたが、同一 child の複数 parent 候補、同一 pair の parent/adoptive_parent 併存、overlapping spouse / partner / cohabitant を reject するか diagnostic に留めるかは未決定。world-level canonical fact として扱う以上、conflict policy を write validation / read diagnostics / review flow のどこに置くかを決める必要がある。See `docs/rfc/0025-tree-path-scope-and-maintenance.md`.
+- Diagram は relationship を所有せず entity 表示範囲だけを持つ方針にしたため、diagram ごとの edge 非表示要件は `diagram_relationship` ではなく kind filter / `as_of` / display settings で扱う必要がある。個別 relationship hide が必要になるか、必要なら display settings の scope と schema をどうするかを別途決める。See `docs/rfc/0025-tree-path-scope-and-maintenance.md`.
 
 ## Validation And Error Handling
 
@@ -39,12 +41,15 @@ Detailed proposals and decisions:
 ## Genealogy Merge And Visibility
 
 - Publication scope, entity-level hidden state, and centered genealogy reads are not defined yet. Before extending merged genealogy views, review the aggregate boundary, naming, and visibility propagation policy in `docs/rfc/0008-world-aggregate-and-membership.md`.
-- RFC 0015 の初期実装では `GET /api/genealogy/world/{world_id}` は full overview を返し、`center_entity_id` / `ancestor_depth` / `descendant_depth` は request contract として受け取るだけにしている。center-relative subgraph の exact traversal rule と response metadata は RFC 0015 の未解決事項として詰める必要がある。See `docs/rfc/0015-genealogy-overview-api.md`.
+- RFC 0015 の初期実装では `GET /api/genealogy/world/{world_id}` は full overview を返し、`center_entity_id` / `ancestor_depth` / `descendant_depth` は request contract として受け取るだけにしている。center-relative subgraph の exact traversal rule と response metadata は RFC 0024 の共通 graph payload contract に沿って詰める必要がある。See `docs/rfc/0015-genealogy-overview-api.md` and `docs/rfc/0024-genealogy-graph-payload-contract.md`.
 - Genealogy Overview は stored canonical relationship を統合して返すが、merged graph を入力にした derived kinship relation の公開形はまだ未実装。`KinshipDerivationService` の overview 用 input/output contract を決めてから response に derived edge または relation を追加する。See `docs/rfc/0012-kinship-derivation-service.md` and `docs/rfc/0015-genealogy-overview-api.md`.
+- `tree_path` は current-state cache なので、`as_of` projection では current `tree_path` を使わず request-local closure を構築する必要がある。world-level `tree_path` に寄せても period information を持たない問題は残るため、as-of read の性能と temporal cache が必要になる閾値を後で検討する。See `docs/adr/0005-as-of-projection-tree-path-boundary.md` and `docs/rfc/0025-tree-path-scope-and-maintenance.md`.
+- world-level `tree_path` は diagram-level cache より rebuild 範囲が広い。初期は correctness 優先で world 単位 rebuild にするが、大きな world では rebuild performance、lock duration、差分更新または background repair の必要性を検証する。See `docs/rfc/0025-tree-path-scope-and-maintenance.md`.
 
 ## Genealogy Derivation
 
 - 家系図の派生続柄は今後 `sibling` / `ancestor` / `cousin` / `in-law` まで広がる可能性があるが、その導出責務を `GenealogyDiagramUsecase` に載せ続けると orchestration と graph rule が混ざりやすい。`RelationshipService` は stored relationship row の lifecycle に限定し、read-only の kinship 導出は `KinshipDerivationService` のような別 service に分けた方が境界が明確になる。See `docs/rfc/0012-kinship-derivation-service.md`.
+- `tree_path` は relationship kind、date range、multiple paths、biological/adoptive/step distinction を保持しない。ancestor/descendant reachability には使えるが、sibling classification や relation nature の説明には direct relationship と qualifier / diagnostics が必要。`KinshipDerivationService` の output に `MultiplePaths`、`ParentSetIncomplete` などの qualifier をどう持たせるかを決める。See `docs/rfc/0012-kinship-derivation-service.md`, `docs/rfc/0024-genealogy-graph-payload-contract.md`, and `docs/rfc/0025-tree-path-scope-and-maintenance.md`.
 
 ## Tooling And Tests
 

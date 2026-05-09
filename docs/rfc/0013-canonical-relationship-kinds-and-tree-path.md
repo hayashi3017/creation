@@ -118,6 +118,8 @@ Symmetric kind では relationship に意味的な方向はない。
 
 `tree_path` は canonical directed lineage facts のみから構築する。
 
+`tree_path` の scope、schema、rebuild transaction、concurrency policy は RFC 0025 で定義する。RFC 0013 は「どの relationship kind が tree-edge として扱われるか」を定義し、RFC 0025 はその closure cache をどの aggregate scope でどう維持するかを定義する。
+
 初期 tree-edge policy:
 
 - `parent`: `tree_path` に参加する。
@@ -182,7 +184,7 @@ Directed canonical facts 用の active-row unique index を追加する。
 ```sql
 CREATE UNIQUE INDEX uq_relationship_directed_active
 ON relationship (
-  diagram_id,
+  world_id,
   source_entity_id,
   target_entity_id,
   kind
@@ -196,7 +198,7 @@ Symmetric canonical facts 用の active-row unique index を追加する。
 ```sql
 CREATE UNIQUE INDEX uq_relationship_symmetric_active
 ON relationship (
-  diagram_id,
+  world_id,
   LEAST(source_entity_id, target_entity_id),
   GREATEST(source_entity_id, target_entity_id),
   kind
@@ -303,7 +305,7 @@ Unique index を追加する前に duplicate active rows を解消する。
 
 Relationship rows を canonicalize した後に実行する。
 
-1. migration 対象 diagram の `tree_path` rows を削除するか、すべての closure rows を rebuild する。
+1. migration 対象 world の `tree_path` rows を削除するか、すべての closure rows を rebuild する。
 2. active `parent` と `adoptive_parent` rows のみから rebuild する。
 3. cycle detection が tree-edge kinds のみを使うことを検証する。
 

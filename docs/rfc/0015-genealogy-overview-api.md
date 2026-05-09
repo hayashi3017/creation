@@ -11,12 +11,14 @@ Genealogy Overview は、world 内の複数 genealogy diagram を統合した家
 
 この RFC は Genealogy Overview の API contract と projection rule を定義する。familytree から genealogy への repository-wide 命名変更方針は RFC 0017 で定義する。
 
+Relationship scope は RFC 0025 で world-level canonical fact に更新する。RFC 0025 採用後の overview は diagram-local relationship の merge ではなく、world-level relationship と optional diagram entity filter から構築する。
+
 ## 目標
 
 - world 内の複数 diagram を統合した genealogy graph を返す。
 - diagram 設定の `genealogy_overview_enabled` に従い、overview 出力対象 diagram を制御する。
 - 同一人物を world-scoped `entity_id` で統合した node として返す。
-- relationship provenance を失わず、どの diagram 由来か追跡できるようにする。
+- relationship は world-level fact として扱い、diagram filter 適用時は endpoint entity の diagram membership provenance を追跡できるようにする。
 - 既存の `KinshipDerivationService` と canonical relationship kind 方針を再利用する。
 - 将来の `as_of` projection と両立する。
 
@@ -101,10 +103,10 @@ Overview は次の順序で組み立てる。
 5. filter 後の diagram が 0 件なら `409 CONFLICT` を返す。
 6. 対象 diagram の active `diagram_entity` と entity / person attributes を load する。
 7. 同じ `entity_id` が複数 diagram に登録されている場合、1 node に統合する。
-8. 対象 diagram の active canonical relationship を load する。
-9. relationship endpoint が world 内 entity であり、対象 diagram に `diagram_entity` として登録されていることを確認する。
+8. world-level active canonical relationship を load する。
+9. `diagram_ids` filter がある場合は、対象 diagram の visible entity set の内側に source / target がどちらも含まれる relationship だけを overview edge として扱う。
 10. `source_entity_id = target_entity_id` になる relationship は overview edge から除外し、diagnostic として扱う。
-11. 同じ entity pair / kind / validity range の edge を統合する。
+11. world-level relationship は重複保存されない前提なので、同じ `relationship_id` を primary provenance として扱う。legacy migration 期間に重複 row がある場合だけ dedupe する。
 12. `KinshipDerivationService` に overview 用 graph input を渡す。
 13. root、stats、provenance を assemble する。
 
@@ -147,22 +149,20 @@ genealogy_overview_enabled BOOLEAN NOT NULL DEFAULT true
 - しかし現在の diagram 設定では overview を構築できない。
 - `404` だと world や diagram が存在しない状態と区別しにくい。
 
-## Relationship 統合ルール
+## Relationship 表示ルール
 
-同じ relationship が複数 diagram で表現されている場合、overview では重複 edge をまとめる。
+RFC 0025 採用後、relationship は world-level の正規 fact である。同じ relationship を複数 diagram に保存して overview で merge する前提は採用しない。
 
-初期 dedupe key:
+Overview edge の基本 identity は world-level `relationship_id`、または RFC 0024 の `edge_id` とする。
+
+`diagram_ids` query が指定された場合は、relationship provenance ではなく visible entity set を絞る。
 
 ```text
-source_entity_id
-target_entity_id
-kind
-start_date
-end_date
-end_reason
+visible_entity_ids = active diagram_entity rows in selected diagrams
+edge is visible when source_entity_id and target_entity_id are both in visible_entity_ids
 ```
 
-統合された edge は `source_relationship_ids` と `source_diagram_ids` を配列で持つ。
+`source_diagram_ids` は relationship の所有元ではなく、endpoint entity がどの selected diagram に含まれていたかを示す membership provenance として扱う。
 
 Conflict がある場合:
 
@@ -198,10 +198,10 @@ RFC 0014 の as-of rule を world overview にも適用できる。
 
 - Driver: request parsing と response DTO mapping。
 - Usecase: world / diagram / person / relationship loading と orchestration。
-- Service: `KinshipDerivationService` が merged graph の kinship derivation を担当する。
+- Service: `KinshipDerivationService` が world graph の kinship derivation を担当する。
 - Adapter: world-scoped diagram、entity/person、overview relationship loading の repository を提供する。
 
-`RelationshipService` は stored relationship CRUD の責務を維持し、overview の merge logic は持たない。
+`RelationshipService` は world-level stored relationship CRUD の責務を維持し、overview-specific filtering / assembly は持たない。
 
 ## Test Plan
 
@@ -214,7 +214,8 @@ RFC 0014 の as-of rule を world overview にも適用できる。
 - 同じ `entity_id` が複数 diagram に登録されていても 1 node に統合される。
 - source diagram provenance が返る。
 - relationship endpoint が world 内 entity として検証される。
-- 重複 relationship が 1 edge に統合される。
+- world-level relationship が overview edge として返る。
+- `diagram_ids` filter が指定された場合、selected diagram の visible entity set 外の relationship は除外される。
 - deleted world / diagram / entity / person / relationship は除外される。
 - `as_of` 指定時に date range filter が適用される。
 - `birth_date > as_of` の person entity が除外される。

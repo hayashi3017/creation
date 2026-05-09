@@ -31,3 +31,5 @@
 - `docs/rfc/0021-auth-abuse-and-account-enumeration.md`: login / register abuse protection と account enumeration 対策
 - `docs/rfc/0022-error-response-and-observability-boundary.md`: client-facing error と server-side observability の境界
 - `docs/rfc/0023-request-size-and-public-docs-hardening.md`: request body size limit と public docs / Swagger UI hardening 方針
+- `docs/rfc/0024-genealogy-graph-payload-contract.md`: diagram / world 共通の Genealogy Graph response contract
+- `docs/rfc/0025-tree-path-scope-and-maintenance.md`: world-scoped relationship / `tree_path` と mutation 時の maintenance policy
