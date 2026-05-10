@@ -91,7 +91,7 @@ impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
             return Err(GetGenealogyDiagramUsecaseError::InvalidDiagramKind);
         }
 
-        let mut persons =
+        let persons =
             load_persons_for_diagram(self, diagram.world_id, body.diagram_id, body.as_of).await?;
         let active_person_ids = persons
             .iter()
@@ -105,18 +105,7 @@ impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
             })
             .await
             .map_err(map_get_relationships_error)?;
-        let mut relationships =
-            filter_relationships(relationships, &active_person_id_set, body.as_of);
-
-        if let Some(center_entity_id) = body.center_entity_id {
-            (persons, relationships) = filter_centered_diagram(
-                persons,
-                relationships,
-                center_entity_id,
-                body.ancestor_depth,
-                body.descendant_depth,
-            )?;
-        }
+        let relationships = filter_relationships(relationships, &active_person_id_set, body.as_of);
 
         let active_person_ids = persons
             .iter()
@@ -341,95 +330,6 @@ fn is_relationship_visible_as_of(
         && relationship
             .end_date
             .is_none_or(|end_date| as_of <= end_date)
-}
-
-fn filter_centered_diagram(
-    persons: Vec<Person>,
-    relationships: Vec<Relationship>,
-    center_entity_id: usize,
-    ancestor_depth: Option<usize>,
-    descendant_depth: Option<usize>,
-) -> Result<(Vec<Person>, Vec<Relationship>), GetGenealogyDiagramUsecaseError> {
-    if !persons
-        .iter()
-        .any(|person| person.entity_id == center_entity_id)
-    {
-        return Err(GetGenealogyDiagramUsecaseError::NotFound);
-    }
-
-    let mut visible_entity_ids = HashSet::from([center_entity_id]);
-    collect_tree_neighborhood(
-        center_entity_id,
-        ancestor_depth.unwrap_or(usize::MAX),
-        Direction::Ancestor,
-        &relationships,
-        &mut visible_entity_ids,
-    );
-    collect_tree_neighborhood(
-        center_entity_id,
-        descendant_depth.unwrap_or(usize::MAX),
-        Direction::Descendant,
-        &relationships,
-        &mut visible_entity_ids,
-    );
-
-    let persons = persons
-        .into_iter()
-        .filter(|person| visible_entity_ids.contains(&person.entity_id))
-        .collect::<Vec<_>>();
-    let relationships = relationships
-        .into_iter()
-        .filter(|relationship| {
-            visible_entity_ids.contains(&relationship.source_entity_id)
-                && visible_entity_ids.contains(&relationship.target_entity_id)
-        })
-        .collect::<Vec<_>>();
-
-    Ok((persons, relationships))
-}
-
-#[derive(Clone, Copy)]
-enum Direction {
-    Ancestor,
-    Descendant,
-}
-
-fn collect_tree_neighborhood(
-    entity_id: usize,
-    depth: usize,
-    direction: Direction,
-    relationships: &[Relationship],
-    visible_entity_ids: &mut HashSet<usize>,
-) {
-    if depth == 0 {
-        return;
-    }
-
-    let related_entity_ids = relationships
-        .iter()
-        .filter(|relationship| relationship.kind.is_tree_edge())
-        .filter_map(|relationship| match direction {
-            Direction::Ancestor if relationship.target_entity_id == entity_id => {
-                Some(relationship.source_entity_id)
-            }
-            Direction::Descendant if relationship.source_entity_id == entity_id => {
-                Some(relationship.target_entity_id)
-            }
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-
-    for related_entity_id in related_entity_ids {
-        if visible_entity_ids.insert(related_entity_id) {
-            collect_tree_neighborhood(
-                related_entity_id,
-                depth - 1,
-                direction,
-                relationships,
-                visible_entity_ids,
-            );
-        }
-    }
 }
 
 fn build_genealogy_diagram_edges(

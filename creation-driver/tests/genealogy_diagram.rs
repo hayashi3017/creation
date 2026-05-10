@@ -146,7 +146,7 @@ async fn get_genealogy_diagram_applies_as_of_projection(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("family_tree"))]
-async fn get_genealogy_diagram_applies_center_depth_filters(db: PgPool) {
+async fn get_genealogy_diagram_applies_center_metadata(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -175,12 +175,12 @@ async fn get_genealogy_diagram_applies_center_depth_filters(db: PgPool) {
         .map(|node| node["entity_id"].as_i64().unwrap())
         .collect::<Vec<_>>();
 
-    assert_eq!(node_ids, vec![1, 2, 3]);
-    assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1]));
+    assert_eq!(node_ids, vec![1, 2, 3, 4, 5]);
+    assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1, 4]));
     assert_eq!(json["data"]["center_entity_id"], 2);
-    assert_eq!(json["data"]["stats"]["node_count"], 3);
-    assert_eq!(json["data"]["stats"]["edge_count"], 2);
-    assert_eq!(json["data"]["stats"]["root_count"], 1);
+    assert_eq!(json["data"]["stats"]["node_count"], 5);
+    assert_eq!(json["data"]["stats"]["edge_count"], 4);
+    assert_eq!(json["data"]["stats"]["root_count"], 2);
 
     let nodes = json["data"]["nodes"].as_array().unwrap();
     let center = nodes
@@ -202,6 +202,27 @@ async fn get_genealogy_diagram_applies_center_depth_filters(db: PgPool) {
         1
     );
 
+    let ancestor = nodes
+        .iter()
+        .find(|node| node["entity_id"] == serde_json::json!(4))
+        .unwrap();
+    assert_eq!(ancestor["relation_to_center"], "ancestor");
+    assert_eq!(ancestor["generation_offset_from_center"], -1);
+    assert_eq!(
+        ancestor["relation_path_to_center"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+
+    let spouse = nodes
+        .iter()
+        .find(|node| node["entity_id"] == serde_json::json!(5))
+        .unwrap();
+    assert_eq!(spouse["relation_to_center"], "spouse");
+    assert_eq!(spouse["generation_offset_from_center"], 0);
+
     let child = nodes
         .iter()
         .find(|node| node["entity_id"] == serde_json::json!(3))
@@ -222,7 +243,7 @@ async fn get_genealogy_diagram_applies_center_depth_filters(db: PgPool) {
         .any(|edge| edge["source_relationship_ids"] == serde_json::json!([2])));
     assert!(edges
         .iter()
-        .all(|edge| edge["source_relationship_ids"] != serde_json::json!([5])));
+        .any(|edge| edge["source_relationship_ids"] == serde_json::json!([5])));
 }
 
 #[sqlx::test(fixtures("family_tree"))]

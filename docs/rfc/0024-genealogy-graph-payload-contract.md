@@ -402,7 +402,7 @@ Centered request の response assembly は次の順序で行う。
 8. 各 node に `relation_to_center`、`relation_path_to_center`、`generation_offset_from_center` を付与する。
 9. `nodes`、`edges`、`root_entity_ids`、`diagram_ids` を deterministic に sort する。
 
-`ancestor_depth` / `descendant_depth` が指定された場合、初期実装では response graph を center-relative subgraph に絞る。depth filtering の exact traversal は lineage edge を優先し、spouse / partner など非 lineage edge を含めるかは別 RFC または本 RFC の更新で詰める。
+`ancestor_depth` / `descendant_depth` は center-relative metadata を計算するための request contract として保持し、response graph の node / edge 自体は絞り込まない。
 
 ## Error Semantics
 
@@ -411,10 +411,6 @@ Centered request の response assembly は次の順序で行う。
 - invalid id / invalid query -> `400 BAD_REQUEST`
 - missing or invisible diagram / world -> `404 NOT_FOUND`
 - visible world だが world graph 対象 diagram がない -> `409 CONFLICT` + `NO_VISIBLE_GENEALOGY_DIAGRAMS`
-- `center_entity_id` が graph scope に含まれない -> `400 BAD_REQUEST`
-
-`center_entity_id` が別 user / 別 world の entity である場合も、resource existence を漏らさないため `400 BAD_REQUEST` または `404 NOT_FOUND` のどちらにするかは RFC 0018 の authorization policy に従う。
-
 ## Implementation Plan
 
 1. `creation-service` に `GenealogyGraphPayload` 相当の共通 graph model を追加する。

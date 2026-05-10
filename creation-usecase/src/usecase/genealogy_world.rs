@@ -172,7 +172,7 @@ impl<T: GenealogyWorldUsecase> UsesGetGenealogyWorldUsecase for T {
             })
             .await
             .map_err(map_load_relationships_by_diagram_ids_error)?;
-        let mut edges = build_edges(
+        let edges = build_edges(
             body.world_id,
             relationships,
             &active_entity_ids,
@@ -180,16 +180,6 @@ impl<T: GenealogyWorldUsecase> UsesGetGenealogyWorldUsecase for T {
             &source_diagram_ids_by_entity_id(&nodes),
             body.as_of,
         );
-
-        if let Some(center_entity_id) = body.center_entity_id {
-            (nodes, edges) = filter_centered_world(
-                nodes,
-                edges,
-                center_entity_id,
-                body.ancestor_depth,
-                body.descendant_depth,
-            )?;
-        }
 
         let root_entity_ids = build_root_entity_ids(&nodes, &edges);
         apply_adjacency_and_roots(&mut nodes, &edges, &root_entity_ids);
@@ -433,98 +423,6 @@ fn is_relationship_visible_as_of(relationship: &Relationship, as_of: Option<Naiv
         && relationship
             .end_date
             .is_none_or(|end_date| end_date >= as_of)
-}
-
-fn filter_centered_world(
-    nodes: Vec<GenealogyGraphNodePayload>,
-    edges: Vec<GenealogyGraphEdgePayload>,
-    center_entity_id: usize,
-    ancestor_depth: Option<usize>,
-    descendant_depth: Option<usize>,
-) -> Result<
-    (
-        Vec<GenealogyGraphNodePayload>,
-        Vec<GenealogyGraphEdgePayload>,
-    ),
-    GetGenealogyWorldUsecaseError,
-> {
-    if !nodes.iter().any(|node| node.entity_id == center_entity_id) {
-        return Err(GetGenealogyWorldUsecaseError::NotFound);
-    }
-
-    let mut visible_entity_ids = HashSet::from([center_entity_id]);
-    collect_tree_neighborhood(
-        center_entity_id,
-        ancestor_depth.unwrap_or(usize::MAX),
-        Direction::Ancestor,
-        &edges,
-        &mut visible_entity_ids,
-    );
-    collect_tree_neighborhood(
-        center_entity_id,
-        descendant_depth.unwrap_or(usize::MAX),
-        Direction::Descendant,
-        &edges,
-        &mut visible_entity_ids,
-    );
-
-    let nodes = nodes
-        .into_iter()
-        .filter(|node| visible_entity_ids.contains(&node.entity_id))
-        .collect::<Vec<_>>();
-    let edges = edges
-        .into_iter()
-        .filter(|edge| {
-            visible_entity_ids.contains(&edge.source_entity_id)
-                && visible_entity_ids.contains(&edge.target_entity_id)
-        })
-        .collect::<Vec<_>>();
-
-    Ok((nodes, edges))
-}
-
-#[derive(Clone, Copy)]
-enum Direction {
-    Ancestor,
-    Descendant,
-}
-
-fn collect_tree_neighborhood(
-    entity_id: usize,
-    depth: usize,
-    direction: Direction,
-    edges: &[GenealogyGraphEdgePayload],
-    visible_entity_ids: &mut HashSet<usize>,
-) {
-    if depth == 0 {
-        return;
-    }
-
-    let related_entity_ids = edges
-        .iter()
-        .filter(|edge| edge.kind.is_tree_edge())
-        .filter_map(|edge| match direction {
-            Direction::Ancestor if edge.target_entity_id == entity_id => {
-                Some(edge.source_entity_id)
-            }
-            Direction::Descendant if edge.source_entity_id == entity_id => {
-                Some(edge.target_entity_id)
-            }
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-
-    for related_entity_id in related_entity_ids {
-        if visible_entity_ids.insert(related_entity_id) {
-            collect_tree_neighborhood(
-                related_entity_id,
-                depth - 1,
-                direction,
-                edges,
-                visible_entity_ids,
-            );
-        }
-    }
 }
 
 fn build_root_entity_ids(

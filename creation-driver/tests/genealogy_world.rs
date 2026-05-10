@@ -86,7 +86,7 @@ async fn get_genealogy_world_merges_visible_world_diagrams(db: PgPool) {
 }
 
 #[sqlx::test(fixtures("genealogy_world"))]
-async fn get_genealogy_world_applies_center_depth_filters(db: PgPool) {
+async fn get_genealogy_world_applies_center_metadata(db: PgPool) {
     set_test_env();
     let token = create_token("00000000-0000-0000-0000-000000000001", "test_secret");
 
@@ -117,10 +117,10 @@ async fn get_genealogy_world_applies_center_depth_filters(db: PgPool) {
         .map(|node| node["entity_id"].as_i64().unwrap())
         .collect::<Vec<_>>();
 
-    assert_eq!(node_ids, vec![2, 3]);
-    assert_eq!(json["data"]["stats"]["node_count"], 2);
-    assert_eq!(json["data"]["stats"]["edge_count"], 1);
-    assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([2]));
+    assert_eq!(node_ids, vec![1, 2, 3, 4]);
+    assert_eq!(json["data"]["stats"]["node_count"], 4);
+    assert_eq!(json["data"]["stats"]["edge_count"], 5);
+    assert_eq!(json["data"]["root_entity_ids"], serde_json::json!([1]));
 
     let nodes = json["data"]["nodes"].as_array().unwrap();
     let center = nodes
@@ -141,6 +141,20 @@ async fn get_genealogy_world_applies_center_depth_filters(db: PgPool) {
         parent["relation_path_to_center"].as_array().unwrap().len(),
         1
     );
+
+    let ancestor = nodes
+        .iter()
+        .find(|node| node["entity_id"] == serde_json::json!(1))
+        .unwrap();
+    assert_eq!(ancestor["relation_to_center"], "ancestor");
+    assert_eq!(ancestor["generation_offset_from_center"], -2);
+
+    let sibling_branch = nodes
+        .iter()
+        .find(|node| node["entity_id"] == serde_json::json!(4))
+        .unwrap();
+    assert_eq!(sibling_branch["relation_to_center"], "ancestor");
+    assert_eq!(sibling_branch["generation_offset_from_center"], -2);
 }
 
 #[sqlx::test(fixtures("genealogy_world"))]

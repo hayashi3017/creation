@@ -104,7 +104,7 @@ Semantics:
 - `diagram_ids` が指定された場合も、world 外 diagram と disabled diagram は含めない。
 - node は対象 diagram 群の active `diagram_entity` membership を統合し、同じ `entity_id` を 1 node に dedupe する。
 - `as_of` は relationship validity と person birth-date visibility に適用する。
-- `center_entity_id` / depth 指定がある場合、as-of 適用後の graph に対して中心人物範囲を filter する。
+- `center_entity_id` / depth 指定がある場合、as-of 適用後の graph に対して中心人物の metadata を付与する。
 
 推奨 response metadata:
 
@@ -229,7 +229,7 @@ As-of closure の source of truth として現在の `tree_path` table を使わ
 - as-of graph に対して cycle を detect する。
 - request-local closure を derived kinship に使う。
 
-Diagram projection は request-local graph derivation で扱える程度に小さい想定のため、初期実装としては許容できる。Overview projection は複数 diagram を統合するため diagram projection より大きくなるが、RFC 0015 の対象 diagram filter と optional center/depth filter により初期実装では request-local derivation を採用する。
+Diagram projection は request-local graph derivation で扱える程度に小さい想定のため、初期実装としては許容できる。Overview projection は複数 diagram を統合するため diagram projection より大きくなるが、RFC 0015 の対象 diagram filter と optional center/depth metadata により初期実装では request-local derivation を採用する。
 
 性能問題が出た場合は、後で dedicated temporal closure table を追加する。
 
@@ -404,7 +404,7 @@ As-of read 中に `tree_path` を mutate しない。Historical date 用に `tre
 
 - overview の対象 diagram 群に対して relationship date filtering を適用する。
 - world-scoped entity dedupe と source provenance を維持する。
-- `center_entity_id` / depth filter は as-of graph 構築後に適用する。
+- `center_entity_id` / depth metadata は as-of graph 構築後に適用する。
 - `birth_date > as_of` の node と、その node に接続する edge を除外する。
 
 ### Phase 3
@@ -468,7 +468,7 @@ Profiling により request-local derivation が遅いと分かった場合に�
 - roots と adjacency が as-of graph から再計算される。
 - overview では同じ `entity_id` が複数 diagram に存在しても 1 node に統合され、`source_diagram_ids` が維持される。
 - overview では relationship endpoint が relationship の diagram に `diagram_entity` として登録されていない場合に除外される。
-- overview の `center_entity_id` / depth filter は as-of filtering 後の graph に適用される。
+- overview の `center_entity_id` / depth metadata は as-of filtering 後の graph に適用される。
 - as-of projection は `tree_path` を mutate しない。
 - cycle detection は as-of lineage graph に対して走る。
 
