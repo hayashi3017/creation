@@ -337,7 +337,22 @@ async fn sync_diagram_entity_memberships_links_entities_to_diagram(db: PgPool) {
     .await
     .unwrap();
 
-    assert_eq!(entity_ids, vec![1, 2, 3]);
+    assert_eq!(entity_ids, vec![1, 2]);
+
+    let deleted_at = sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
+        r#"
+            SELECT deleted_at
+            FROM diagram_entity
+            WHERE diagram_id = $1 AND entity_id = $2
+        "#,
+    )
+    .bind(2_i64)
+    .bind(3_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert!(deleted_at.is_some());
 }
 
 #[sqlx::test(fixtures("person"))]

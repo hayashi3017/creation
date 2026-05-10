@@ -1,13 +1,25 @@
+use std::collections::HashSet;
+
 use async_trait::async_trait;
 use creation_service::{
+    model::diagram::ExistsActiveDiagramSchema,
     model::entity::{
-        CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteEntitySchema, Entity,
-        GetEntitiesSchema, SyncDiagramEntityMembershipsSchema, UpdateEntitySchema,
+        CreateDiagramEntityMembershipSchema, CreateDiagramEntityMembershipsSchema,
+        CreateEntitySchema, DeleteDiagramEntityMembershipsByEntityIdsSchema, DeleteEntitySchema,
+        Entity, GetEntitiesSchema, LoadActiveEntityIdsSchema, SyncDiagramEntityMembershipsSchema,
+        UpdateEntitySchema,
+    },
+    service::diagram::{
+        ExistsActiveDiagramServiceError, ProvidesDiagramService, UsesDiagramService,
     },
     service::entity::{
         CreateDiagramEntityMembershipServiceError, CreateEntityServiceError,
-        DeleteEntityServiceError, GetEntitiesServiceError, ProvidesEntityService,
-        SyncDiagramEntityMembershipsServiceError, UpdateEntityServiceError, UsesEntityService,
+        DeleteDiagramEntityMembershipServiceError, DeleteEntityServiceError,
+        GetEntitiesServiceError, LoadActiveEntityIdsServiceError, ProvidesEntityService,
+        UpdateEntityServiceError, UsesEntityService,
+    },
+    service::transaction::{
+        BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError,
     },
 };
 use thiserror::Error;
@@ -62,7 +74,17 @@ pub enum SyncDiagramEntityMembershipsUsecaseError {
     #[error("not found")]
     NotFound,
     #[error(transparent)]
-    SyncDiagramEntityMembershipsServiceError(#[from] SyncDiagramEntityMembershipsServiceError),
+    BeginTransactionError(#[from] BeginTransactionError),
+    #[error(transparent)]
+    TransactionError(#[from] TransactionError),
+    #[error(transparent)]
+    ExistsActiveDiagramServiceError(#[from] ExistsActiveDiagramServiceError),
+    #[error(transparent)]
+    LoadActiveEntityIdsServiceError(#[from] LoadActiveEntityIdsServiceError),
+    #[error(transparent)]
+    DeleteDiagramEntityMembershipServiceError(#[from] DeleteDiagramEntityMembershipServiceError),
+    #[error(transparent)]
+    CreateDiagramEntityMembershipServiceError(#[from] CreateDiagramEntityMembershipServiceError),
 }
 
 #[derive(Debug, Error)]
@@ -165,29 +187,78 @@ pub trait UsesSyncDiagramEntityMembershipsUsecase {
 }
 
 #[async_trait]
-impl<T: EntityUsecase> UsesSyncDiagramEntityMembershipsUsecase for T {
+impl<T> UsesSyncDiagramEntityMembershipsUsecase for T
+where
+    T: EntityUsecase + ProvidesTransactionManager,
+    <T as ProvidesTransactionManager>::T:
+        TransactionContext + ProvidesEntityService + ProvidesDiagramService,
+{
     async fn sync_diagram_entity_memberships(
         &self,
         body: SyncDiagramEntityMembershipsSchema,
     ) -> Result<(), SyncDiagramEntityMembershipsUsecaseError> {
-        match self
-            .entity_service()
-            .sync_diagram_entity_memberships(body)
-            .await
-        {
-            Ok(()) => Ok(()),
-            Err(SyncDiagramEntityMembershipsServiceError::InvalidParams) => {
-                Err(SyncDiagramEntityMembershipsUsecaseError::InvalidParams)
-            }
-            Err(SyncDiagramEntityMembershipsServiceError::NotFound) => {
-                Err(SyncDiagramEntityMembershipsUsecaseError::NotFound)
-            }
-            Err(err) => Err(
-                SyncDiagramEntityMembershipsUsecaseError::SyncDiagramEntityMembershipsServiceError(
-                    err,
-                ),
-            ),
+        let SyncDiagramEntityMembershipsSchema {
+            diagram_id,
+            entity_ids,
+        } = body;
+
+        if diagram_id == 0 || entity_ids.iter().any(|entity_id| *entity_id == 0) {
+            return Err(SyncDiagramEntityMembershipsUsecaseError::InvalidParams);
         }
+
+        let requested_entity_id_set: HashSet<_> = entity_ids.iter().copied().collect();
+
+        let tx = self.begin_transaction().await?;
+
+        if !tx
+            .diagram_service()
+            .exists_active_diagram(ExistsActiveDiagramSchema { diagram_id })
+            .await?
+        {
+            return Err(SyncDiagramEntityMembershipsUsecaseError::NotFound);
+        }
+
+        let active_entity_ids = tx
+            .entity_service()
+            .load_active_entity_ids(LoadActiveEntityIdsSchema { diagram_id })
+            .await?;
+        let active_entity_id_set: HashSet<_> = active_entity_ids.into_iter().collect();
+
+        let mut delete_entity_ids: Vec<_> = active_entity_id_set
+            .difference(&requested_entity_id_set)
+            .copied()
+            .collect();
+        delete_entity_ids.sort_unstable();
+
+        if !delete_entity_ids.is_empty() {
+            tx.entity_service()
+                .delete_diagram_entity_memberships_by_entity_ids(
+                    DeleteDiagramEntityMembershipsByEntityIdsSchema {
+                        diagram_id,
+                        entity_ids: delete_entity_ids,
+                    },
+                )
+                .await?;
+        }
+
+        let mut create_entity_ids: Vec<_> = requested_entity_id_set
+            .difference(&active_entity_id_set)
+            .copied()
+            .collect();
+        create_entity_ids.sort_unstable();
+
+        if !create_entity_ids.is_empty() {
+            tx.entity_service()
+                .create_diagram_entity_memberships(CreateDiagramEntityMembershipsSchema {
+                    diagram_id,
+                    entity_ids: create_entity_ids,
+                })
+                .await?;
+        }
+
+        tx.commit().await?;
+
+        Ok(())
     }
 }
 

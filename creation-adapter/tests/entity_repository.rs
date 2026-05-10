@@ -1,9 +1,9 @@
 use creation_adapter::{model::entity::EntityTable, repository::RepositoryImpl};
 use creation_service::{
     model::entity::{
-        CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteEntitySchema, EntityKind,
-        GetEntitiesSchema, SyncDiagramEntityMembershipsSchema, SyncEntityDiagramMembershipsSchema,
-        UpdateEntitySchema,
+        CreateDiagramEntityMembershipSchema, CreateEntitySchema,
+        DeleteDiagramEntityMembershipSchema, DeleteEntitySchema, EntityKind, GetEntitiesSchema,
+        SyncEntityDiagramMembershipsSchema, UpdateEntitySchema,
     },
     repository::entity::{
         CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
@@ -145,30 +145,70 @@ async fn create_diagram_entity_membership_returns_not_found_for_world_mismatch(d
 }
 
 #[sqlx::test(fixtures("entity_repository"))]
-async fn sync_diagram_entity_memberships_links_entities_to_diagram(db: PgPool) {
+async fn delete_diagram_entity_membership_soft_deletes_row(db: PgPool) {
     let repo = RepositoryImpl::<EntityTable>::new_test(db.clone()).await;
 
-    repo.sync_diagram_entity_memberships(SyncDiagramEntityMembershipsSchema {
-        diagram_id: 2,
-        entity_ids: vec![1, 2],
+    repo.delete_diagram_entity_membership(DeleteDiagramEntityMembershipSchema {
+        diagram_id: 1,
+        entity_id: 1,
     })
     .await
     .unwrap();
 
-    let active_entity_ids = sqlx::query_scalar::<_, i64>(
+    let deleted_at = sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
         r#"
-            SELECT entity_id
+            SELECT deleted_at
             FROM diagram_entity
-            WHERE diagram_id = $1 AND deleted_at IS NULL
-            ORDER BY entity_id
+            WHERE diagram_id = $1 AND entity_id = $2
         "#,
     )
-    .bind(2_i64)
-    .fetch_all(&db)
+    .bind(1_i64)
+    .bind(1_i64)
+    .fetch_one(&db)
     .await
     .unwrap();
 
-    assert_eq!(active_entity_ids, vec![1, 2, 4]);
+    assert!(deleted_at.is_some());
+}
+
+#[sqlx::test(fixtures("entity_repository"))]
+async fn create_diagram_entity_membership_reactivates_soft_deleted_row(db: PgPool) {
+    let repo = RepositoryImpl::<EntityTable>::new_test(db.clone()).await;
+
+    sqlx::query(
+        r#"
+            UPDATE diagram_entity
+            SET deleted_at = now()
+            WHERE diagram_id = $1 AND entity_id = $2
+        "#,
+    )
+    .bind(1_i64)
+    .bind(1_i64)
+    .execute(&db)
+    .await
+    .unwrap();
+
+    repo.create_diagram_entity_membership(CreateDiagramEntityMembershipSchema {
+        diagram_id: 1,
+        entity_id: 1,
+    })
+    .await
+    .unwrap();
+
+    let deleted_at = sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
+        r#"
+            SELECT deleted_at
+            FROM diagram_entity
+            WHERE diagram_id = $1 AND entity_id = $2
+        "#,
+    )
+    .bind(1_i64)
+    .bind(1_i64)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+
+    assert!(deleted_at.is_none());
 }
 
 #[sqlx::test(fixtures("entity_repository"))]

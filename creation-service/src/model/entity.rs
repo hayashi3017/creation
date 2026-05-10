@@ -88,6 +88,24 @@ pub struct DeleteDiagramEntityMembershipsSchema {
     pub diagram_id: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct DeleteDiagramEntityMembershipSchema {
+    pub diagram_id: usize,
+    pub entity_id: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateDiagramEntityMembershipsSchema {
+    pub diagram_id: usize,
+    pub entity_ids: Vec<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DeleteDiagramEntityMembershipsByEntityIdsSchema {
+    pub diagram_id: usize,
+    pub entity_ids: Vec<usize>,
+}
+
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct CreateDiagramEntityMembershipSchema {
     pub diagram_id: usize,

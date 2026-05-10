@@ -1,26 +1,26 @@
 use async_trait::async_trait;
 use creation_service::{
     model::entity::{
-        CreateDiagramEntityMembershipSchema, CreateEntitySchema,
-        DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
-        LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
-        LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema, LoadSeedEntitiesSchema,
-        SeedEntity, SyncDiagramEntityMembershipsSchema, SyncEntityDiagramMembershipsSchema,
-        UpdateEntitySchema,
+        CreateDiagramEntityMembershipSchema, CreateDiagramEntityMembershipsSchema,
+        CreateEntitySchema, DeleteDiagramEntityMembershipSchema,
+        DeleteDiagramEntityMembershipsByEntityIdsSchema, DeleteDiagramEntityMembershipsSchema,
+        DeleteEntitySchema, Entity, GetEntitiesSchema, LoadActiveEntitiesByDiagramIdsSchema,
+        LoadActiveEntityIdsSchema, LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema,
+        LoadSeedEntitiesSchema, SeedEntity, SyncEntityDiagramMembershipsSchema, UpdateEntitySchema,
     },
     repository::entity::{
         CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
+        DeleteDiagramEntityMembershipRepositoryError,
         DeleteDiagramEntityMembershipsRepositoryError, DeleteEntityRepositoryError,
         EntityRepository, GetEntitiesRepositoryError,
         LoadActiveEntitiesByDiagramIdsRepositoryError, LoadActiveEntityIdsRepositoryError,
         LoadEntitiesByDiagramIdsRepositoryError, LoadEntitiesByWorldRepositoryError,
         LoadSeedEntitiesRepositoryError, ProvidesEntityRepository,
-        SyncDiagramEntityMembershipsRepositoryError, SyncEntityDiagramMembershipsRepositoryError,
-        UpdateEntityRepositoryError, UsesEntityRepository,
+        SyncEntityDiagramMembershipsRepositoryError, UpdateEntityRepositoryError,
+        UsesEntityRepository,
     },
     service::entity::{EntityService, ProvidesEntityService},
 };
-use creation_usecase::usecase::entity::{EntityUsecase, ProvidesEntityUsecase};
 use sqlx::{Executor, Postgres};
 
 use crate::{
@@ -124,32 +124,90 @@ impl UsesEntityRepository for RepositoryImpl<EntityTable> {
         }
     }
 
-    async fn sync_diagram_entity_memberships(
+    async fn create_diagram_entity_memberships(
         &self,
-        body: SyncDiagramEntityMembershipsSchema,
-    ) -> Result<(), SyncDiagramEntityMembershipsRepositoryError> {
-        let synced = if let Some(shared_tx) = &self.tx {
+        body: CreateDiagramEntityMembershipsSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipRepositoryError> {
+        let created = if let Some(shared_tx) = &self.tx {
             let mut tx = shared_tx.lock().await;
 
             if let Some(tx) = tx.as_mut() {
-                sync_diagram_entity_memberships_with(tx.as_mut(), body)
+                create_diagram_entity_memberships_with(tx.as_mut(), body)
                     .await
-                    .map_err(SyncDiagramEntityMembershipsRepositoryError::Db)?
+                    .map_err(CreateDiagramEntityMembershipRepositoryError::Db)?
             } else {
-                return Err(SyncDiagramEntityMembershipsRepositoryError::Db(
+                return Err(CreateDiagramEntityMembershipRepositoryError::Db(
                     closed_transaction_error(),
                 ));
             }
         } else {
-            sync_diagram_entity_memberships_with(&self.pool.0, body)
+            create_diagram_entity_memberships_with(&self.pool.0, body)
                 .await
-                .map_err(SyncDiagramEntityMembershipsRepositoryError::Db)?
+                .map_err(CreateDiagramEntityMembershipRepositoryError::Db)?
         };
 
-        if synced {
+        if created {
             Ok(())
         } else {
-            Err(SyncDiagramEntityMembershipsRepositoryError::NotFound)
+            Err(CreateDiagramEntityMembershipRepositoryError::NotFound)
+        }
+    }
+
+    async fn delete_diagram_entity_membership(
+        &self,
+        body: DeleteDiagramEntityMembershipSchema,
+    ) -> Result<(), DeleteDiagramEntityMembershipRepositoryError> {
+        let deleted = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                delete_diagram_entity_membership_with(tx.as_mut(), body)
+                    .await
+                    .map_err(DeleteDiagramEntityMembershipRepositoryError::Db)?
+            } else {
+                return Err(DeleteDiagramEntityMembershipRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            delete_diagram_entity_membership_with(&self.pool.0, body)
+                .await
+                .map_err(DeleteDiagramEntityMembershipRepositoryError::Db)?
+        };
+
+        if deleted {
+            Ok(())
+        } else {
+            Err(DeleteDiagramEntityMembershipRepositoryError::NotFound)
+        }
+    }
+
+    async fn delete_diagram_entity_memberships_by_entity_ids(
+        &self,
+        body: DeleteDiagramEntityMembershipsByEntityIdsSchema,
+    ) -> Result<(), DeleteDiagramEntityMembershipRepositoryError> {
+        let deleted = if let Some(shared_tx) = &self.tx {
+            let mut tx = shared_tx.lock().await;
+
+            if let Some(tx) = tx.as_mut() {
+                delete_diagram_entity_memberships_by_entity_ids_with(tx.as_mut(), body)
+                    .await
+                    .map_err(DeleteDiagramEntityMembershipRepositoryError::Db)?
+            } else {
+                return Err(DeleteDiagramEntityMembershipRepositoryError::Db(
+                    closed_transaction_error(),
+                ));
+            }
+        } else {
+            delete_diagram_entity_memberships_by_entity_ids_with(&self.pool.0, body)
+                .await
+                .map_err(DeleteDiagramEntityMembershipRepositoryError::Db)?
+        };
+
+        if deleted {
+            Ok(())
+        } else {
+            Err(DeleteDiagramEntityMembershipRepositoryError::NotFound)
         }
     }
 
@@ -448,9 +506,9 @@ where
     Ok(inserted.is_some())
 }
 
-async fn sync_diagram_entity_memberships_with<'e, E>(
+async fn create_diagram_entity_memberships_with<'e, E>(
     executor: E,
-    body: SyncDiagramEntityMembershipsSchema,
+    body: CreateDiagramEntityMembershipsSchema,
 ) -> Result<bool, sqlx::Error>
 where
     E: Executor<'e, Database = Postgres>,
@@ -461,7 +519,7 @@ where
         .map(|entity_id| entity_id as i64)
         .collect::<Vec<_>>();
 
-    let synced = sqlx::query_scalar::<_, bool>(
+    let created = sqlx::query_scalar::<_, bool>(
         r#"
             WITH target_diagram AS (
                 SELECT diagram_id, world_id
@@ -511,7 +569,98 @@ where
     .fetch_one(executor)
     .await?;
 
-    Ok(synced)
+    Ok(created)
+}
+
+async fn delete_diagram_entity_membership_with<'e, E>(
+    executor: E,
+    body: DeleteDiagramEntityMembershipSchema,
+) -> Result<bool, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let deleted = sqlx::query_scalar::<_, i64>(
+        r#"
+            UPDATE diagram_entity
+            SET deleted_at = now()
+            WHERE
+                diagram_id = $1
+                AND entity_id = $2
+                AND deleted_at IS NULL
+            RETURNING entity_id
+        "#,
+    )
+    .bind(body.diagram_id as i64)
+    .bind(body.entity_id as i64)
+    .fetch_optional(executor)
+    .await?;
+
+    Ok(deleted.is_some())
+}
+
+async fn delete_diagram_entity_memberships_by_entity_ids_with<'e, E>(
+    executor: E,
+    body: DeleteDiagramEntityMembershipsByEntityIdsSchema,
+) -> Result<bool, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let entity_ids = body
+        .entity_ids
+        .into_iter()
+        .map(|entity_id| entity_id as i64)
+        .collect::<Vec<_>>();
+
+    let deleted = sqlx::query_scalar::<_, bool>(
+        r#"
+            WITH target_diagram AS (
+                SELECT diagram_id
+                FROM diagram
+                WHERE
+                    diagram_id = $1
+                    AND deleted_at IS NULL
+            ),
+            requested_entity AS (
+                SELECT DISTINCT unnest($2::BIGINT[]) AS entity_id
+            ),
+            valid_entity AS (
+                SELECT de.entity_id
+                FROM diagram_entity AS de
+                INNER JOIN target_diagram AS d
+                    ON d.diagram_id = de.diagram_id
+                INNER JOIN requested_entity AS requested
+                    ON requested.entity_id = de.entity_id
+                WHERE de.deleted_at IS NULL
+            ),
+            validation AS (
+                SELECT
+                    EXISTS (SELECT 1 FROM target_diagram) AS diagram_exists,
+                    (
+                        SELECT COUNT(*) FROM requested_entity
+                    ) = (
+                        SELECT COUNT(*) FROM valid_entity
+                    ) AS all_entities_valid
+            ),
+            soft_deleted_membership AS (
+                UPDATE diagram_entity
+                SET deleted_at = now()
+                WHERE
+                    diagram_id = $1
+                    AND deleted_at IS NULL
+                    AND entity_id = ANY($2::BIGINT[])
+                    AND (SELECT diagram_exists AND all_entities_valid FROM validation)
+                RETURNING entity_id
+            )
+            SELECT diagram_exists AND all_entities_valid
+            FROM validation
+        "#,
+    )
+    .bind(body.diagram_id as i64)
+    .bind(entity_ids)
+    .fetch_one(executor)
+    .await?;
+
+    Ok(deleted)
 }
 
 async fn sync_entity_diagram_memberships_with<'e, E>(
@@ -913,7 +1062,4 @@ impl_minimal_cake_bindings!(
     service_trait = EntityService,
     provides_service_trait = ProvidesEntityService,
     service_getter = entity_service,
-    usecase_trait = EntityUsecase,
-    provides_usecase_trait = ProvidesEntityUsecase,
-    usecase_getter = entity_usecase,
 );

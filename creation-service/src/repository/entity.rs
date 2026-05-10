@@ -2,10 +2,11 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::model::entity::{
-    CreateDiagramEntityMembershipSchema, CreateEntitySchema, DeleteDiagramEntityMembershipsSchema,
-    DeleteEntitySchema, Entity, GetEntitiesSchema, LoadActiveEntitiesByDiagramIdsSchema,
-    LoadActiveEntityIdsSchema, LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema,
-    LoadSeedEntitiesSchema, SeedEntity, SyncDiagramEntityMembershipsSchema,
+    CreateDiagramEntityMembershipSchema, CreateDiagramEntityMembershipsSchema, CreateEntitySchema,
+    DeleteDiagramEntityMembershipSchema, DeleteDiagramEntityMembershipsByEntityIdsSchema,
+    DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
+    LoadActiveEntitiesByDiagramIdsSchema, LoadActiveEntityIdsSchema,
+    LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema, LoadSeedEntitiesSchema, SeedEntity,
     SyncEntityDiagramMembershipsSchema, UpdateEntitySchema,
 };
 
@@ -22,8 +23,8 @@ pub enum EntityRepositoryError {
         #[from] CreateDiagramEntityMembershipRepositoryError,
     ),
     #[error(transparent)]
-    SyncDiagramEntityMembershipsRepositoryError(
-        #[from] SyncDiagramEntityMembershipsRepositoryError,
+    DeleteDiagramEntityMembershipRepositoryError(
+        #[from] DeleteDiagramEntityMembershipRepositoryError,
     ),
     #[error(transparent)]
     SyncEntityDiagramMembershipsRepositoryError(
@@ -74,7 +75,7 @@ pub enum CreateDiagramEntityMembershipRepositoryError {
 }
 
 #[derive(Debug, Error)]
-pub enum SyncDiagramEntityMembershipsRepositoryError {
+pub enum DeleteDiagramEntityMembershipRepositoryError {
     #[error(transparent)]
     Db(#[from] sqlx::Error),
     #[error("not found")]
@@ -155,10 +156,18 @@ pub trait UsesEntityRepository: Send + Sync + 'static {
         &self,
         body: CreateDiagramEntityMembershipSchema,
     ) -> Result<(), CreateDiagramEntityMembershipRepositoryError>;
-    async fn sync_diagram_entity_memberships(
+    async fn create_diagram_entity_memberships(
         &self,
-        body: SyncDiagramEntityMembershipsSchema,
-    ) -> Result<(), SyncDiagramEntityMembershipsRepositoryError>;
+        body: CreateDiagramEntityMembershipsSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipRepositoryError>;
+    async fn delete_diagram_entity_membership(
+        &self,
+        body: DeleteDiagramEntityMembershipSchema,
+    ) -> Result<(), DeleteDiagramEntityMembershipRepositoryError>;
+    async fn delete_diagram_entity_memberships_by_entity_ids(
+        &self,
+        body: DeleteDiagramEntityMembershipsByEntityIdsSchema,
+    ) -> Result<(), DeleteDiagramEntityMembershipRepositoryError>;
     async fn sync_entity_diagram_memberships(
         &self,
         body: SyncEntityDiagramMembershipsSchema,

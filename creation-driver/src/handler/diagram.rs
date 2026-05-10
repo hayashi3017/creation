@@ -15,16 +15,12 @@ use creation_service::{
         CreateDiagramRepositoryError, DeleteDiagramRepositoryError, GetDiagramsRepositoryError,
         UpdateDiagramRepositoryError,
     },
-    repository::entity::{
-        CreateDiagramEntityMembershipRepositoryError, SyncDiagramEntityMembershipsRepositoryError,
-    },
+    repository::entity::CreateDiagramEntityMembershipRepositoryError,
     service::diagram::{
         CreateDiagramServiceError, DeleteDiagramServiceError, GetDiagramsServiceError,
         UpdateDiagramServiceError,
     },
-    service::entity::{
-        CreateDiagramEntityMembershipServiceError, SyncDiagramEntityMembershipsServiceError,
-    },
+    service::entity::CreateDiagramEntityMembershipServiceError,
 };
 use creation_usecase::usecase::{
     diagram::{
@@ -239,22 +235,7 @@ pub async fn sync_diagram_entity_memberships(
             Err(bad_request_error("Invalid Parameter".to_string()))
         }
         Err(SyncDiagramEntityMembershipsUsecaseError::NotFound) => Err(not_found_error()),
-        Err(SyncDiagramEntityMembershipsUsecaseError::SyncDiagramEntityMembershipsServiceError(
-            err,
-        )) => match err {
-            SyncDiagramEntityMembershipsServiceError::InvalidParams => {
-                Err(bad_request_error("Invalid Parameter".to_string()))
-            }
-            SyncDiagramEntityMembershipsServiceError::NotFound => Err(not_found_error()),
-            SyncDiagramEntityMembershipsServiceError::SyncDiagramEntityMembershipsRepositoryError(
-                err,
-            ) => match err {
-                SyncDiagramEntityMembershipsRepositoryError::Db(err) => {
-                    Err(internal_server_error(format!("Database error: {}", err)))
-                }
-                SyncDiagramEntityMembershipsRepositoryError::NotFound => Err(not_found_error()),
-            },
-        },
+        Err(err) => Err(internal_server_error(format!("Database error: {}", err))),
     }
 }
 

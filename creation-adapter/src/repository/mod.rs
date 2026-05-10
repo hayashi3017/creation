@@ -24,6 +24,31 @@ macro_rules! impl_minimal_cake_bindings {
         service_trait = $service_trait:path,
         provides_service_trait = $provides_service_trait:path,
         service_getter = $service_getter:ident,
+    ) => {
+        impl $repository_trait for $crate::repository::RepositoryImpl<$model> {}
+        impl $service_trait for $crate::repository::RepositoryImpl<$model> {}
+
+        impl $provides_repository_trait for $crate::repository::RepositoryImpl<$model> {
+            type T = Self;
+            fn $repository_getter(&self) -> &Self::T {
+                self
+            }
+        }
+        impl $provides_service_trait for $crate::repository::RepositoryImpl<$model> {
+            type T = Self;
+            fn $service_getter(&self) -> &Self::T {
+                self
+            }
+        }
+    };
+    (
+        model = $model:ty,
+        repository_trait = $repository_trait:path,
+        provides_repository_trait = $provides_repository_trait:path,
+        repository_getter = $repository_getter:ident,
+        service_trait = $service_trait:path,
+        provides_service_trait = $provides_service_trait:path,
+        service_getter = $service_getter:ident,
         usecase_trait = $usecase_trait:path,
         provides_usecase_trait = $provides_usecase_trait:path,
         usecase_getter = $usecase_getter:ident $(,)?

@@ -5,18 +5,20 @@ use super::{map_service_result, normalize_name, normalize_optional_text};
 
 use crate::{
     model::entity::{
-        CreateDiagramEntityMembershipSchema, CreateEntitySchema,
-        DeleteDiagramEntityMembershipsSchema, DeleteEntitySchema, Entity, GetEntitiesSchema,
+        CreateDiagramEntityMembershipSchema, CreateDiagramEntityMembershipsSchema,
+        CreateEntitySchema, DeleteDiagramEntityMembershipSchema,
+        DeleteDiagramEntityMembershipsByEntityIdsSchema, DeleteDiagramEntityMembershipsSchema,
+        DeleteEntitySchema, Entity, GetEntitiesSchema, LoadActiveEntityIdsSchema,
         LoadEntitiesByDiagramIdsSchema, LoadEntitiesByWorldSchema, LoadSeedEntitiesSchema,
-        SeedEntity, SyncDiagramEntityMembershipsSchema, SyncEntityDiagramMembershipsSchema,
-        UpdateEntitySchema, ENTITY_NAME_MAX_CHARS,
+        SeedEntity, SyncEntityDiagramMembershipsSchema, UpdateEntitySchema, ENTITY_NAME_MAX_CHARS,
     },
     repository::entity::{
         CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
+        DeleteDiagramEntityMembershipRepositoryError,
         DeleteDiagramEntityMembershipsRepositoryError, DeleteEntityRepositoryError,
-        GetEntitiesRepositoryError, LoadEntitiesByDiagramIdsRepositoryError,
-        LoadEntitiesByWorldRepositoryError, LoadSeedEntitiesRepositoryError,
-        ProvidesEntityRepository, SyncDiagramEntityMembershipsRepositoryError,
+        GetEntitiesRepositoryError, LoadActiveEntityIdsRepositoryError,
+        LoadEntitiesByDiagramIdsRepositoryError, LoadEntitiesByWorldRepositoryError,
+        LoadSeedEntitiesRepositoryError, ProvidesEntityRepository,
         SyncEntityDiagramMembershipsRepositoryError, UpdateEntityRepositoryError,
         UsesEntityRepository,
     },
@@ -34,7 +36,7 @@ pub enum EntityServiceError {
     #[error(transparent)]
     CreateDiagramEntityMembershipServiceError(#[from] CreateDiagramEntityMembershipServiceError),
     #[error(transparent)]
-    SyncDiagramEntityMembershipsServiceError(#[from] SyncDiagramEntityMembershipsServiceError),
+    DeleteDiagramEntityMembershipServiceError(#[from] DeleteDiagramEntityMembershipServiceError),
     #[error(transparent)]
     SyncEntityDiagramMembershipsServiceError(#[from] SyncEntityDiagramMembershipsServiceError),
     #[error(transparent)]
@@ -43,6 +45,8 @@ pub enum EntityServiceError {
     DeleteEntityServiceError(#[from] DeleteEntityServiceError),
     #[error(transparent)]
     DeleteDiagramEntityMembershipsServiceError(#[from] DeleteDiagramEntityMembershipsServiceError),
+    #[error(transparent)]
+    LoadActiveEntityIdsServiceError(#[from] LoadActiveEntityIdsServiceError),
     #[error(transparent)]
     LoadEntitiesByDiagramIdsServiceError(#[from] LoadEntitiesByDiagramIdsServiceError),
     #[error(transparent)]
@@ -80,10 +84,10 @@ pub enum CreateDiagramEntityMembershipServiceError {
 }
 
 #[derive(Debug, Error)]
-pub enum SyncDiagramEntityMembershipsServiceError {
+pub enum DeleteDiagramEntityMembershipServiceError {
     #[error(transparent)]
-    SyncDiagramEntityMembershipsRepositoryError(
-        #[from] SyncDiagramEntityMembershipsRepositoryError,
+    DeleteDiagramEntityMembershipRepositoryError(
+        #[from] DeleteDiagramEntityMembershipRepositoryError,
     ),
     #[error("invalid parameter")]
     InvalidParams,
@@ -134,6 +138,14 @@ pub enum DeleteDiagramEntityMembershipsServiceError {
 }
 
 #[derive(Debug, Error)]
+pub enum LoadActiveEntityIdsServiceError {
+    #[error(transparent)]
+    LoadActiveEntityIdsRepositoryError(#[from] LoadActiveEntityIdsRepositoryError),
+    #[error("invalid parameter")]
+    InvalidParams,
+}
+
+#[derive(Debug, Error)]
 pub enum LoadEntitiesByDiagramIdsServiceError {
     #[error(transparent)]
     LoadEntitiesByDiagramIdsRepositoryError(#[from] LoadEntitiesByDiagramIdsRepositoryError),
@@ -171,10 +183,18 @@ pub trait UsesEntityService {
         &self,
         body: CreateDiagramEntityMembershipSchema,
     ) -> Result<(), CreateDiagramEntityMembershipServiceError>;
-    async fn sync_diagram_entity_memberships(
+    async fn create_diagram_entity_memberships(
         &self,
-        body: SyncDiagramEntityMembershipsSchema,
-    ) -> Result<(), SyncDiagramEntityMembershipsServiceError>;
+        body: CreateDiagramEntityMembershipsSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipServiceError>;
+    async fn delete_diagram_entity_membership(
+        &self,
+        body: DeleteDiagramEntityMembershipSchema,
+    ) -> Result<(), DeleteDiagramEntityMembershipServiceError>;
+    async fn delete_diagram_entity_memberships_by_entity_ids(
+        &self,
+        body: DeleteDiagramEntityMembershipsByEntityIdsSchema,
+    ) -> Result<(), DeleteDiagramEntityMembershipServiceError>;
     async fn sync_entity_diagram_memberships(
         &self,
         body: SyncEntityDiagramMembershipsSchema,
@@ -185,6 +205,10 @@ pub trait UsesEntityService {
         &self,
         body: DeleteEntitySchema,
     ) -> Result<usize, DeleteEntityServiceError>;
+    async fn load_active_entity_ids(
+        &self,
+        body: LoadActiveEntityIdsSchema,
+    ) -> Result<Vec<usize>, LoadActiveEntityIdsServiceError>;
     async fn delete_diagram_entity_memberships(
         &self,
         body: DeleteDiagramEntityMembershipsSchema,
@@ -261,29 +285,71 @@ impl<T: EntityService> UsesEntityService for T {
         }
     }
 
-    async fn sync_diagram_entity_memberships(
+    async fn create_diagram_entity_memberships(
         &self,
-        body: SyncDiagramEntityMembershipsSchema,
-    ) -> Result<(), SyncDiagramEntityMembershipsServiceError> {
-        if body.diagram_id == 0 || body.entity_ids.contains(&0) {
-            return Err(SyncDiagramEntityMembershipsServiceError::InvalidParams);
+        body: CreateDiagramEntityMembershipsSchema,
+    ) -> Result<(), CreateDiagramEntityMembershipServiceError> {
+        if body.diagram_id == 0 || body.entity_ids.iter().any(|entity_id| *entity_id == 0) {
+            return Err(CreateDiagramEntityMembershipServiceError::InvalidParams);
+        }
+
+        self.entity_repository()
+            .create_diagram_entity_memberships(body)
+            .await
+            .map_err(CreateDiagramEntityMembershipServiceError::CreateDiagramEntityMembershipRepositoryError)
+    }
+
+    async fn delete_diagram_entity_membership(
+        &self,
+        body: DeleteDiagramEntityMembershipSchema,
+    ) -> Result<(), DeleteDiagramEntityMembershipServiceError> {
+        if body.diagram_id == 0 || body.entity_id == 0 {
+            return Err(DeleteDiagramEntityMembershipServiceError::InvalidParams);
         }
 
         match self
             .entity_repository()
-            .sync_diagram_entity_memberships(body)
+            .delete_diagram_entity_membership(body)
             .await
         {
             Ok(()) => Ok(()),
-            Err(SyncDiagramEntityMembershipsRepositoryError::NotFound) => {
-                Err(SyncDiagramEntityMembershipsServiceError::NotFound)
+            Err(DeleteDiagramEntityMembershipRepositoryError::NotFound) => {
+                Err(DeleteDiagramEntityMembershipServiceError::NotFound)
             }
             Err(err) => Err(
-                SyncDiagramEntityMembershipsServiceError::SyncDiagramEntityMembershipsRepositoryError(
+                DeleteDiagramEntityMembershipServiceError::DeleteDiagramEntityMembershipRepositoryError(
                     err,
                 ),
             ),
         }
+    }
+
+    async fn delete_diagram_entity_memberships_by_entity_ids(
+        &self,
+        body: DeleteDiagramEntityMembershipsByEntityIdsSchema,
+    ) -> Result<(), DeleteDiagramEntityMembershipServiceError> {
+        if body.diagram_id == 0 || body.entity_ids.iter().any(|entity_id| *entity_id == 0) {
+            return Err(DeleteDiagramEntityMembershipServiceError::InvalidParams);
+        }
+
+        self.entity_repository()
+            .delete_diagram_entity_memberships_by_entity_ids(body)
+            .await
+            .map_err(DeleteDiagramEntityMembershipServiceError::DeleteDiagramEntityMembershipRepositoryError)
+    }
+
+    async fn load_active_entity_ids(
+        &self,
+        body: LoadActiveEntityIdsSchema,
+    ) -> Result<Vec<usize>, LoadActiveEntityIdsServiceError> {
+        if body.diagram_id == 0 {
+            return Err(LoadActiveEntityIdsServiceError::InvalidParams);
+        }
+
+        self.entity_repository()
+            .load_active_entity_ids(body)
+            .await
+            .map_err(LoadActiveEntityIdsServiceError::LoadActiveEntityIdsRepositoryError)
     }
 
     async fn sync_entity_diagram_memberships(

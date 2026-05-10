@@ -5,12 +5,13 @@ use super::{map_service_result, map_service_result_unit, normalize_name, normali
 
 use crate::{
     model::diagram::{
-        CreateDiagramSchema, DeleteDiagramSchema, Diagram, GetDiagramsSchema, UpdateDiagramSchema,
-        DIAGRAM_NAME_MAX_CHARS,
+        CreateDiagramSchema, DeleteDiagramSchema, Diagram, ExistsActiveDiagramSchema,
+        GetDiagramsSchema, UpdateDiagramSchema, DIAGRAM_NAME_MAX_CHARS,
     },
     repository::diagram::{
-        CreateDiagramRepositoryError, DeleteDiagramRepositoryError, GetDiagramsRepositoryError,
-        ProvidesDiagramRepository, UpdateDiagramRepositoryError, UsesDiagramRepository,
+        CreateDiagramRepositoryError, DeleteDiagramRepositoryError,
+        ExistsActiveDiagramRepositoryError, GetDiagramsRepositoryError, ProvidesDiagramRepository,
+        UpdateDiagramRepositoryError, UsesDiagramRepository,
     },
 };
 
@@ -48,6 +49,12 @@ pub enum CreateDiagramServiceError {
 }
 
 #[derive(Debug, Error)]
+pub enum ExistsActiveDiagramServiceError {
+    #[error(transparent)]
+    ExistsActiveDiagramRepositoryError(#[from] ExistsActiveDiagramRepositoryError),
+}
+
+#[derive(Debug, Error)]
 pub enum UpdateDiagramServiceError {
     #[error(transparent)]
     UpdateDiagramRepositoryError(#[from] UpdateDiagramRepositoryError),
@@ -77,6 +84,10 @@ pub trait UsesDiagramService {
         &self,
         body: CreateDiagramSchema,
     ) -> Result<(), CreateDiagramServiceError>;
+    async fn exists_active_diagram(
+        &self,
+        body: ExistsActiveDiagramSchema,
+    ) -> Result<bool, ExistsActiveDiagramServiceError>;
     async fn update_diagram(
         &self,
         body: UpdateDiagramSchema,
@@ -122,6 +133,16 @@ impl<T: DiagramService> UsesDiagramService for T {
         map_service_result_unit!(
             self.diagram_repository().create_diagram(body),
             CreateDiagramServiceError::CreateDiagramRepositoryError
+        )
+    }
+
+    async fn exists_active_diagram(
+        &self,
+        body: ExistsActiveDiagramSchema,
+    ) -> Result<bool, ExistsActiveDiagramServiceError> {
+        map_service_result!(
+            self.diagram_repository().exists_active_diagram(body),
+            ExistsActiveDiagramServiceError::ExistsActiveDiagramRepositoryError
         )
     }
 
