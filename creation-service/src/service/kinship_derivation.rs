@@ -116,7 +116,7 @@ mod tests {
             active_person_ids: vec![1, 2],
             explicit_relationships: vec![Relationship {
                 relationship_id: 10,
-                diagram_id: 1,
+                world_id: 1,
                 source_entity_id: 1,
                 target_entity_id: 2,
                 kind: RelationshipKind::Parent,
@@ -152,7 +152,7 @@ mod tests {
             explicit_relationships: vec![
                 Relationship {
                     relationship_id: 10,
-                    diagram_id: 1,
+                    world_id: 1,
                     source_entity_id: 1,
                     target_entity_id: 3,
                     kind: RelationshipKind::Parent,
@@ -163,7 +163,7 @@ mod tests {
                 },
                 Relationship {
                     relationship_id: 11,
-                    diagram_id: 1,
+                    world_id: 1,
                     source_entity_id: 1,
                     target_entity_id: 2,
                     kind: RelationshipKind::Spouse,
