@@ -1,6 +1,7 @@
 pub mod diagram;
 pub mod entity;
 pub mod genealogy_diagram;
+mod genealogy_relation;
 pub mod genealogy_world;
 pub mod health_check;
 pub mod person;

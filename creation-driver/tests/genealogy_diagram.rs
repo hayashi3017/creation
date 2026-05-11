@@ -202,17 +202,14 @@ async fn get_genealogy_diagram_applies_center_metadata(db: PgPool) {
         1
     );
 
-    let ancestor = nodes
+    let in_law = nodes
         .iter()
         .find(|node| node["entity_id"] == serde_json::json!(4))
         .unwrap();
-    assert_eq!(ancestor["relation_to_center"], "ancestor");
-    assert_eq!(ancestor["generation_offset_from_center"], -1);
+    assert_eq!(in_law["relation_to_center"], "in_law");
+    assert_eq!(in_law["generation_offset_from_center"], -1);
     assert_eq!(
-        ancestor["relation_path_to_center"]
-            .as_array()
-            .unwrap()
-            .len(),
+        in_law["relation_path_to_center"].as_array().unwrap().len(),
         2
     );
 

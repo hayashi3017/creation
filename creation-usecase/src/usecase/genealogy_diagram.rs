@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -10,8 +10,7 @@ use creation_service::{
         genealogy_graph::{
             GenealogyGraphContextPayload, GenealogyGraphEdgePayload, GenealogyGraphEdgeSource,
             GenealogyGraphNodePayload, GenealogyGraphPayload, GenealogyGraphSourceConfidence,
-            GenealogyGraphStatsPayload, GenealogyRelationPathDirection,
-            GenealogyRelationPathStepPayload, GenealogyRelationToCenter,
+            GenealogyGraphStatsPayload,
         },
         kinship_derivation::{CanonicalLineageEdge, DeriveKinshipInput},
         person::{GetPersonRecordsSchema, Person, PersonRecord},
@@ -30,6 +29,8 @@ use creation_service::{
     },
 };
 use thiserror::Error;
+
+use super::genealogy_relation::apply_center_metadata;
 
 #[async_trait]
 pub trait GenealogyDiagramUsecase:
@@ -371,174 +372,6 @@ fn build_genealogy_diagram_edges(
         )
     });
     edges
-}
-
-fn apply_center_metadata(
-    center_entity_id: Option<usize>,
-    nodes: &mut [GenealogyGraphNodePayload],
-    edges: &[GenealogyGraphEdgePayload],
-) {
-    let Some(center_entity_id) = center_entity_id else {
-        return;
-    };
-
-    let paths = shortest_paths_from_center(center_entity_id, edges);
-
-    for node in nodes {
-        if node.entity_id == center_entity_id {
-            node.relation_to_center = Some(GenealogyRelationToCenter::Self_);
-            node.relation_path_to_center = Some(Vec::new());
-            node.generation_offset_from_center = Some(0);
-            continue;
-        }
-
-        let Some(path) = paths.get(&node.entity_id).cloned() else {
-            node.relation_to_center = Some(GenealogyRelationToCenter::Unrelated);
-            node.relation_path_to_center = Some(Vec::new());
-            node.generation_offset_from_center = None;
-            continue;
-        };
-
-        let offset = generation_offset(&path);
-        node.generation_offset_from_center = offset;
-        node.relation_to_center = Some(relation_to_center(&path, offset));
-        node.relation_path_to_center = Some(path);
-    }
-}
-
-fn shortest_paths_from_center(
-    center_entity_id: usize,
-    edges: &[GenealogyGraphEdgePayload],
-) -> HashMap<usize, Vec<GenealogyRelationPathStepPayload>> {
-    let mut adjacency = HashMap::<usize, Vec<(usize, GenealogyRelationPathStepPayload)>>::new();
-
-    for edge in edges {
-        adjacency.entry(edge.source_entity_id).or_default().push((
-            edge.target_entity_id,
-            GenealogyRelationPathStepPayload {
-                from_entity_id: edge.source_entity_id,
-                to_entity_id: edge.target_entity_id,
-                edge_id: edge.edge_id.clone(),
-                kind: edge.kind,
-                direction: GenealogyRelationPathDirection::Forward,
-            },
-        ));
-        adjacency.entry(edge.target_entity_id).or_default().push((
-            edge.source_entity_id,
-            GenealogyRelationPathStepPayload {
-                from_entity_id: edge.target_entity_id,
-                to_entity_id: edge.source_entity_id,
-                edge_id: edge.edge_id.clone(),
-                kind: edge.kind,
-                direction: GenealogyRelationPathDirection::Reverse,
-            },
-        ));
-    }
-
-    let mut paths = HashMap::<usize, Vec<GenealogyRelationPathStepPayload>>::new();
-    let mut visited = HashSet::from([center_entity_id]);
-    let mut queue = VecDeque::from([center_entity_id]);
-
-    while let Some(entity_id) = queue.pop_front() {
-        let current_path = paths.get(&entity_id).cloned().unwrap_or_default();
-        let mut next_edges = adjacency.remove(&entity_id).unwrap_or_default();
-        next_edges
-            .sort_unstable_by_key(|(next_entity_id, step)| (*next_entity_id, step.edge_id.clone()));
-
-        for (next_entity_id, step) in next_edges {
-            if !visited.insert(next_entity_id) {
-                continue;
-            }
-
-            let mut next_path = current_path.clone();
-            next_path.push(step);
-            paths.insert(next_entity_id, next_path);
-            queue.push_back(next_entity_id);
-        }
-    }
-
-    paths
-}
-
-fn generation_offset(path: &[GenealogyRelationPathStepPayload]) -> Option<i32> {
-    let mut offset = 0_i32;
-    for step in path {
-        match (step.kind, &step.direction) {
-            (
-                creation_service::model::relationship::RelationshipKind::Parent,
-                GenealogyRelationPathDirection::Forward,
-            )
-            | (
-                creation_service::model::relationship::RelationshipKind::AdoptiveParent,
-                GenealogyRelationPathDirection::Forward,
-            ) => {
-                offset += 1;
-            }
-            (
-                creation_service::model::relationship::RelationshipKind::Parent,
-                GenealogyRelationPathDirection::Reverse,
-            )
-            | (
-                creation_service::model::relationship::RelationshipKind::AdoptiveParent,
-                GenealogyRelationPathDirection::Reverse,
-            ) => {
-                offset -= 1;
-            }
-            _ => {}
-        }
-    }
-    Some(offset)
-}
-
-fn relation_to_center(
-    path: &[GenealogyRelationPathStepPayload],
-    offset: Option<i32>,
-) -> GenealogyRelationToCenter {
-    if path.len() == 1 {
-        let step = &path[0];
-        return match (step.kind, &step.direction) {
-            (
-                creation_service::model::relationship::RelationshipKind::Parent,
-                GenealogyRelationPathDirection::Reverse,
-            )
-            | (
-                creation_service::model::relationship::RelationshipKind::AdoptiveParent,
-                GenealogyRelationPathDirection::Reverse,
-            ) => GenealogyRelationToCenter::Parent,
-            (
-                creation_service::model::relationship::RelationshipKind::Parent,
-                GenealogyRelationPathDirection::Forward,
-            )
-            | (
-                creation_service::model::relationship::RelationshipKind::AdoptiveParent,
-                GenealogyRelationPathDirection::Forward,
-            ) => GenealogyRelationToCenter::Child,
-            (
-                creation_service::model::relationship::RelationshipKind::StepParent,
-                GenealogyRelationPathDirection::Reverse,
-            ) => GenealogyRelationToCenter::StepParent,
-            (
-                creation_service::model::relationship::RelationshipKind::StepParent,
-                GenealogyRelationPathDirection::Forward,
-            ) => GenealogyRelationToCenter::StepChild,
-            (creation_service::model::relationship::RelationshipKind::Spouse, _) => {
-                GenealogyRelationToCenter::Spouse
-            }
-            (creation_service::model::relationship::RelationshipKind::Partner, _) => {
-                GenealogyRelationToCenter::Partner
-            }
-            (creation_service::model::relationship::RelationshipKind::Cohabitant, _) => {
-                GenealogyRelationToCenter::Cohabitant
-            }
-        };
-    }
-
-    match offset {
-        Some(value) if value < 0 => GenealogyRelationToCenter::Ancestor,
-        Some(value) if value > 0 => GenealogyRelationToCenter::Descendant,
-        Some(0) => GenealogyRelationToCenter::Relative,
-        _ => GenealogyRelationToCenter::Unknown,
-    }
 }
 
 fn normalize_edge_endpoints(relationship: &Relationship) -> (usize, usize) {
