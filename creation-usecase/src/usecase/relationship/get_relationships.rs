@@ -1,8 +1,15 @@
 use async_trait::async_trait;
 use creation_service::{
-    model::{diagram::ExistsActiveDiagramSchema, relationship::{GetRelationshipsSchema, Relationship}},
-    repository::diagram::{ExistsActiveDiagramRepositoryError, ProvidesDiagramRepository},
-    service::relationship::{GetRelationshipsServiceError, ProvidesRelationshipService},
+    model::{
+        diagram::ExistsActiveDiagramSchema,
+        relationship::{GetRelationshipsSchema, Relationship},
+    },
+    repository::diagram::{
+        ExistsActiveDiagramRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
+    },
+    service::relationship::{
+        GetRelationshipsServiceError, ProvidesRelationshipService, UsesRelationshipService,
+    },
 };
 use thiserror::Error;
 

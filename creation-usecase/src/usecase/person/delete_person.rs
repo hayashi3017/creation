@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use creation_service::repository::person::DeletePersonRepositoryError;
 use creation_service::{
-    model::entity::{DeleteEntitySchema},
+    model::entity::DeleteEntitySchema,
     model::person::DeletePersonSchema,
     model::relationship::DeleteRelationshipsForEntitySchema,
     model::tree_path::SyncTreePathsByEntityIdsSchema,
@@ -9,24 +10,19 @@ use creation_service::{
         LoadSeedEntitiesRepositoryError,
     },
     repository::relationship::DeleteRelationshipsForEntityRepositoryError,
+    repository::relationship::{ProvidesRelationshipRepository, UsesRelationshipRepository},
     repository::tree_path::{
         CreateTreePathsRepositoryError, DeleteTreePathsByEntityIdsRepositoryError,
         LoadStaleRelatedConnectionsRepositoryError,
     },
-    service::entity::{
-        DeleteEntityServiceError, ProvidesEntityService, UsesEntityService,
-    },
+    service::entity::{DeleteEntityServiceError, ProvidesEntityService, UsesEntityService},
     service::person::{
         prepare_delete_person, DeletePersonRecordServiceError, ProvidesPersonService,
         UsesPersonService,
     },
-    repository::relationship::{ProvidesRelationshipRepository, UsesRelationshipRepository},
     service::transaction::{ProvidesTransactionManager, TransactionContext, TransactionError},
-    service::tree_path::{
-        ProvidesTreePathService, SyncTreePathsServiceError, UsesTreePathService,
-    },
+    service::tree_path::{ProvidesTreePathService, SyncTreePathsServiceError, UsesTreePathService},
 };
-use creation_service::repository::person::DeletePersonRepositoryError;
 use thiserror::Error;
 
 use super::PersonUsecase;

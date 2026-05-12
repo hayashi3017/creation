@@ -22,13 +22,10 @@ use creation_service::{
         GetDiagramsRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
     },
     service::{
-        entity::{LoadEntitiesByDiagramIdsServiceError, ProvidesEntityService, UsesEntityService},
-        person::{GetPersonRecordsServiceError, ProvidesPersonService, UsesPersonService},
-        relationship::{
-            LoadRelationshipsByDiagramIdsServiceError, ProvidesRelationshipService,
-            UsesRelationshipService,
-        },
-        world::{GetWorldServiceError, ProvidesWorldService, UsesWorldService},
+        entity::{LoadEntitiesByDiagramIdsServiceError, UsesEntityService},
+        person::{GetPersonRecordsServiceError, UsesPersonService},
+        relationship::{LoadRelationshipsByDiagramIdsServiceError, UsesRelationshipService},
+        world::{GetWorldServiceError, UsesWorldService},
     },
 };
 use thiserror::Error;

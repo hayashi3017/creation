@@ -21,25 +21,44 @@ pub trait WorldUsecase: ProvidesWorldService {}
 
 #[async_trait]
 pub trait UsesWorldUsecase:
-    UsesGetWorldsUsecase + UsesGetWorldUsecase + UsesCreateWorldUsecase + UsesUpdateWorldUsecase + UsesDeleteWorldUsecase
+    UsesGetWorldsUsecase
+    + UsesGetWorldUsecase
+    + UsesCreateWorldUsecase
+    + UsesUpdateWorldUsecase
+    + UsesDeleteWorldUsecase
 {
-    async fn get_worlds(&self, body: creation_service::model::world::GetWorldsSchema) -> Result<Vec<creation_service::model::world::World>, GetWorldsUsecaseError> {
+    async fn get_worlds(
+        &self,
+        body: creation_service::model::world::GetWorldsSchema,
+    ) -> Result<Vec<creation_service::model::world::World>, GetWorldsUsecaseError> {
         UsesGetWorldsUsecase::get_worlds(self, body).await
     }
 
-    async fn get_world(&self, body: creation_service::model::world::GetWorldSchema) -> Result<creation_service::model::world::World, GetWorldUsecaseError> {
+    async fn get_world(
+        &self,
+        body: creation_service::model::world::GetWorldSchema,
+    ) -> Result<creation_service::model::world::World, GetWorldUsecaseError> {
         UsesGetWorldUsecase::get_world(self, body).await
     }
 
-    async fn create_world(&self, body: creation_service::model::world::CreateWorldSchema) -> Result<creation_service::model::world::World, CreateWorldUsecaseError> {
+    async fn create_world(
+        &self,
+        body: creation_service::model::world::CreateWorldSchema,
+    ) -> Result<creation_service::model::world::World, CreateWorldUsecaseError> {
         UsesCreateWorldUsecase::create_world(self, body).await
     }
 
-    async fn update_world(&self, body: creation_service::model::world::UpdateWorldSchema) -> Result<creation_service::model::world::World, UpdateWorldUsecaseError> {
+    async fn update_world(
+        &self,
+        body: creation_service::model::world::UpdateWorldSchema,
+    ) -> Result<creation_service::model::world::World, UpdateWorldUsecaseError> {
         UsesUpdateWorldUsecase::update_world(self, body).await
     }
 
-    async fn delete_world(&self, body: creation_service::model::world::DeleteWorldSchema) -> Result<(), DeleteWorldUsecaseError> {
+    async fn delete_world(
+        &self,
+        body: creation_service::model::world::DeleteWorldSchema,
+    ) -> Result<(), DeleteWorldUsecaseError> {
         UsesDeleteWorldUsecase::delete_world(self, body).await
     }
 }

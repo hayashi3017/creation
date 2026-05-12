@@ -38,8 +38,7 @@ impl<T> UsesGetPersonsUsecase for T
 where
     T: PersonUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesEntityService
-        + ProvidesPersonService,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
 {
     async fn get_persons(
         &self,

@@ -1,9 +1,7 @@
 use async_trait::async_trait;
 use creation_service::{
     model::entity::CreateDiagramEntityMembershipSchema,
-    service::entity::{
-        CreateDiagramEntityMembershipServiceError, ProvidesEntityService, UsesEntityService,
-    },
+    service::entity::{CreateDiagramEntityMembershipServiceError, UsesEntityService},
 };
 use thiserror::Error;
 

@@ -6,18 +6,27 @@ use creation_service::{
         tree_path::SyncTreePathsByEntityIdsSchema,
     },
     repository::{
-        diagram::{ExistsActiveDiagramRepositoryError, ProvidesDiagramRepository},
-        relationship::LoadRelationshipDiagramIdRepositoryError,
+        diagram::{
+            ExistsActiveDiagramRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
+        },
+        relationship::{
+            LoadRelationshipDiagramIdRepositoryError, ProvidesRelationshipRepository,
+            UsesRelationshipRepository,
+        },
     },
     service::{
-        relationship::{DeleteRelationshipServiceError, ProvidesRelationshipService},
-        transaction::{BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError},
-        tree_path::{ProvidesTreePathService, SyncTreePathsServiceError},
+        relationship::{
+            DeleteRelationshipServiceError, ProvidesRelationshipService, UsesRelationshipService,
+        },
+        transaction::{
+            BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError,
+        },
+        tree_path::{ProvidesTreePathService, SyncTreePathsServiceError, UsesTreePathService},
     },
 };
 use thiserror::Error;
 
-use super::{RelationshipUsecase, map_tree_path_transaction_error, normalize_entity_ids};
+use super::{map_tree_path_transaction_error, normalize_entity_ids, RelationshipUsecase};
 
 #[derive(Debug, Error)]
 pub enum DeleteRelationshipUsecaseError {
@@ -45,6 +54,7 @@ where
     T: RelationshipUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
     <T as ProvidesTransactionManager>::T: ProvidesDiagramRepository
+        + ProvidesRelationshipRepository
         + ProvidesRelationshipService
         + ProvidesTreePathService,
 {

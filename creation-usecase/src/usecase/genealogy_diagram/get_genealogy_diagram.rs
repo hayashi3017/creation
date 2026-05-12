@@ -19,11 +19,9 @@ use creation_service::{
     },
     service::{
         entity::{GetEntitiesServiceError, ProvidesEntityService, UsesEntityService},
-        kinship_derivation::{ProvidesKinshipDerivationService, UsesKinshipDerivationService},
+        kinship_derivation::UsesKinshipDerivationService,
         person::{GetPersonRecordsServiceError, ProvidesPersonService, UsesPersonService},
-        relationship::{
-            GetRelationshipsServiceError, ProvidesRelationshipService, UsesRelationshipService,
-        },
+        relationship::{GetRelationshipsServiceError, UsesRelationshipService},
     },
 };
 use thiserror::Error;

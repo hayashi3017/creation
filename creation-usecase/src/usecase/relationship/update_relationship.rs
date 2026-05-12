@@ -5,20 +5,26 @@ use creation_service::{
         relationship::{LoadRelationshipDiagramIdSchema, UpdateRelationshipSchema},
         tree_path::SyncTreePathsByEntityIdsSchema,
     },
-    repository::diagram::{ExistsActiveDiagramRepositoryError, ProvidesDiagramRepository},
+    repository::diagram::{
+        ExistsActiveDiagramRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
+    },
     repository::relationship::{
-        LoadRelationshipDiagramIdRepositoryError,
-        UpdateRelationshipRepositoryError,
+        LoadRelationshipDiagramIdRepositoryError, ProvidesRelationshipRepository,
+        UpdateRelationshipRepositoryError, UsesRelationshipRepository,
     },
     service::{
-        relationship::{UpdateRelationshipServiceError, ProvidesRelationshipService},
-        transaction::{BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError},
-        tree_path::{ProvidesTreePathService, SyncTreePathsServiceError},
+        relationship::{
+            ProvidesRelationshipService, UpdateRelationshipServiceError, UsesRelationshipService,
+        },
+        transaction::{
+            BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError,
+        },
+        tree_path::{ProvidesTreePathService, SyncTreePathsServiceError, UsesTreePathService},
     },
 };
 use thiserror::Error;
 
-use super::{RelationshipUsecase, map_tree_path_transaction_error, normalize_entity_ids};
+use super::{map_tree_path_transaction_error, normalize_entity_ids, RelationshipUsecase};
 
 #[derive(Debug, Error)]
 pub enum UpdateRelationshipUsecaseError {
@@ -44,6 +50,11 @@ pub trait UsesUpdateRelationshipUsecase {
 impl<T> UsesUpdateRelationshipUsecase for T
 where
     T: RelationshipUsecase,
+    <T as ProvidesTransactionManager>::T: TransactionContext,
+    <T as ProvidesTransactionManager>::T: ProvidesDiagramRepository
+        + ProvidesRelationshipRepository
+        + ProvidesRelationshipService
+        + ProvidesTreePathService,
 {
     async fn update_relationship(
         &self,

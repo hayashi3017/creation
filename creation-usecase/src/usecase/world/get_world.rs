@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use creation_service::{
     model::world::{GetWorldSchema, World},
-    service::world::{GetWorldServiceError, ProvidesWorldService, UsesWorldService},
+    service::world::{GetWorldServiceError, UsesWorldService},
 };
 use thiserror::Error;
 

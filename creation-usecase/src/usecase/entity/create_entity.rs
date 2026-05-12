@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use creation_service::{
     model::entity::CreateEntitySchema,
-    service::entity::{CreateEntityServiceError, ProvidesEntityService, UsesEntityService},
+    service::entity::{CreateEntityServiceError, UsesEntityService},
 };
 use thiserror::Error;
 

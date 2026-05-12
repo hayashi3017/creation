@@ -4,15 +4,15 @@ use async_trait::async_trait;
 use creation_service::{
     repository::diagram::ProvidesDiagramRepository,
     service::{
-        entity::ProvidesEntityService,
-        person::ProvidesPersonService,
-        relationship::ProvidesRelationshipService,
-        world::ProvidesWorldService,
+        entity::ProvidesEntityService, person::ProvidesPersonService,
+        relationship::ProvidesRelationshipService, world::ProvidesWorldService,
     },
 };
 use thiserror::Error;
 
-pub use get_genealogy_overview::{GetGenealogyOverviewUsecaseError, UsesGetGenealogyOverviewUsecase};
+pub use get_genealogy_overview::{
+    GetGenealogyOverviewUsecaseError, UsesGetGenealogyOverviewUsecase,
+};
 
 #[async_trait]
 pub trait GenealogyOverviewUsecase:
@@ -35,7 +35,10 @@ pub trait UsesGenealogyOverviewUsecase: UsesGetGenealogyOverviewUsecase {
     async fn get_genealogy_overview(
         &self,
         body: creation_service::model::genealogy_overview::GetGenealogyOverviewSchema,
-    ) -> Result<creation_service::model::genealogy_overview::GenealogyOverview, GetGenealogyOverviewUsecaseError> {
+    ) -> Result<
+        creation_service::model::genealogy_overview::GenealogyOverview,
+        GetGenealogyOverviewUsecaseError,
+    > {
         UsesGetGenealogyOverviewUsecase::get_genealogy_overview(self, body).await
     }
 }

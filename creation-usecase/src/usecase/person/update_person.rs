@@ -1,19 +1,17 @@
 use async_trait::async_trait;
+use creation_service::repository::person::UpdatePersonRepositoryError;
 use creation_service::{
     model::entity::{EntityKind, UpdateEntitySchema},
+    model::person::UpdatePersonRecordSchema,
     model::person::UpdatePersonSchema,
     repository::entity::UpdateEntityRepositoryError,
-    service::entity::{
-        ProvidesEntityService, UpdateEntityServiceError, UsesEntityService,
-    },
+    service::entity::{ProvidesEntityService, UpdateEntityServiceError, UsesEntityService},
     service::person::{
         prepare_update_person, ProvidesPersonService, UpdatePersonRecordServiceError,
         UsesPersonService,
     },
     service::transaction::{ProvidesTransactionManager, TransactionContext, TransactionError},
-    model::person::UpdatePersonRecordSchema,
 };
-use creation_service::repository::person::UpdatePersonRepositoryError;
 use thiserror::Error;
 
 use super::PersonUsecase;
@@ -41,8 +39,7 @@ impl<T> UsesUpdatePersonUsecase for T
 where
     T: PersonUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesEntityService
-        + ProvidesPersonService,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
 {
     async fn update_person(
         &self,

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use creation_service::{
     model::entity::DeleteEntitySchema,
-    service::entity::{DeleteEntityServiceError, ProvidesEntityService, UsesEntityService},
+    service::entity::{DeleteEntityServiceError, UsesEntityService},
 };
 use thiserror::Error;
 

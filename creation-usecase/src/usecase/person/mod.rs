@@ -5,8 +5,7 @@ pub mod update_person;
 
 use async_trait::async_trait;
 use creation_service::service::{
-    entity::ProvidesEntityService,
-    person::ProvidesPersonService,
+    entity::ProvidesEntityService, person::ProvidesPersonService,
     transaction::ProvidesTransactionManager,
 };
 use thiserror::Error;

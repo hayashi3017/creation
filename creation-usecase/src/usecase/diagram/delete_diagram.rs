@@ -1,17 +1,25 @@
 use async_trait::async_trait;
 use creation_service::{
     model::{
-        diagram::DeleteDiagramSchema,
-        entity::DeleteDiagramEntityMembershipsSchema,
+        diagram::DeleteDiagramSchema, entity::DeleteDiagramEntityMembershipsSchema,
         relationship::DeleteRelationshipsForDiagramSchema,
         tree_path::DeleteTreePathsForDiagramSchema,
     },
     service::{
-        diagram::{DeleteDiagramServiceError, ProvidesDiagramService},
-        entity::{DeleteDiagramEntityMembershipsServiceError, ProvidesEntityService},
-        relationship::{DeleteRelationshipsForDiagramServiceError, ProvidesRelationshipService},
-        transaction::{BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError},
-        tree_path::{DeleteTreePathsForDiagramServiceError, ProvidesTreePathService},
+        diagram::{DeleteDiagramServiceError, ProvidesDiagramService, UsesDiagramService},
+        entity::{
+            DeleteDiagramEntityMembershipsServiceError, ProvidesEntityService, UsesEntityService,
+        },
+        relationship::{
+            DeleteRelationshipsForDiagramServiceError, ProvidesRelationshipService,
+            UsesRelationshipService,
+        },
+        transaction::{
+            BeginTransactionError, ProvidesTransactionManager, TransactionContext, TransactionError,
+        },
+        tree_path::{
+            DeleteTreePathsForDiagramServiceError, ProvidesTreePathService, UsesTreePathService,
+        },
     },
 };
 use thiserror::Error;

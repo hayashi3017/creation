@@ -4,10 +4,8 @@ use async_trait::async_trait;
 use creation_service::{
     repository::diagram::ProvidesDiagramRepository,
     service::{
-        entity::ProvidesEntityService,
-        kinship_derivation::ProvidesKinshipDerivationService,
-        person::ProvidesPersonService,
-        relationship::ProvidesRelationshipService,
+        entity::ProvidesEntityService, kinship_derivation::ProvidesKinshipDerivationService,
+        person::ProvidesPersonService, relationship::ProvidesRelationshipService,
     },
 };
 use thiserror::Error;
@@ -35,7 +33,10 @@ pub trait UsesGenealogyDiagramUsecase: UsesGetGenealogyDiagramUsecase {
     async fn get_genealogy_diagram(
         &self,
         body: creation_service::model::genealogy_diagram::GetGenealogyDiagramSchema,
-    ) -> Result<creation_service::model::genealogy_diagram::GenealogyDiagramGraph, GetGenealogyDiagramUsecaseError> {
+    ) -> Result<
+        creation_service::model::genealogy_diagram::GenealogyDiagramGraph,
+        GetGenealogyDiagramUsecaseError,
+    > {
         UsesGetGenealogyDiagramUsecase::get_genealogy_diagram(self, body).await
     }
 }

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use creation_service::model::diagram::UpdateDiagramSchema;
-use creation_service::service::diagram::{UpdateDiagramServiceError, ProvidesDiagramService};
+use creation_service::service::diagram::{UpdateDiagramServiceError, UsesDiagramService};
 use thiserror::Error;
 
 use super::DiagramUsecase;

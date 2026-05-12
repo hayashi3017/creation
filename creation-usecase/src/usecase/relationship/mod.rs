@@ -7,8 +7,7 @@ use async_trait::async_trait;
 use creation_service::{
     repository::diagram::ProvidesDiagramRepository,
     service::{
-        relationship::ProvidesRelationshipService,
-        transaction::ProvidesTransactionManager,
+        relationship::ProvidesRelationshipService, transaction::ProvidesTransactionManager,
         tree_path::ProvidesTreePathService,
     },
 };
@@ -50,7 +49,10 @@ pub trait UsesRelationshipUsecase:
     async fn get_relationships(
         &self,
         body: creation_service::model::relationship::GetRelationshipsSchema,
-    ) -> Result<Vec<creation_service::model::relationship::Relationship>, GetRelationshipsUsecaseError> {
+    ) -> Result<
+        Vec<creation_service::model::relationship::Relationship>,
+        GetRelationshipsUsecaseError,
+    > {
         UsesGetRelationshipsUsecase::get_relationships(self, body).await
     }
 
@@ -111,9 +113,9 @@ pub(crate) fn map_delete_relationship_tree_path_error(
 pub(crate) fn map_tree_path_transaction_error(
     err: creation_service::service::tree_path::SyncTreePathsServiceError,
 ) -> creation_service::service::transaction::TransactionError {
-    use creation_service::service::tree_path::SyncTreePathsServiceError;
     use creation_service::service::transaction::TransactionError;
-    
+    use creation_service::service::tree_path::SyncTreePathsServiceError;
+
     match err {
         SyncTreePathsServiceError::LoadSeedEntitiesRepositoryError(err) => TransactionError::Db(
             match err {

@@ -4,13 +4,7 @@ pub mod get_diagrams;
 pub mod update_diagram;
 
 use async_trait::async_trait;
-use creation_service::service::{
-    diagram::ProvidesDiagramService,
-    entity::ProvidesEntityService,
-    relationship::ProvidesRelationshipService,
-    transaction::ProvidesTransactionManager,
-    tree_path::ProvidesTreePathService,
-};
+use creation_service::service::diagram::ProvidesDiagramService;
 use thiserror::Error;
 
 pub use create_diagram::{CreateDiagramUsecaseError, UsesCreateDiagramUsecase};

@@ -1,6 +1,9 @@
 use async_trait::async_trait;
+use creation_service::repository::person::CreatePersonRepositoryError;
+use creation_service::service::transaction::TransactionError;
 use creation_service::{
     model::entity::{CreateDiagramEntityMembershipSchema, CreateEntitySchema, EntityKind},
+    model::person::CreatePersonRecordSchema,
     model::person::CreatePersonSchema,
     repository::entity::{
         CreateDiagramEntityMembershipRepositoryError, CreateEntityRepositoryError,
@@ -14,10 +17,7 @@ use creation_service::{
         UsesPersonService,
     },
     service::transaction::{BeginTransactionError, ProvidesTransactionManager, TransactionContext},
-    model::person::CreatePersonRecordSchema,
 };
-use creation_service::repository::person::CreatePersonRepositoryError;
-use creation_service::service::transaction::TransactionError;
 use thiserror::Error;
 
 use super::PersonUsecase;
@@ -43,8 +43,7 @@ impl<T> UsesCreatePersonUsecase for T
 where
     T: PersonUsecase,
     <T as ProvidesTransactionManager>::T: TransactionContext,
-    <T as ProvidesTransactionManager>::T: ProvidesEntityService
-        + ProvidesPersonService,
+    <T as ProvidesTransactionManager>::T: ProvidesEntityService + ProvidesPersonService,
 {
     async fn create_person(
         &self,
@@ -110,9 +109,7 @@ fn map_create_person_entity_error(err: CreateEntityServiceError) -> CreatePerson
         CreateEntityServiceError::CreateEntityRepositoryError(err) => {
             CreatePersonUsecaseError::TransactionError(TransactionError::Db(match err {
                 CreateEntityRepositoryError::Db(err) => err,
-                CreateEntityRepositoryError::NotFound => {
-                    sqlx::Error::RowNotFound
-                }
+                CreateEntityRepositoryError::NotFound => sqlx::Error::RowNotFound,
             }))
         }
         CreateEntityServiceError::InvalidParams => CreatePersonUsecaseError::InvalidParams,
@@ -131,9 +128,7 @@ fn map_create_person_membership_error(
             err,
         ) => CreatePersonUsecaseError::TransactionError(TransactionError::Db(match err {
             CreateDiagramEntityMembershipRepositoryError::Db(err) => err,
-            CreateDiagramEntityMembershipRepositoryError::NotFound => {
-                sqlx::Error::RowNotFound
-            }
+            CreateDiagramEntityMembershipRepositoryError::NotFound => sqlx::Error::RowNotFound,
         })),
     }
 }
