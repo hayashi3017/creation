@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use creation_service::{
     model::user::{FilteredUser, LoginUserSchema},
-    service::user::{ProvidesUserService, UserLoginServiceError, UsesUserService},
+    service::user::{UserLoginServiceError, UsesUserService},
 };
 use thiserror::Error;
 

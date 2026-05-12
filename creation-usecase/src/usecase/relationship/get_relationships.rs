@@ -4,12 +4,8 @@ use creation_service::{
         diagram::ExistsActiveDiagramSchema,
         relationship::{GetRelationshipsSchema, Relationship},
     },
-    repository::diagram::{
-        ExistsActiveDiagramRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
-    },
-    service::relationship::{
-        GetRelationshipsServiceError, ProvidesRelationshipService, UsesRelationshipService,
-    },
+    repository::diagram::{ExistsActiveDiagramRepositoryError, UsesDiagramRepository},
+    service::relationship::{GetRelationshipsServiceError, UsesRelationshipService},
 };
 use thiserror::Error;
 

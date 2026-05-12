@@ -97,19 +97,6 @@ pub(crate) fn normalize_entity_ids(mut entity_ids: Vec<usize>) -> Vec<usize> {
     entity_ids
 }
 
-pub(crate) fn map_delete_relationship_tree_path_error(
-    err: creation_service::service::tree_path::SyncTreePathsServiceError,
-) -> creation_service::service::transaction::TransactionError {
-    match err {
-        creation_service::service::tree_path::SyncTreePathsServiceError::CycleDetected => {
-            creation_service::service::transaction::TransactionError::Db(sqlx::Error::Protocol(
-                "cycle detected while rebuilding tree_path after relationship change".to_string(),
-            ))
-        }
-        _ => map_tree_path_transaction_error(err),
-    }
-}
-
 pub(crate) fn map_tree_path_transaction_error(
     err: creation_service::service::tree_path::SyncTreePathsServiceError,
 ) -> creation_service::service::transaction::TransactionError {

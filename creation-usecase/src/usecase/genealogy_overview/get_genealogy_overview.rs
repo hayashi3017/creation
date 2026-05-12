@@ -18,9 +18,7 @@ use creation_service::{
         },
         world::GetWorldSchema,
     },
-    repository::diagram::{
-        GetDiagramsRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
-    },
+    repository::diagram::{GetDiagramsRepositoryError, UsesDiagramRepository},
     service::{
         entity::{LoadEntitiesByDiagramIdsServiceError, UsesEntityService},
         person::{GetPersonRecordsServiceError, UsesPersonService},

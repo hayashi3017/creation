@@ -14,9 +14,7 @@ use creation_service::{
         person::{GetPersonRecordsSchema, Person, PersonRecord},
         relationship::{GetRelationshipsSchema, Relationship, RelationshipTopology},
     },
-    repository::diagram::{
-        GetDiagramRepositoryError, ProvidesDiagramRepository, UsesDiagramRepository,
-    },
+    repository::diagram::{GetDiagramRepositoryError, UsesDiagramRepository},
     service::{
         entity::{GetEntitiesServiceError, ProvidesEntityService, UsesEntityService},
         kinship_derivation::UsesKinshipDerivationService,
