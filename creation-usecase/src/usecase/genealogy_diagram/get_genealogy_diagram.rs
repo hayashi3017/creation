@@ -28,15 +28,7 @@ use creation_service::{
 };
 use thiserror::Error;
 
-#[async_trait]
-pub trait GenealogyDiagramUsecase:
-    ProvidesDiagramRepository
-    + ProvidesEntityService
-    + ProvidesPersonService
-    + ProvidesRelationshipService
-    + ProvidesKinshipDerivationService
-{
-}
+use super::GenealogyDiagramUsecase;
 
 #[derive(Debug, Error)]
 pub enum GetGenealogyDiagramUsecaseError {
@@ -180,23 +172,6 @@ impl<T: GenealogyDiagramUsecase> UsesGetGenealogyDiagramUsecase for T {
             edges,
         })
     }
-}
-
-#[async_trait]
-pub trait UsesGenealogyDiagramUsecase: UsesGetGenealogyDiagramUsecase {
-    async fn get_genealogy_diagram(
-        &self,
-        body: GetGenealogyDiagramSchema,
-    ) -> Result<GenealogyDiagramGraph, GetGenealogyDiagramUsecaseError> {
-        UsesGetGenealogyDiagramUsecase::get_genealogy_diagram(self, body).await
-    }
-}
-
-impl<T> UsesGenealogyDiagramUsecase for T where T: UsesGetGenealogyDiagramUsecase {}
-
-pub trait ProvidesGenealogyDiagramUsecase: Send + Sync + 'static {
-    type T: UsesGenealogyDiagramUsecase + Sized;
-    fn genealogy_diagram_usecase(&self) -> &Self::T;
 }
 
 async fn load_persons_for_diagram<T>(

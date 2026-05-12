@@ -33,15 +33,7 @@ use creation_service::{
 };
 use thiserror::Error;
 
-#[async_trait]
-pub trait GenealogyOverviewUsecase:
-    ProvidesWorldService
-    + ProvidesDiagramRepository
-    + ProvidesEntityService
-    + ProvidesPersonService
-    + ProvidesRelationshipService
-{
-}
+use super::GenealogyOverviewUsecase;
 
 #[derive(Debug, Error)]
 pub enum GetGenealogyOverviewUsecaseError {
@@ -204,23 +196,6 @@ impl<T: GenealogyOverviewUsecase> UsesGetGenealogyOverviewUsecase for T {
             root_entity_ids,
         })
     }
-}
-
-#[async_trait]
-pub trait UsesGenealogyOverviewUsecase: UsesGetGenealogyOverviewUsecase {
-    async fn get_genealogy_overview(
-        &self,
-        body: GetGenealogyOverviewSchema,
-    ) -> Result<GenealogyOverview, GetGenealogyOverviewUsecaseError> {
-        UsesGetGenealogyOverviewUsecase::get_genealogy_overview(self, body).await
-    }
-}
-
-impl<T> UsesGenealogyOverviewUsecase for T where T: UsesGetGenealogyOverviewUsecase {}
-
-pub trait ProvidesGenealogyOverviewUsecase: Send + Sync + 'static {
-    type T: UsesGenealogyOverviewUsecase + Sized;
-    fn genealogy_overview_usecase(&self) -> &Self::T;
 }
 
 fn build_nodes(
